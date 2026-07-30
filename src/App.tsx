@@ -1,0 +1,35 @@
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { useAppData } from './context/AppDataContext';
+import Layout from './components/Layout';
+import Onboarding from './pages/Onboarding';
+import Dashboard from './pages/Dashboard';
+import Caixa from './pages/Caixa';
+import Estoque from './pages/Estoque';
+import Financas from './pages/Financas';
+import Configuracoes from './pages/Configuracoes';
+
+export default function App() {
+  const { data } = useAppData();
+  const onboardingConcluido = data.config?.onboardingConcluido ?? false;
+
+  return (
+    <Routes>
+      <Route
+        path="/onboarding"
+        element={onboardingConcluido ? <Navigate to="/" replace /> : <Onboarding />}
+      />
+      {!onboardingConcluido ? (
+        <Route path="*" element={<Navigate to="/onboarding" replace />} />
+      ) : (
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/caixa" element={<Caixa />} />
+          <Route path="/estoque" element={<Estoque />} />
+          <Route path="/financas" element={<Financas />} />
+          <Route path="/configuracoes" element={<Configuracoes />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      )}
+    </Routes>
+  );
+}
