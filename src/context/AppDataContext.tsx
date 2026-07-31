@@ -23,6 +23,7 @@ interface AppDataContextValue {
   addVenda: (venda: Omit<Venda, 'id'>, opts?: { clienteId?: string }) => void;
   addProduto: (produto: Omit<Produto, 'id'>) => void;
   atualizarProduto: (id: string, patch: Partial<Omit<Produto, 'id'>>) => void;
+  removerProduto: (id: string) => void;
   addConta: (conta: Omit<Conta, 'id' | 'quitado'>) => void;
   marcarContaQuitada: (id: string, dataPagamento?: string) => void;
   addLancamentoManual: (lancamento: Omit<LancamentoManual, 'id'>) => void;
@@ -80,8 +81,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       let produtos = prev.produtos;
       if (novaVenda.produtoId) {
         produtos = prev.produtos.map((p) =>
-          p.id === novaVenda.produtoId
-            ? { ...p, quantidade: Math.max(0, p.quantidade - novaVenda.quantidade) }
+          p.id === novaVenda.produtoId && p.type === 'product'
+            ? { ...p, quantidade: Math.max(0, (p.quantidade ?? 0) - novaVenda.quantidade) }
             : p,
         );
       }
@@ -113,6 +114,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setData((prev) => ({
       ...prev,
       produtos: prev.produtos.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    }));
+  };
+
+  const removerProduto = (id: string) => {
+    setData((prev) => ({
+      ...prev,
+      produtos: prev.produtos.filter((p) => p.id !== id),
+      vendas: prev.vendas.map((v) =>
+        v.produtoId === id
+          ? {
+              ...v,
+              produtoId: undefined,
+            }
+          : v,
+      ),
     }));
   };
 
@@ -269,7 +285,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   const produtosEstoqueBaixo = useMemo(
-    () => data.produtos.filter((p) => p.quantidade <= p.quantidadeMinima),
+    () => data.produtos.filter((p) => p.type === 'product' && (p.quantidade ?? 0) <= (p.quantidadeMinima ?? 0)),
     [data.produtos],
   );
 
@@ -281,6 +297,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     addVenda,
     addProduto,
     atualizarProduto,
+    removerProduto,
     addConta,
     marcarContaQuitada,
     addLancamentoManual,

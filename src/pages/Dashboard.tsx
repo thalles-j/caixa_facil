@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Eye,
@@ -10,6 +10,8 @@ import {
   Package,
   ArrowUp,
   ArrowDown,
+  ArrowUpRight,
+  ArrowDownRight,
   Calculator,
   ClockCountdown,
   WarningCircle,
@@ -18,8 +20,9 @@ import {
   Newspaper,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
+import Modal from '../components/Modal';
 import { getCategoryTheme } from '../lib/categoryThemes';
-import { formatCurrency, todayISO } from '../lib/format';
+import { formatCurrency, parseMoney, todayISO } from '../lib/format';
 
 const diaSemanaCurto = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
 
@@ -38,9 +41,19 @@ export default function Dashboard() {
     contasVencidas,
     contasQuitadasHoje,
     produtosEstoqueBaixo,
+    addConta,
+    addLancamentoManual,
   } = useAppData();
 
   const [saldoVisivel, setSaldoVisivel] = useState(true);
+  const [lancamentoModalAberto, setLancamentoModalAberto] = useState(false);
+  const [lancamentoTipo, setLancamentoTipo] = useState<'entrada' | 'saida'>('entrada');
+  const [lancamentoDescricao, setLancamentoDescricao] = useState('');
+  const [lancamentoValor, setLancamentoValor] = useState('');
+  const [lancamentoItemType, setLancamentoItemType] = useState<'product' | 'service'>('product');
+  const [lancamentoItemId, setLancamentoItemId] = useState('');
+  const [lancamentoData, setLancamentoData] = useState(todayISO());
+  const [lancamentoVencimento, setLancamentoVencimento] = useState(todayISO());
   const hoje = todayISO();
   const controlaEstoque = data.config?.controlaEstoque ?? true;
   const viewPeriod = data.config?.viewPeriod ?? 'day';
@@ -57,6 +70,35 @@ export default function Dashboard() {
     const semCliente = contasAReceberEmAberto.filter((c) => !c.clienteId).length;
     return comCliente.size + semCliente;
   }, [contasAReceberEmAberto]);
+
+  const handleSalvarLancamento = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const valor = parseMoney(lancamentoValor);
+    if (!lancamentoDescricao.trim() || valor <= 0) return;
+
+    if (lancamentoTipo === 'entrada') {
+      const itemSelecionado = data.produtos.find((item) => item.id === lancamentoItemId);
+      addLancamentoManual({
+        tipo: 'entrada',
+        descricao: lancamentoDescricao.trim() || itemSelecionado?.nome || '',
+        valor,
+        data: lancamentoData,
+      });
+    } else {
+      addConta({
+        tipo: 'pagar',
+        descricao: lancamentoDescricao.trim(),
+        valor,
+        vencimento: lancamentoVencimento,
+      });
+    }
+
+    setLancamentoModalAberto(false);
+    setLancamentoDescricao('');
+    setLancamentoValor('');
+    setLancamentoData(todayISO());
+    setLancamentoVencimento(todayISO());
+  };
 
   const emAltaHoje = useMemo(() => {
     const vendasHojeList = data.vendas.filter((v) => v.data === hoje);
@@ -139,12 +181,194 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="relative z-10 mb-6 grid grid-cols-4 gap-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div id="dashboard-action-buttons" className="relative z-10 mb-6 grid grid-cols-4 gap-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <QuickAction icon={Calculator} label="Caixa" onClick={() => navigate('/caixa')} />
-        <QuickAction icon={Receipt} label="Pagar" onClick={() => navigate('/financas?tab=pagar')} />
-        <QuickAction icon={HandCoins} label="Receber" onClick={() => navigate('/financas?tab=receber')} />
-        {controlaEstoque && <QuickAction icon={Package} label="Estoque" onClick={() => navigate('/estoque')} />}
+        <QuickAction icon={ArrowUpRight} label="Entrada" onClick={() => {
+          setLancamentoTipo('entrada');
+          setLancamentoItemType('product');
+          setLancamentoItemId('');
+          setLancamentoModalAberto(true);
+        }} />
+        <QuickAction icon={ArrowDownRight} label="Despesa" onClick={() => {
+          setLancamentoTipo('saida');
+          setLancamentoModalAberto(true);
+        }} />
+        <QuickAction
+          icon={ChartBar}
+          label="Open"
+          onClick={() => {
+            // função futura
+          }}
+        />
       </div>
+      <Modal open={lancamentoModalAberto} onClose={() => setLancamentoModalAberto(false)} title={lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída'}>
+        <div className="flex items-center gap-3 mb-6">
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+              lancamentoTipo === 'entrada' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+            }`}
+          >
+            {lancamentoTipo === 'entrada' ? <ArrowUp size={24} /> : <ArrowDown size={24} />}
+          </div>
+          <div>
+            <h3 className="font-black text-xl text-slate-800">{lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Despesa'}</h3>
+            <p className="text-xs text-slate-500">
+              {lancamentoTipo === 'entrada' ? 'Registre um recebimento' : 'Registre um gasto'}
+            </p>
+          </div>
+        </div>
+
+        <form className="space-y-5" onSubmit={handleSalvarLancamento}>
+          <div>
+            <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Valor</label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-slate-400">R$</span>
+              <input
+                id="lancamento-valor"
+                value={lancamentoValor}
+                onChange={(e) => setLancamentoValor(e.target.value)}
+                type="text"
+                inputMode="decimal"
+                required
+                className="w-full bg-slate-50 border rounded-2xl py-4 pl-12 pr-4 text-3xl font-black"
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Descrição</label>
+            <input
+              id="lancamento-descricao"
+              value={lancamentoDescricao}
+              onChange={(e) => setLancamentoDescricao(e.target.value)}
+              type="text"
+              required
+              placeholder={lancamentoTipo === 'entrada' ? 'Ex: Venda de Produtos' : 'Ex: Compra de Mercadorias'}
+              className="w-full bg-slate-50 border rounded-xl px-4 py-3"
+            />
+          </div>
+
+          {lancamentoTipo === 'entrada' ? (
+            <>
+              <div>
+                <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Produto ou Serviço</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLancamentoItemType('product');
+                      setLancamentoItemId('');
+                    }}
+                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                      lancamentoItemType === 'product'
+                        ? 'border-slate-800 bg-slate-100 text-slate-900'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    Produto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLancamentoItemType('service');
+                      setLancamentoItemId('');
+                    }}
+                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                      lancamentoItemType === 'service'
+                        ? 'border-slate-800 bg-slate-100 text-slate-900'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    Serviço
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Item</label>
+                <select
+                  id="lancamento-item"
+                  value={lancamentoItemId}
+                  onChange={(e) => setLancamentoItemId(e.target.value)}
+                  className="w-full bg-slate-50 border rounded-xl px-4 py-3"
+                >
+                  <option value="">{`Selecione um ${lancamentoItemType === 'product' ? 'produto' : 'serviço'}`}</option>
+                  {data.produtos
+                    .filter((item) => item.type === lancamentoItemType)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.nome}
+                      </option>
+                    ))}
+                </select>
+                {data.produtos.filter((item) => item.type === lancamentoItemType).length === 0 && (
+                  <p className="mt-2 text-xs text-slate-500">Nenhum {lancamentoItemType === 'product' ? 'produto' : 'serviço'} cadastrado.</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Categoria</label>
+              <select
+                id="lancamento-categoria"
+                className="w-full bg-slate-50 border rounded-xl px-4 py-3"
+              >
+                <>
+                  <option>Mercadoria</option>
+                  <option>Fornecedor</option>
+                  <option>Aluguel</option>
+                  <option>Energia</option>
+                  <option>Água</option>
+                  <option>Internet</option>
+                  <option>Funcionário</option>
+                  <option>Combustível</option>
+                  <option>Impostos</option>
+                  <option>Outros</option>
+                </>
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">
+              {lancamentoTipo === 'entrada' ? 'Forma de Recebimento' : 'Forma de Pagamento'}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="radio-card">
+                <input type="radio" name="lancamento-pagamento" value="Dinheiro" defaultChecked hidden />
+                <div>💵 Dinheiro</div>
+              </label>
+              <label className="radio-card">
+                <input type="radio" name="lancamento-pagamento" value="Pix" hidden />
+                <div>📱 Pix</div>
+              </label>
+              <label className="radio-card">
+                <input type="radio" name="lancamento-pagamento" value="Cartão" hidden />
+                <div>💳 Cartão</div>
+              </label>
+            </div>
+          </div>
+
+          <button
+            id="btn-salvar-lancamento"
+            type="submit"
+            className={`w-full rounded-2xl py-4 font-bold text-white ${
+              lancamentoTipo === 'entrada' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'
+            }`}
+          >
+            {lancamentoTipo === 'entrada' ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <ArrowUpRight size={18} /> Salvar Entrada
+              </span>
+            ) : (
+              <span className="inline-flex items-center justify-center gap-2">
+                <ArrowDownRight size={18} /> Salvar Despesa
+              </span>
+            )}
+          </button>
+        </form>
+      </Modal>
 
       <div className="mb-6 grid grid-cols-2 gap-3">
         <div className="flex flex-col justify-between rounded-2xl border border-red-100 bg-white p-3 shadow-sm dark:border-red-900/40 dark:bg-gray-800">
@@ -257,7 +481,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <button
-                  onClick={() => navigate('/estoque')}
+                  onClick={() => navigate('/catalogo')}
                   className="text-sm font-medium text-yellow-600 dark:text-yellow-400"
                 >
                   Ver

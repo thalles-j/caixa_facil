@@ -7,12 +7,16 @@ import Modal from '../components/Modal';
 import type { TipoConta } from '../types';
 
 export default function Financas() {
-  const { data, addConta, marcarContaQuitada } = useAppData();
+  const { data, addConta, marcarContaQuitada, addLancamentoManual } = useAppData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tabInicial = searchParams.get('tab') === 'receber' ? 'receber' : searchParams.get('tab') === 'pagar' ? 'pagar' : null;
   const [aba, setAba] = useState<TipoConta>(tabInicial ?? 'pagar');
   const [modalAberto, setModalAberto] = useState(false);
+  const [entradaModalAberto, setEntradaModalAberto] = useState(false);
+  const [entradaDescricao, setEntradaDescricao] = useState('');
+  const [entradaValor, setEntradaValor] = useState('');
+  const [entradaData, setEntradaData] = useState(todayISO());
 
   const mesAtual = todayISO().slice(0, 7);
 
@@ -25,6 +29,14 @@ export default function Financas() {
   const contasDaAba = useMemo(
     () => data.contas.filter((c) => c.tipo === aba).sort((a, b) => a.vencimento.localeCompare(b.vencimento)),
     [data.contas, aba],
+  );
+
+  const lancamentosDaAba = useMemo(
+    () =>
+      data.lancamentosManuais
+        .filter((l) => (aba === 'pagar' ? l.tipo === 'saida' : l.tipo === 'entrada'))
+        .sort((a, b) => b.data.localeCompare(a.data)),
+    [data.lancamentosManuais, aba],
   );
 
   const totalMes = useMemo(
@@ -62,6 +74,24 @@ export default function Financas() {
     setModalAberto(false);
   };
 
+  const handleEntradaSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const valor = parseMoney(entradaValor);
+
+    if (!entradaDescricao.trim() || valor <= 0) return;
+
+    addLancamentoManual({
+      tipo: 'entrada',
+      descricao: entradaDescricao.trim(),
+      valor,
+      data: entradaData,
+    });
+    setEntradaModalAberto(false);
+    setEntradaDescricao('');
+    setEntradaValor('');
+    setEntradaData(todayISO());
+  };
+
   const hoje = todayISO();
 
   return (
@@ -96,12 +126,19 @@ export default function Financas() {
             {formatCurrency(totalMes)}
           </p>
         </div>
-        {aba === 'pagar' && (
+        {aba === 'pagar' ? (
           <button
             onClick={() => setModalAberto(true)}
             className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400"
           >
             <Plus size={16} /> Despesa
+          </button>
+        ) : (
+          <button
+            onClick={() => setEntradaModalAberto(true)}
+            className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400"
+          >
+            <Plus size={16} /> Entrada
           </button>
         )}
       </div>
@@ -126,7 +163,7 @@ export default function Financas() {
       )}
 
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        {contasDaAba.length === 0 ? (
+        {contasDaAba.length === 0 && lancamentosDaAba.length === 0 ? (
           <div className="flex flex-col items-center px-4 py-10 text-center">
             <div
               className={`mb-3 flex h-12 w-12 items-center justify-center rounded-full ${
@@ -138,19 +175,29 @@ export default function Financas() {
               {aba === 'pagar' ? <Receipt size={24} /> : <HandCoins size={24} />}
             </div>
             <p className="mb-1 text-sm font-medium text-gray-600 dark:text-gray-300">
-              {aba === 'pagar' ? 'Nenhuma conta a pagar cadastrada' : 'Nenhuma venda fiado em aberto'}
+              {aba === 'pagar' ? 'Nenhuma conta a pagar cadastrada' : 'Nenhuma entrada registrada para hoje'}
             </p>
             <p className="mb-4 text-xs text-gray-400">
               {aba === 'pagar'
                 ? 'Cadastre uma despesa para acompanhar seus pagamentos.'
-                : 'Vendas registradas como Fiado na Frente de Caixa aparecem aqui.'}
+                : 'Registre entradas manuais ou use o Caixa para vendas fiado.'}
             </p>
-            <button
-              onClick={() => (aba === 'pagar' ? setModalAberto(true) : navigate('/caixa'))}
-              className="flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-            >
-              <Plus size={16} /> {aba === 'pagar' ? 'Nova Despesa' : 'Ir para o Caixa'}
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <button
+                onClick={() => (aba === 'pagar' ? setModalAberto(true) : setEntradaModalAberto(true))}
+                className="flex items-center justify-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+              >
+                <Plus size={16} /> {aba === 'pagar' ? 'Nova Despesa' : 'Nova Entrada'}
+              </button>
+              {aba === 'receber' && (
+                <button
+                  onClick={() => navigate('/caixa')}
+                  className="flex items-center justify-center gap-1 rounded-lg border border-blue-600 bg-white px-4 py-2 text-sm font-medium text-blue-600"
+                >
+                  <HandCoins size={16} /> Ir para o Caixa
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <ul className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -229,6 +276,17 @@ export default function Financas() {
                 </li>
               );
             })}
+            {lancamentosDaAba.map((lanc) => (
+              <li key={lanc.id} className="flex items-center justify-between p-4">
+                <div>
+                  <p className="font-medium text-gray-800 dark:text-gray-100">{lanc.descricao}</p>
+                  <p className="text-[11px] text-gray-400">{formatDate(lanc.data)}</p>
+                </div>
+                <p className={`text-sm font-bold ${lanc.tipo === 'saida' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                  {lanc.tipo === 'saida' ? '-' : '+'} {formatCurrency(lanc.valor)}
+                </p>
+              </li>
+            ))}
           </ul>
         )}
       </div>
@@ -268,6 +326,47 @@ export default function Financas() {
           </div>
           <button type="submit" className="mt-2 w-full rounded-lg bg-blue-600 py-2.5 font-bold text-white">
             Salvar Despesa
+          </button>
+        </form>
+      </Modal>
+
+      <Modal open={entradaModalAberto} onClose={() => setEntradaModalAberto(false)} title="Nova Entrada">
+        <form className="space-y-4" onSubmit={handleEntradaSubmit}>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">Descrição</label>
+            <input
+              value={entradaDescricao}
+              onChange={(e) => setEntradaDescricao(e.target.value)}
+              type="text"
+              required
+              placeholder="Ex: Venda avulsa"
+              className="w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">Valor</label>
+            <input
+              value={entradaValor}
+              onChange={(e) => setEntradaValor(e.target.value)}
+              type="text"
+              inputMode="decimal"
+              required
+              placeholder="Ex: 130,00"
+              className="w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">Data</label>
+            <input
+              value={entradaData}
+              onChange={(e) => setEntradaData(e.target.value)}
+              type="date"
+              required
+              className="w-full rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <button type="submit" className="mt-2 w-full rounded-lg bg-blue-600 py-2.5 font-bold text-white">
+            Salvar Entrada
           </button>
         </form>
       </Modal>
