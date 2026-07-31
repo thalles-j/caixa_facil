@@ -201,7 +201,7 @@ export default function Dashboard() {
           }}
         />
       </div>
-      <Modal open={lancamentoModalAberto} onClose={() => setLancamentoModalAberto(false)} title={lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída'}>
+      <Modal open={lancamentoModalAberto} onClose={() => setLancamentoModalAberto(false)} title={lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Despesa'}>
         <div className="flex items-center gap-3 mb-6">
           <div
             className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
@@ -213,7 +213,7 @@ export default function Dashboard() {
           <div>
             <h3 className="font-black text-xl text-slate-800">{lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Despesa'}</h3>
             <p className="text-xs text-slate-500">
-              {lancamentoTipo === 'entrada' ? 'Registre um recebimento' : 'Registre um gasto'}
+              {lancamentoTipo === 'entrada' ? 'Registre um recebimento' : 'Registre uma despesa'}
             </p>
           </div>
         </div>
@@ -244,7 +244,7 @@ export default function Dashboard() {
               onChange={(e) => setLancamentoDescricao(e.target.value)}
               type="text"
               required
-              placeholder={lancamentoTipo === 'entrada' ? 'Ex: Venda de Produtos' : 'Ex: Compra de Mercadorias'}
+              placeholder={lancamentoTipo === 'entrada' ? 'Ex: Venda de Produtos' : 'Ex: Conta de luz ou fornecimento'}
               className="w-full bg-slate-50 border rounded-xl px-4 py-3"
             />
           </div>
@@ -309,23 +309,22 @@ export default function Dashboard() {
             </>
           ) : (
             <div>
-              <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Categoria</label>
+              <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Categoria de despesa</label>
               <select
                 id="lancamento-categoria"
                 className="w-full bg-slate-50 border rounded-xl px-4 py-3"
               >
-                <>
-                  <option>Mercadoria</option>
-                  <option>Fornecedor</option>
-                  <option>Aluguel</option>
-                  <option>Energia</option>
-                  <option>Água</option>
-                  <option>Internet</option>
-                  <option>Funcionário</option>
-                  <option>Combustível</option>
-                  <option>Impostos</option>
-                  <option>Outros</option>
-                </>
+                <option value="">Selecione uma categoria</option>
+                <option>Mercadoria</option>
+                <option>Fornecedor</option>
+                <option>Aluguel</option>
+                <option>Energia</option>
+                <option>Água</option>
+                <option>Internet</option>
+                <option>Funcionário</option>
+                <option>Combustível</option>
+                <option>Impostos</option>
+                <option>Outros</option>
               </select>
             </div>
           )}

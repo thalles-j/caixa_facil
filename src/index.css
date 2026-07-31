@@ -57,6 +57,7 @@ body {
 
 .modal-content {
   background: white;
+  color: #0f172a;
   border-radius: 1.5rem;
   width: 92%;
   max-width: 420px;
@@ -65,6 +66,60 @@ body {
   transform: scale(0.95);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.dark .modal-content {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.3);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+}
+
+.modal-content input,
+.modal-content select,
+.modal-content textarea {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.dark .modal-content input,
+.dark .modal-content select,
+.dark .modal-content textarea {
+  background: #111827;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+.modal-content label {
+  color: #475569;
+}
+
+.dark .modal-content label {
+  color: #cbd5e1;
+}
+
+.modal-content h2,
+.modal-content h3,
+.modal-content h4 {
+  color: #0f172a;
+}
+
+.dark .modal-content h2,
+.dark .modal-content h3,
+.dark .modal-content h4 {
+  color: #f8fafc;
+}
+
+.modal-content input::placeholder,
+.modal-content textarea::placeholder {
+  color: #94a3b8;
+}
+
+.dark .modal-content input::placeholder,
+.dark .modal-content textarea::placeholder {
+  color: #94a3b8;
 }
 
 .modal-overlay.active .modal-content {
@@ -81,7 +136,14 @@ body {
   text-align: center;
   cursor: pointer;
   background: #f8fafc;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  color: #0f172a;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.dark .radio-card {
+  border-color: #334155;
+  background: #1e293b;
+  color: #e2e8f0;
 }
 
 .radio-card div {
@@ -94,6 +156,15 @@ body {
   color: #166534;
 }
 
+.dark .radio-card input:checked + div {
+  background-color: #334155;
+  color: #f8fafc;
+}
+
 .radio-card:hover {
   border-color: #9ca3af;
+}
+
+.dark .radio-card:hover {
+  border-color: #94a3b8;
 }
