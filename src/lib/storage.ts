@@ -16,7 +16,18 @@ export function loadData(): AppData {
     const raw = localStorage.getItem(KEY);
     if (!raw) return emptyData;
     const parsed = JSON.parse(raw);
-    return { ...emptyData, ...parsed };
+
+    const produtos = Array.isArray(parsed.produtos)
+      ? parsed.produtos.map((p: any) => ({
+          ...p,
+          type: p.type ?? 'product',
+          quantidade: p.quantidade !== undefined ? p.quantidade : p.type === 'service' ? undefined : 0,
+          quantidadeMinima:
+            p.quantidadeMinima !== undefined ? p.quantidadeMinima : p.type === 'service' ? undefined : 0,
+        }))
+      : [];
+
+    return { ...emptyData, ...parsed, produtos };
   } catch {
     return emptyData;
   }

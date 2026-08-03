@@ -41,12 +41,14 @@ export interface Venda {
 
 export interface Produto {
   id: string;
+  type: 'product' | 'service';
   nome: string;
-  categoria?: string; // tag livre, ex: "Bebidas", "Doces" — usada nos filtros da tela de Estoque
-  quantidade: number;
-  quantidadeMinima: number;
+  categoria?: string; // tag livre, ex: "Bebidas", "Doces" — usada nos filtros da tela de Catálogo
   precoVenda: number;
   custo?: number; // opcional, para cálculo de margem futuro
+  quantidade?: number; // só para produtos
+  quantidadeMinima?: number; // só para produtos
+  duracao?: string; // só para serviços
 }
 
 export interface Cliente {

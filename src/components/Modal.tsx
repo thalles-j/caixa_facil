@@ -4,7 +4,7 @@ import { X } from '@phosphor-icons/react';
 interface ModalProps {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title?: string;
   children: ReactNode;
 }
 
@@ -13,22 +13,21 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px]"
+      className="modal-overlay active"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-[90%] max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="Fechar"
-          >
-            <X size={20} />
-          </button>
-        </div>
+      <div className="modal-content p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          aria-label="Fechar"
+          type="button"
+        >
+          <X size={18} />
+        </button>
+        {title && <h2 className="mb-4 text-xl font-bold text-slate-900 dark:text-slate-100">{title}</h2>}
         {children}
       </div>
     </div>

@@ -4,7 +4,7 @@ import Layout from './components/Layout';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Caixa from './pages/Caixa';
-import Estoque from './pages/Estoque';
+import Catalogo from './pages/Catalogo';
 import Financas from './pages/Financas';
 import Configuracoes from './pages/Configuracoes';
 
@@ -24,7 +24,8 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/caixa" element={<Caixa />} />
-          <Route path="/estoque" element={<Estoque />} />
+          <Route path="/catalogo" element={<Catalogo />} />
+          <Route path="/estoque" element={<Navigate to="/catalogo" replace />} />
           <Route path="/financas" element={<Financas />} />
           <Route path="/configuracoes" element={<Configuracoes />} />
           <Route path="*" element={<Navigate to="/" replace />} />

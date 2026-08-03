@@ -63,8 +63,8 @@ export default function Caixa() {
     if (!produto) return;
 
     const jaNoCarrinho = carrinho.find((i) => i.produtoId === produtoId)?.quantidade ?? 0;
-    if (jaNoCarrinho + 1 > produto.quantidade) {
-      alert(`Estoque insuficiente: só há ${produto.quantidade} unidade(s) de "${produto.nome}" disponível.`);
+    if (produto.type === 'product' && jaNoCarrinho + 1 > (produto.quantidade ?? 0)) {
+      alert(`Estoque insuficiente: só há ${produto.quantidade ?? 0} unidade(s) de "${produto.nome}" disponível.`);
       return;
     }
 
@@ -138,9 +138,13 @@ export default function Caixa() {
       }
       if (item.produtoId) {
         const produtoAtual = data.produtos.find((p) => p.id === item.produtoId);
-        if (!produtoAtual || produtoAtual.quantidade < item.quantidade) {
+        if (
+          produtoAtual &&
+          produtoAtual.type === 'product' &&
+          (produtoAtual.quantidade ?? 0) < item.quantidade
+        ) {
           alert(
-            `Estoque insuficiente: só há ${produtoAtual?.quantidade ?? 0} unidade(s) de "${item.descricao}" disponível.`,
+            `Estoque insuficiente: só há ${produtoAtual.quantidade ?? 0} unidade(s) de "${item.descricao}" disponível.`,
           );
           return;
         }

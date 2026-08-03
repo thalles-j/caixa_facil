@@ -3,13 +3,12 @@ import { House, Calculator, Package, CurrencyDollar } from '@phosphor-icons/reac
 import { useAppData } from '../context/AppDataContext';
 
 export default function BottomNav() {
-  const { data } = useAppData();
-  const controlaEstoque = data.config?.controlaEstoque ?? true;
+  useAppData();
 
   const items = [
     { to: '/', label: 'Início', Icon: House },
     { to: '/caixa', label: 'Caixa', Icon: Calculator },
-    ...(controlaEstoque ? [{ to: '/estoque', label: 'Estoque', Icon: Package }] : []),
+    { to: '/catalogo', label: 'Catálogo', Icon: Package },
     { to: '/financas', label: 'Finanças', Icon: CurrencyDollar },
   ];
 
