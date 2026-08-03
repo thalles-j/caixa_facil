@@ -88,31 +88,31 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center bg-gradient-to-br from-blue-700 to-blue-900 px-6 py-8 text-white">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-lg shadow-blue-900/50">
-        <Storefront size={38} weight="fill" className="text-blue-600" />
+    <div className="fixed inset-0 z-[100] flex flex-col items-center bg-[#241a12] px-6 py-8 text-[#f7f1e4]">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#f7f1e4] shadow-lg shadow-black/30">
+        <Storefront size={38} weight="fill" className="text-ledger-strong" />
       </div>
-      <h1 className="mb-1 text-center text-2xl font-extrabold leading-tight tracking-tight">
+      <h1 className="mb-1 text-center font-display text-2xl font-bold leading-tight tracking-tight">
         Meu Negócio no Bolso
       </h1>
-      <p className="mb-6 text-center text-xs font-medium text-blue-200">
+      <p className="mb-6 text-center font-ledger text-xs font-medium text-[#f7f1e4]/60">
         Passo {step + 1} de {TOTAL_STEPS}
       </p>
 
-      <div className="mb-6 h-1.5 w-full max-w-sm rounded-full bg-white/20">
+      <div className="mb-6 h-1.5 w-full max-w-sm rounded-full bg-[#f7f1e4]/15">
         <div
-          className="h-1.5 rounded-full bg-white transition-all duration-300 ease-out"
+          className="h-1.5 rounded-full bg-ledger transition-all duration-300 ease-out"
           style={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
         />
       </div>
 
-      <div className="flex w-full max-w-sm flex-1 flex-col overflow-hidden rounded-[2rem] bg-white text-gray-800 shadow-2xl">
+      <div className="flex w-full max-w-sm flex-1 flex-col overflow-hidden rounded-[2rem] bg-paper-raised text-ink shadow-2xl">
         <div className="flex-1 overflow-y-auto p-6">
           {step === 0 && (
             <div className="fade-in space-y-5">
-              <h2 className="text-lg font-bold text-gray-900">Sua empresa</h2>
+              <h2 className="font-display text-lg font-bold text-ink">Sua empresa</h2>
               <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-ink-soft">
                   Nome do Negócio
                 </label>
                 <input
@@ -121,11 +121,11 @@ export default function Onboarding() {
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   placeholder="Ex: Mercadinho da Esquina"
-                  className="w-full border-b-2 border-gray-200 bg-transparent py-2 text-lg font-semibold text-gray-800 placeholder-gray-300 transition-colors focus:border-blue-600 focus:outline-none"
+                  className="w-full border-b-2 border-line bg-transparent py-2 text-lg font-semibold text-ink placeholder-ink-soft/50 transition-colors focus:border-ledger focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-ink-soft">
                   Categoria Principal
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -139,15 +139,16 @@ export default function Onboarding() {
                         type="button"
                         onClick={() => setCategoria(ramo)}
                         className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-3 text-center transition ${
-                          selecionado ? 'border-blue-600 bg-blue-50' : 'border-gray-100 bg-white'
+                          selecionado ? 'border-ledger bg-ledger/10' : 'border-line bg-paper'
                         }`}
                       >
                         <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-white ${theme.gradient}`}
+                          className="flex h-10 w-10 items-center justify-center rounded-xl text-paper"
+                          style={{ backgroundColor: theme.accent }}
                         >
                           <Icon size={20} weight="fill" />
                         </div>
-                        <span className="text-xs font-medium leading-tight text-gray-700">{ramo}</span>
+                        <span className="text-xs font-medium leading-tight text-ink">{ramo}</span>
                       </button>
                     );
                   })}
@@ -158,7 +159,7 @@ export default function Onboarding() {
 
           {step === 1 && (
             <div className="fade-in space-y-5">
-              <h2 className="text-lg font-bold text-gray-900">Modelo de negócio</h2>
+              <h2 className="font-display text-lg font-bold text-ink">Modelo de negócio</h2>
               <div className="space-y-2">
                 {OFERTAS.map(({ valor, label }) => (
                   <button
@@ -166,9 +167,7 @@ export default function Onboarding() {
                     type="button"
                     onClick={() => selecionarOferta(valor)}
                     className={`w-full rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition ${
-                      oferta === valor
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-100 bg-white text-gray-700'
+                      oferta === valor ? 'border-ledger bg-ledger/10 text-ledger-strong' : 'border-line bg-paper text-ink'
                     }`}
                   >
                     {label}
@@ -176,14 +175,14 @@ export default function Onboarding() {
                 ))}
               </div>
               <label
-                className={`flex items-center justify-between rounded-xl bg-gray-50 p-3 transition ${
+                className={`flex items-center justify-between gap-3 rounded-xl bg-paper p-3 transition ${
                   oferta === 'servicos' ? 'opacity-50' : ''
                 }`}
               >
                 <div>
-                  <span className="block text-sm font-medium text-gray-700">Gerenciar Estoque?</span>
+                  <span className="block text-sm font-medium text-ink">Gerenciar Estoque?</span>
                   {oferta === 'servicos' && (
-                    <span className="block text-xs text-gray-400">Não disponível para "Apenas Serviços"</span>
+                    <span className="block text-xs text-ink-soft">Não disponível para "Apenas Serviços"</span>
                   )}
                 </div>
                 <input
@@ -191,7 +190,7 @@ export default function Onboarding() {
                   checked={controlaEstoque}
                   disabled={oferta === 'servicos'}
                   onChange={(e) => setControlaEstoque(e.target.checked)}
-                  className="h-5 w-5 accent-blue-600"
+                  className="h-5 w-5 accent-ledger"
                 />
               </label>
             </div>
@@ -199,67 +198,65 @@ export default function Onboarding() {
 
           {step === 2 && (
             <div className="fade-in space-y-4">
-              <h2 className="text-lg font-bold text-gray-900">Despesas Fixas</h2>
-              <p className="text-xs text-gray-500">Opcional — você pode adicionar depois em Configurações.</p>
+              <h2 className="font-display text-lg font-bold text-ink">Despesas Fixas</h2>
+              <p className="text-xs text-ink-soft">Opcional — você pode adicionar depois em Configurações.</p>
               <ul className="space-y-2">
                 {despesasFixas.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-2 text-sm">
-                    <span>
-                      {d.nome} <span className="text-gray-400">({d.recorrencia})</span>
+                  <li key={d.id} className="flex items-center justify-between gap-2 rounded-lg bg-paper p-2 text-sm">
+                    <span className="min-w-0 truncate text-ink">
+                      {d.nome} <span className="text-ink-soft">({d.recorrencia})</span>
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{formatCurrency(d.valor)}</span>
-                      <button
-                        type="button"
-                        onClick={() => removerDespesa(d.id)}
-                        className="text-gray-400 hover:text-red-500"
-                      >
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="font-ledger font-medium tabular-nums text-ink">{formatCurrency(d.valor)}</span>
+                      <button type="button" onClick={() => removerDespesa(d.id)} className="text-ink-soft hover:text-stamp">
                         <Trash size={16} />
                       </button>
                     </div>
                   </li>
                 ))}
               </ul>
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-2">
                 <input
                   type="text"
                   value={novaDespesaNome}
                   onChange={(e) => setNovaDespesaNome(e.target.value)}
                   placeholder="Nome (ex: Aluguel)"
-                  className="min-w-0 flex-1 rounded-lg border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
                 />
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={novaDespesaValor}
-                  onChange={(e) => setNovaDespesaValor(e.target.value)}
-                  placeholder="Valor (ex: 900,00)"
-                  className="w-24 rounded-lg border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <select
-                  value={novaDespesaRecorrencia}
-                  onChange={(e) => setNovaDespesaRecorrencia(e.target.value as Recorrencia)}
-                  className="rounded-lg border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="mensal">Mensal</option>
-                  <option value="semanal">Semanal</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={adicionarDespesa}
-                  className="flex items-center gap-1 rounded-lg bg-blue-100 px-3 text-sm font-medium text-blue-700"
-                >
-                  <Plus size={16} /> Add
-                </button>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={novaDespesaValor}
+                    onChange={(e) => setNovaDespesaValor(e.target.value)}
+                    placeholder="Ex: 900,00"
+                    className="w-28 min-w-0 rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                  />
+                  <select
+                    value={novaDespesaRecorrencia}
+                    onChange={(e) => setNovaDespesaRecorrencia(e.target.value as Recorrencia)}
+                    className="min-w-0 flex-1 rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                  >
+                    <option value="mensal">Mensal</option>
+                    <option value="semanal">Semanal</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={adicionarDespesa}
+                    className="flex shrink-0 items-center gap-1 rounded-lg bg-ledger/10 px-3 text-sm font-medium text-ledger-strong"
+                  >
+                    <Plus size={16} /> Add
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
           {step === 3 && (
             <div className="fade-in space-y-5">
-              <h2 className="text-lg font-bold text-gray-900">Preferências</h2>
+              <h2 className="font-display text-lg font-bold text-ink">Preferências</h2>
               <div>
-                <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-ink-soft">
                   Painel Inicial mostra números de:
                 </label>
                 <div className="flex gap-2">
@@ -267,9 +264,7 @@ export default function Onboarding() {
                     type="button"
                     onClick={() => setViewPeriod('day')}
                     className={`flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium transition ${
-                      viewPeriod === 'day'
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-100 bg-white text-gray-700'
+                      viewPeriod === 'day' ? 'border-ledger bg-ledger/10 text-ledger-strong' : 'border-line bg-paper text-ink'
                     }`}
                   >
                     Dia Atual
@@ -278,9 +273,7 @@ export default function Onboarding() {
                     type="button"
                     onClick={() => setViewPeriod('week')}
                     className={`flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium transition ${
-                      viewPeriod === 'week'
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-100 bg-white text-gray-700'
+                      viewPeriod === 'week' ? 'border-ledger bg-ledger/10 text-ledger-strong' : 'border-line bg-paper text-ink'
                     }`}
                   >
                     Semana
@@ -288,41 +281,41 @@ export default function Onboarding() {
                 </div>
               </div>
               <div>
-                <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-ink-soft">
                   Relatórios Automáticos
                 </label>
                 <div className="space-y-2">
-                  <label className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
-                    <span className="text-sm font-medium text-gray-700">Resumo Semanal</span>
+                  <label className="flex items-center justify-between gap-3 rounded-xl bg-paper p-3">
+                    <span className="text-sm font-medium text-ink">Resumo Semanal</span>
                     <input
                       type="checkbox"
                       checked={resumoSemanal}
                       onChange={(e) => setResumoSemanal(e.target.checked)}
-                      className="h-5 w-5 accent-blue-600"
+                      className="h-5 w-5 accent-ledger"
                     />
                   </label>
-                  <label className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
-                    <span className="text-sm font-medium text-gray-700">Fechamento Mensal</span>
+                  <label className="flex items-center justify-between gap-3 rounded-xl bg-paper p-3">
+                    <span className="text-sm font-medium text-ink">Fechamento Mensal</span>
                     <input
                       type="checkbox"
                       checked={fechamentoMensal}
                       onChange={(e) => setFechamentoMensal(e.target.checked)}
-                      className="h-5 w-5 accent-blue-600"
+                      className="h-5 w-5 accent-ledger"
                     />
                   </label>
-                  <p className="text-xs text-gray-400">Simulado no protótipo — sem envio real.</p>
+                  <p className="text-xs text-ink-soft">Simulado no protótipo — sem envio real.</p>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-3 border-t border-gray-100 p-4">
+        <div className="flex items-center gap-3 border-t border-line p-4">
           {step > 0 && (
             <button
               type="button"
               onClick={voltar}
-              className="flex items-center gap-1 rounded-xl px-4 py-3 text-sm font-bold text-gray-500 transition hover:bg-gray-50"
+              className="flex items-center gap-1 rounded-xl px-4 py-3 text-sm font-bold text-ink-soft transition hover:bg-line/30"
             >
               <ArrowLeft size={16} weight="bold" /> Voltar
             </button>
@@ -332,8 +325,8 @@ export default function Onboarding() {
               type="button"
               onClick={avancar}
               disabled={!podeAvancar}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 font-bold text-white shadow-md transition active:scale-95 ${
-                podeAvancar ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-blue-300'
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 font-bold text-paper shadow-md transition active:scale-95 ${
+                podeAvancar ? 'bg-ledger hover:bg-ledger-strong' : 'cursor-not-allowed bg-ledger/40'
               }`}
             >
               Avançar <ArrowRight size={18} weight="bold" />
@@ -342,7 +335,7 @@ export default function Onboarding() {
             <button
               type="button"
               onClick={concluir}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-bold text-white shadow-md transition-all hover:bg-blue-700 active:scale-95"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-ledger py-3 font-bold text-paper shadow-md transition-all hover:bg-ledger-strong active:scale-95"
             >
               Concluir <Check size={18} weight="bold" />
             </button>
@@ -350,7 +343,7 @@ export default function Onboarding() {
         </div>
       </div>
 
-      <p className="mt-6 text-xs text-blue-300/60">Protótipo 1.0 • Salvo no seu dispositivo</p>
+      <p className="mt-6 text-xs text-[#f7f1e4]/50">Protótipo 1.0 • Salvo no seu dispositivo</p>
     </div>
   );
 }

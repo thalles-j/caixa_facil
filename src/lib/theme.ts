@@ -1,4 +1,7 @@
+import { useSyncExternalStore } from 'react';
+
 const THEME_KEY = 'mnb-theme';
+const listeners = new Set<() => void>();
 
 export function getInitialDark(): boolean {
   try {
@@ -15,4 +18,16 @@ export function applyDarkPreference(dark: boolean) {
   } catch {
     // localStorage indisponível — preferência não persiste, mas a troca visual ainda funciona
   }
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Estado de modo escuro compartilhado entre qualquer componente que use este hook (ex: header e Configurações). */
+export function useDarkMode(): [boolean, (dark: boolean) => void] {
+  const dark = useSyncExternalStore(subscribe, getInitialDark, () => false);
+  return [dark, applyDarkPreference];
 }
