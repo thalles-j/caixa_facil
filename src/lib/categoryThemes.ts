@@ -3,36 +3,31 @@ import { RAMOS_ATUACAO } from '../types';
 
 export interface CategoryTheme {
   icon: Icon;
-  gradient: string; // classes Tailwind para bg-gradient-to-br
-  solid: string; // classe Tailwind de cor sólida equivalente (badges, ícones pequenos)
+  /** Cor de "tinta de carimbo" — usada no selo do ícone e em pequenos detalhes de destaque. */
+  accent: string;
 }
 
 const DEFAULT_THEME: CategoryTheme = {
   icon: Storefront,
-  gradient: 'from-slate-500 to-slate-700',
-  solid: 'bg-slate-600',
+  accent: '#5B5340',
 };
 
 export const categoryThemes: Record<string, CategoryTheme> = {
   [RAMOS_ATUACAO[0]]: {
     icon: Hamburger,
-    gradient: 'from-orange-500 to-red-600',
-    solid: 'bg-orange-600',
+    accent: '#C1602E',
   },
   [RAMOS_ATUACAO[1]]: {
     icon: TShirt,
-    gradient: 'from-pink-500 to-purple-600',
-    solid: 'bg-pink-600',
+    accent: '#7A3B6B',
   },
   [RAMOS_ATUACAO[2]]: {
     icon: Scissors,
-    gradient: 'from-pink-400 to-rose-500',
-    solid: 'bg-rose-500',
+    accent: '#B4476B',
   },
   [RAMOS_ATUACAO[3]]: {
     icon: Wrench,
-    gradient: 'from-blue-600 to-blue-800',
-    solid: 'bg-blue-600',
+    accent: '#2B6E77',
   },
   [RAMOS_ATUACAO[4]]: DEFAULT_THEME,
 };

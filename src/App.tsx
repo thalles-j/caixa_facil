@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAppData } from './context/AppDataContext';
 import Layout from './components/Layout';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Caixa from './pages/Caixa';
@@ -14,22 +16,26 @@ export default function App() {
 
   return (
     <Routes>
-      <Route
-        path="/onboarding"
-        element={onboardingConcluido ? <Navigate to="/" replace /> : <Onboarding />}
-      />
+      <Route path="/login" element={<Login />} />
       {!onboardingConcluido ? (
-        <Route path="*" element={<Navigate to="/onboarding" replace />} />
-      ) : (
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/caixa" element={<Caixa />} />
-          <Route path="/catalogo" element={<Catalogo />} />
-          <Route path="/estoque" element={<Navigate to="/catalogo" replace />} />
-          <Route path="/financas" element={<Financas />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
+        <>
+          <Route path="/" element={<Landing />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
+        </>
+      ) : (
+        <>
+          <Route path="/onboarding" element={<Navigate to="/" replace />} />
+          <Route element={<Layout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/caixa" element={<Caixa />} />
+            <Route path="/catalogo" element={<Catalogo />} />
+            <Route path="/estoque" element={<Navigate to="/catalogo" replace />} />
+            <Route path="/financas" element={<Financas />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </>
       )}
     </Routes>
   );

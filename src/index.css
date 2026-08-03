@@ -1,6 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&family=Karla:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: 'Fraunces', ui-serif, serif;
+  --font-body: 'Karla', ui-sans-serif, sans-serif;
+  --font-ledger: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --color-paper: #f7f1e4;
+  --color-paper-raised: #fffcf5;
+  --color-ink: #241a12;
+  --color-ink-soft: #6b5d4c;
+  --color-line: #e4d8c3;
+  --color-ledger: #1f6f4a;
+  --color-ledger-strong: #145033;
+  --color-stamp: #b23a2e;
+  --color-brass: #9c6b22;
+}
 
 :root {
   color-scheme: light;
@@ -8,11 +24,21 @@
 
 .dark {
   color-scheme: dark;
+  --color-paper: #1b1712;
+  --color-paper-raised: #262019;
+  --color-ink: #f3ead9;
+  --color-ink-soft: #b8a98f;
+  --color-line: #3a3226;
+  --color-ledger: #3fae7c;
+  --color-ledger-strong: #2c7e5c;
+  --color-stamp: #e2665a;
+  --color-brass: #d9a94f;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: #f8fafc;
+  font-family: var(--font-body);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -39,11 +65,51 @@ body {
   animation: fadeIn 0.3s ease-in-out;
 }
 
+/* Carimbo — rotated stamp badge used for every status label in the app
+   (Pago, Atrasado, Vence hoje, Estoque baixo, Fiado...) instead of a flat pill. */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-ledger);
+  font-weight: 600;
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.4rem;
+  border: 1.5px solid currentColor;
+  box-shadow: 0 0 0 1px currentColor inset;
+  transform: rotate(-1.5deg);
+  white-space: nowrap;
+}
+
+.stamp-tilt-right {
+  transform: rotate(1.5deg);
+}
+
+/* Recibo — perforated/torn paper edge for the one hero card per screen. */
+.receipt-edge {
+  position: relative;
+}
+
+.receipt-edge::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 10px;
+  background-image: radial-gradient(circle at 8px 0, transparent 7px, var(--color-paper) 7.5px);
+  background-size: 16px 16px;
+  background-position: -4px 0;
+}
+
 .modal-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.6);
+  background-color: rgba(36, 26, 18, 0.55);
   z-index: 100;
   backdrop-filter: blur(4px);
 }
@@ -56,8 +122,8 @@ body {
 }
 
 .modal-content {
-  background: white;
-  color: #0f172a;
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
   border-radius: 1.5rem;
   width: 92%;
   max-width: 420px;
@@ -65,61 +131,33 @@ body {
   overflow-y: auto;
   transform: scale(0.95);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-}
-
-.dark .modal-content {
-  background: #0f172a;
-  color: #f8fafc;
-  border-color: rgba(148, 163, 184, 0.3);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 25px 50px -12px rgba(36, 26, 18, 0.3);
+  border: 1px solid var(--color-line);
 }
 
 .modal-content input,
 .modal-content select,
 .modal-content textarea {
-  background: #f8fafc;
-  color: #0f172a;
-  border-color: rgba(148, 163, 184, 0.5);
-}
-
-.dark .modal-content input,
-.dark .modal-content select,
-.dark .modal-content textarea {
-  background: #111827;
-  color: #e2e8f0;
-  border-color: #334155;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border-color: var(--color-line);
 }
 
 .modal-content label {
-  color: #475569;
-}
-
-.dark .modal-content label {
-  color: #cbd5e1;
+  color: var(--color-ink-soft);
 }
 
 .modal-content h2,
 .modal-content h3,
 .modal-content h4 {
-  color: #0f172a;
-}
-
-.dark .modal-content h2,
-.dark .modal-content h3,
-.dark .modal-content h4 {
-  color: #f8fafc;
+  color: var(--color-ink);
+  font-family: var(--font-display);
 }
 
 .modal-content input::placeholder,
 .modal-content textarea::placeholder {
-  color: #94a3b8;
-}
-
-.dark .modal-content input::placeholder,
-.dark .modal-content textarea::placeholder {
-  color: #94a3b8;
+  color: var(--color-ink-soft);
+  opacity: 0.7;
 }
 
 .modal-overlay.active .modal-content {
@@ -127,7 +165,7 @@ body {
 }
 
 .radio-card {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-line);
   border-radius: 1rem;
   padding: 0.85rem;
   display: flex;
@@ -135,15 +173,9 @@ body {
   justify-content: center;
   text-align: center;
   cursor: pointer;
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--color-paper);
+  color: var(--color-ink);
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.dark .radio-card {
-  border-color: #334155;
-  background: #1e293b;
-  color: #e2e8f0;
 }
 
 .radio-card div {
@@ -152,19 +184,14 @@ body {
 
 .radio-card input:checked + div {
   border: 1px solid transparent;
-  background-color: #ecfdf5;
-  color: #166534;
+  background-color: color-mix(in srgb, var(--color-ledger) 16%, transparent);
+  color: var(--color-ledger-strong);
 }
 
 .dark .radio-card input:checked + div {
-  background-color: #334155;
-  color: #f8fafc;
+  color: var(--color-ledger);
 }
 
 .radio-card:hover {
-  border-color: #9ca3af;
-}
-
-.dark .radio-card:hover {
-  border-color: #94a3b8;
+  border-color: var(--color-ink-soft);
 }

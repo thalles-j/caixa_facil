@@ -25,10 +25,10 @@ interface ItemCarrinho {
 }
 
 const FORMAS: { forma: FormaPagamento; label: string; Icon: typeof Money; classes: string }[] = [
-  { forma: 'dinheiro', label: 'Dinheiro', Icon: Money, classes: 'bg-gray-100 text-gray-700' },
-  { forma: 'pix', label: 'Pix', Icon: QrCode, classes: 'bg-green-100 text-green-700' },
-  { forma: 'cartao_credito', label: 'Cartão', Icon: CreditCard, classes: 'bg-gray-100 text-gray-700' },
-  { forma: 'fiado', label: 'Fiado', Icon: BookBookmark, classes: 'bg-orange-100 text-orange-700' },
+  { forma: 'dinheiro', label: 'Dinheiro', Icon: Money, classes: 'bg-line/50 text-ink' },
+  { forma: 'pix', label: 'Pix', Icon: QrCode, classes: 'bg-ledger/15 text-ledger-strong dark:text-ledger' },
+  { forma: 'cartao_credito', label: 'Cartão', Icon: CreditCard, classes: 'bg-line/50 text-ink' },
+  { forma: 'fiado', label: 'Fiado', Icon: BookBookmark, classes: 'bg-brass/15 text-brass' },
 ];
 
 export default function Caixa() {
@@ -178,32 +178,32 @@ export default function Caixa() {
   return (
     <div className="fade-in">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Frente de Caixa</h2>
-        <button onClick={lerCodigo} className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400">
+        <h2 className="font-display text-xl font-bold">Frente de Caixa</h2>
+        <button onClick={lerCodigo} className="flex items-center gap-1 text-sm font-medium text-ledger-strong dark:text-ledger">
           <Camera size={18} /> Ler Código
         </button>
       </div>
 
-      <div className="flex h-[60vh] flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="receipt-edge flex h-[60vh] flex-col rounded-2xl border border-line bg-paper-raised p-4 pb-6 shadow-sm lg:h-[65vh]">
         <div className="relative mb-2">
-          <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
           <input
             type="text"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar produto cadastrado..."
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            className="w-full rounded-xl border border-line bg-paper py-3 pl-10 pr-4 text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
           />
           {resultados.length > 0 && (
-            <div className="absolute z-10 mt-1 w-full rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-700">
+            <div className="absolute z-10 mt-1 w-full rounded-xl border border-line bg-paper-raised shadow-lg">
               {resultados.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => adicionarProduto(p.id)}
-                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-600"
+                  className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-sm hover:bg-line/30"
                 >
-                  <span>{p.nome}</span>
-                  <span className="text-gray-500 dark:text-gray-400">{formatCurrency(p.precoVenda)}</span>
+                  <span className="min-w-0 truncate text-ink">{p.nome}</span>
+                  <span className="shrink-0 font-ledger text-ink-soft">{formatCurrency(p.precoVenda)}</span>
                 </button>
               ))}
             </div>
@@ -217,40 +217,40 @@ export default function Caixa() {
             value={valorAvulso}
             onChange={(e) => setValorAvulso(e.target.value)}
             placeholder="Ou digite um valor avulso (ex: 12,50)"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-sm text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
           />
           <button
             onClick={adicionarAvulso}
-            className="whitespace-nowrap rounded-xl bg-blue-50 px-3 text-sm font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+            className="whitespace-nowrap rounded-xl bg-ledger/10 px-3 text-sm font-medium text-ledger-strong dark:text-ledger"
           >
             Adicionar
           </button>
         </div>
 
-        <div className="mb-2 flex-1 overflow-y-auto border-b border-gray-100 pb-2 dark:border-gray-700">
+        <div className="mb-2 flex-1 overflow-y-auto border-b border-line pb-2">
           {carrinho.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-gray-400">
-              <ShoppingCartSimple size={40} className="mb-2 text-gray-300" />
+            <div className="flex h-full flex-col items-center justify-center text-ink-soft">
+              <ShoppingCartSimple size={40} className="mb-2 opacity-60" />
               <p className="text-center text-sm">
                 Adicione produtos ou <br />
                 digite um valor avulso.
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+            <ul className="divide-y divide-line">
               {carrinho.map((item) => (
-                <li key={item.key} className="flex items-center justify-between py-2">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{item.descricao}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                <li key={item.key} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{item.descricao}</p>
+                    <p className="font-ledger text-xs text-ink-soft">
                       {item.quantidade} x {formatCurrency(item.valorUnitario)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-800 dark:text-gray-100">
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="font-ledger text-sm font-bold tabular-nums text-ink">
                       {formatCurrency(item.quantidade * item.valorUnitario)}
                     </span>
-                    <button onClick={() => removerItem(item.key)} className="text-gray-400 hover:text-red-500">
+                    <button onClick={() => removerItem(item.key)} className="text-ink-soft hover:text-stamp">
                       <Trash size={16} />
                     </button>
                   </div>
@@ -262,8 +262,10 @@ export default function Caixa() {
 
         <div className="mt-auto">
           <div className="mb-4 flex items-center justify-between">
-            <span className="font-medium text-gray-600 dark:text-gray-300">Total a Pagar</span>
-            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(total)}</span>
+            <span className="font-medium text-ink-soft">Total a Pagar</span>
+            <span className="font-ledger text-2xl font-bold tabular-nums text-ledger-strong dark:text-ledger">
+              {formatCurrency(total)}
+            </span>
           </div>
 
           <div className={`grid grid-cols-4 gap-2 ${carrinho.length === 0 ? 'pointer-events-none opacity-50' : ''}`}>
@@ -272,7 +274,7 @@ export default function Caixa() {
                 key={forma}
                 onClick={() => selecionarForma(forma)}
                 className={`flex flex-col items-center gap-1 rounded-lg py-2 text-xs font-medium ${classes} ${
-                  formaSelecionada === forma ? 'ring-2 ring-blue-600' : ''
+                  formaSelecionada === forma ? 'ring-2 ring-ledger' : ''
                 }`}
               >
                 <Icon size={18} /> {label}
@@ -281,15 +283,16 @@ export default function Caixa() {
           </div>
 
           {precisaCliente && (
-            <div className="fade-in mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/50 dark:bg-orange-900/20">
+            <div className="fade-in mt-3 rounded-xl border border-brass/30 bg-brass/10 p-3">
               {clienteSelecionado ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-medium text-orange-800 dark:text-orange-300">
-                    <Check size={16} weight="bold" /> {clienteSelecionado.nome}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-brass">
+                    <Check size={16} weight="bold" className="shrink-0" />
+                    <span className="min-w-0 truncate">{clienteSelecionado.nome}</span>
                   </div>
                   <button
                     onClick={() => setClienteSelecionado(null)}
-                    className="text-xs font-medium text-orange-700 underline dark:text-orange-300"
+                    className="shrink-0 text-xs font-medium text-brass underline"
                   >
                     Trocar
                   </button>
@@ -302,25 +305,25 @@ export default function Caixa() {
                     value={novoClienteNome}
                     onChange={(e) => setNovoClienteNome(e.target.value)}
                     placeholder="Nome do cliente"
-                    className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger"
                   />
                   <input
                     type="text"
                     value={novoClienteTelefone}
                     onChange={(e) => setNovoClienteTelefone(e.target.value)}
                     placeholder="Telefone (opcional)"
-                    className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger"
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={() => setCadastrandoCliente(false)}
-                      className="flex-1 rounded-lg bg-gray-100 py-2 text-xs font-medium text-gray-600"
+                      className="flex-1 rounded-lg bg-line/50 py-2 text-xs font-medium text-ink"
                     >
                       Cancelar
                     </button>
                     <button
                       onClick={cadastrarCliente}
-                      className="flex-1 rounded-lg bg-orange-600 py-2 text-xs font-bold text-white"
+                      className="flex-1 rounded-lg bg-brass py-2 text-xs font-bold text-paper"
                     >
                       Cadastrar
                     </button>
@@ -328,23 +331,21 @@ export default function Caixa() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
-                    Quem é o cliente?
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brass">Quem é o cliente?</p>
                   <input
                     type="text"
                     value={buscaCliente}
                     onChange={(e) => setBuscaCliente(e.target.value)}
                     placeholder="Buscar cliente cadastrado..."
-                    className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger"
                   />
                   {clientesFiltrados.length > 0 && (
-                    <ul className="max-h-28 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+                    <ul className="max-h-28 overflow-y-auto rounded-lg border border-line bg-paper-raised">
                       {clientesFiltrados.map((c) => (
                         <li key={c.id}>
                           <button
                             onClick={() => setClienteSelecionado(c)}
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                            className="w-full truncate px-3 py-2 text-left text-sm text-ink hover:bg-line/30"
                           >
                             {c.nome}
                           </button>
@@ -354,7 +355,7 @@ export default function Caixa() {
                   )}
                   <button
                     onClick={() => setCadastrandoCliente(true)}
-                    className="flex w-full items-center justify-center gap-1 rounded-lg border border-orange-300 py-2 text-xs font-medium text-orange-700 dark:text-orange-300"
+                    className="flex w-full items-center justify-center gap-1 rounded-lg border border-brass/40 py-2 text-xs font-medium text-brass"
                   >
                     <UserCirclePlus size={16} /> Cadastrar novo cliente
                   </button>
@@ -366,8 +367,8 @@ export default function Caixa() {
           <button
             onClick={finalizarVenda}
             disabled={!podeFinalizar}
-            className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold text-white shadow-md transition ${
-              podeFinalizar ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-blue-600 opacity-50'
+            className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold text-paper shadow-md transition active:scale-[0.98] ${
+              podeFinalizar ? 'bg-ledger hover:bg-ledger-strong' : 'cursor-not-allowed bg-ledger opacity-50'
             }`}
           >
             <CheckCircle size={20} /> Cobrar
