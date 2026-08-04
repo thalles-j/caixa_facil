@@ -279,6 +279,10 @@ export default function Onboarding() {
                     Semana
                   </button>
                 </div>
+                <p className="mt-2 text-xs text-ink-soft">
+                  Define se os cartões de Vendas e Despesas no topo do Painel mostram o total de hoje ou dos
+                  últimos 7 dias.
+                </p>
               </div>
               <div>
                 <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-ink-soft">
@@ -286,7 +290,12 @@ export default function Onboarding() {
                 </label>
                 <div className="space-y-2">
                   <label className="flex items-center justify-between gap-3 rounded-xl bg-paper p-3">
-                    <span className="text-sm font-medium text-ink">Resumo Semanal</span>
+                    <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                      Resumo Semanal
+                      <span className="rounded-full bg-brass/15 px-2 py-0.5 font-ledger text-[9px] font-bold uppercase tracking-wide text-brass">
+                        Em breve
+                      </span>
+                    </span>
                     <input
                       type="checkbox"
                       checked={resumoSemanal}
@@ -295,7 +304,12 @@ export default function Onboarding() {
                     />
                   </label>
                   <label className="flex items-center justify-between gap-3 rounded-xl bg-paper p-3">
-                    <span className="text-sm font-medium text-ink">Fechamento Mensal</span>
+                    <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                      Fechamento Mensal
+                      <span className="rounded-full bg-brass/15 px-2 py-0.5 font-ledger text-[9px] font-bold uppercase tracking-wide text-brass">
+                        Em breve
+                      </span>
+                    </span>
                     <input
                       type="checkbox"
                       checked={fechamentoMensal}
@@ -303,7 +317,10 @@ export default function Onboarding() {
                       className="h-5 w-5 accent-ledger"
                     />
                   </label>
-                  <p className="text-xs text-ink-soft">Simulado no protótipo — sem envio real.</p>
+                  <p className="rounded-lg bg-brass/10 px-3 py-2 text-xs text-ink-soft">
+                    <span className="font-semibold text-brass">Simulação:</span> nesta versão do protótipo, nenhum
+                    e-mail ou notificação é enviado de verdade.
+                  </p>
                 </div>
               </div>
             </div>
