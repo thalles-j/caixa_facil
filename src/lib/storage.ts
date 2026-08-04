@@ -1,6 +1,6 @@
 import type { AppData } from '../types';
 
-const KEY = 'mnb-data-v1';
+export const STORAGE_KEY = 'mnb-data-v1';
 
 export const emptyData: AppData = {
   config: null,
@@ -13,7 +13,7 @@ export const emptyData: AppData = {
 
 export function loadData(): AppData {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyData;
     const parsed = JSON.parse(raw);
 
@@ -34,7 +34,25 @@ export function loadData(): AppData {
 }
 
 export function saveData(data: AppData) {
-  localStorage.setItem(KEY, JSON.stringify(data));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+/**
+ * Validação mínima de estrutura (não é um schema validator completo): confirma
+ * que os campos principais existem e têm o tipo esperado, o suficiente para
+ * decidir se um arquivo importado é um backup reconhecível do app.
+ */
+export function isValidAppData(value: unknown): value is AppData {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    'config' in v &&
+    Array.isArray(v.vendas) &&
+    Array.isArray(v.produtos) &&
+    Array.isArray(v.contas) &&
+    Array.isArray(v.lancamentosManuais) &&
+    Array.isArray(v.clientes)
+  );
 }
 
 export function uid(): string {

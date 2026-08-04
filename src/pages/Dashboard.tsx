@@ -19,12 +19,17 @@ import {
   ChartBar,
   Newspaper,
   Clock,
+  PencilSimple,
+  Trash,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import Modal from '../components/Modal';
 import { formatCurrency, parseMoney, todayISO } from '../lib/format';
+import type { FormaPagamento, LancamentoManual, Venda } from '../types';
 
 const diaSemanaCurto = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
+
+type ItemParaExcluir = { tipo: 'venda' | 'lancamento'; id: string; label: string };
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -43,6 +48,10 @@ export default function Dashboard() {
     produtosEstoqueBaixo,
     addConta,
     addLancamentoManual,
+    editarVenda,
+    removerVenda,
+    editarLancamentoManual,
+    removerLancamentoManual,
   } = useAppData();
 
   const [saldoVisivel, setSaldoVisivel] = useState(true);
@@ -54,6 +63,9 @@ export default function Dashboard() {
   const [lancamentoItemId, setLancamentoItemId] = useState('');
   const [lancamentoData, setLancamentoData] = useState(todayISO());
   const [lancamentoVencimento, setLancamentoVencimento] = useState(todayISO());
+  const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
+  const [lancamentoEditando, setLancamentoEditando] = useState<LancamentoManual | null>(null);
+  const [itemParaExcluir, setItemParaExcluir] = useState<ItemParaExcluir | null>(null);
   const hoje = todayISO();
   const controlaEstoque = data.config?.controlaEstoque ?? true;
   const viewPeriod = data.config?.viewPeriod ?? 'day';
@@ -64,6 +76,9 @@ export default function Dashboard() {
 
   const totalAPagarHoje = contasAPagarHoje.reduce((sum, c) => sum + c.valor, 0);
   const totalAReceber = contasAReceberEmAberto.reduce((sum, c) => sum + c.valor, 0);
+  // contasVencidas mistura 'pagar' e 'receber' — separa para linkar "Ver" na aba certa de Finanças
+  const contasVencidasPagar = contasVencidas.filter((c) => c.tipo === 'pagar');
+  const contasVencidasReceber = contasVencidas.filter((c) => c.tipo === 'receber');
   const clientesEmAberto = useMemo(() => {
     const comCliente = new Set(contasAReceberEmAberto.filter((c) => c.clienteId).map((c) => c.clienteId));
     const semCliente = contasAReceberEmAberto.filter((c) => !c.clienteId).length;
@@ -99,6 +114,57 @@ export default function Dashboard() {
     setLancamentoVencimento(todayISO());
   };
 
+  const handleEditarVendaSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!vendaEditando) return;
+    const form = new FormData(e.currentTarget);
+    const descricao = String(form.get('descricao') ?? '').trim();
+    const quantidade = Number(form.get('quantidade') ?? vendaEditando.quantidade);
+    const valorUnitario = parseMoney(String(form.get('valorUnitario') ?? '0'));
+    const data_ = String(form.get('data') ?? vendaEditando.data);
+    const formaPagamento = String(form.get('formaPagamento') ?? vendaEditando.formaPagamento) as FormaPagamento;
+
+    if (!descricao || quantidade <= 0 || valorUnitario <= 0) return;
+
+    const sucesso = editarVenda(vendaEditando.id, { descricao, quantidade, valorUnitario, data: data_, formaPagamento });
+    if (!sucesso) {
+      alert(
+        'Não foi possível alterar a forma de pagamento: a conta a receber gerada por essa venda fiado já foi paga.',
+      );
+      return;
+    }
+    setVendaEditando(null);
+  };
+
+  const handleEditarLancamentoSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!lancamentoEditando) return;
+    const form = new FormData(e.currentTarget);
+    const descricao = String(form.get('descricao') ?? '').trim();
+    const valor = parseMoney(String(form.get('valor') ?? '0'));
+    const data_ = String(form.get('data') ?? lancamentoEditando.data);
+
+    if (!descricao || valor <= 0) return;
+
+    editarLancamentoManual(lancamentoEditando.id, { descricao, valor, data: data_ });
+    setLancamentoEditando(null);
+  };
+
+  const confirmarExclusao = () => {
+    if (!itemParaExcluir) return;
+    if (itemParaExcluir.tipo === 'venda') {
+      const sucesso = removerVenda(itemParaExcluir.id);
+      if (!sucesso) {
+        alert('Não foi possível excluir: a conta a receber gerada por essa venda fiado já foi paga.');
+        setItemParaExcluir(null);
+        return;
+      }
+    } else {
+      removerLancamentoManual(itemParaExcluir.id);
+    }
+    setItemParaExcluir(null);
+  };
+
   const emAltaHoje = useMemo(() => {
     const vendasHojeList = data.vendas.filter((v) => v.data === hoje);
     const porDescricao = new Map<string, number>();
@@ -118,10 +184,12 @@ export default function Dashboard() {
         descricao: `${v.descricao} (${formaPagamentoLabel(v.formaPagamento)})`,
         valor: v.quantidade * v.valorUnitario,
         tipo: 'entrada' as const,
+        origem: 'venda' as const,
       }));
     const manuais = data.lancamentosManuais
       .filter((l) => l.data === hoje)
-      .map((l) => ({ id: l.id, descricao: l.descricao, valor: l.valor, tipo: l.tipo }));
+      .map((l) => ({ id: l.id, descricao: l.descricao, valor: l.valor, tipo: l.tipo, origem: 'lancamento' as const }));
+    // contas quitadas hoje entram só como leitura — já são editáveis/removíveis em Finanças
     const contas = contasQuitadasHoje
       .filter((c) => !c.origemVendaId)
       .map((c) => ({
@@ -129,6 +197,7 @@ export default function Dashboard() {
         descricao: c.descricao,
         valor: c.valor,
         tipo: c.tipo === 'pagar' ? ('saida' as const) : ('entrada' as const),
+        origem: 'conta' as const,
       }));
     return [...vendas, ...manuais, ...contas];
   }, [data.vendas, data.lancamentosManuais, contasQuitadasHoje, hoje]);
@@ -434,16 +503,28 @@ export default function Dashboard() {
         <div>
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-ink-soft">Atenção Necessária</h2>
           <div className="space-y-3">
-            {contasVencidas.length > 0 && (
+            {contasVencidasPagar.length > 0 && (
               <AlertRow
                 tone="stamp"
                 icon={WarningCircle}
                 titulo="Contas Atrasadas"
-                descricao={`${contasVencidas.length} conta(s) vencida(s) — ${formatCurrency(
-                  contasVencidas.reduce((sum, c) => sum + c.valor, 0),
+                descricao={`${contasVencidasPagar.length} conta(s) vencida(s) — ${formatCurrency(
+                  contasVencidasPagar.reduce((sum, c) => sum + c.valor, 0),
                 )}`}
                 acaoLabel="Ver"
                 onAcao={() => navigate('/financas?tab=pagar')}
+              />
+            )}
+            {contasVencidasReceber.length > 0 && (
+              <AlertRow
+                tone="stamp"
+                icon={WarningCircle}
+                titulo="Recebimentos Atrasados"
+                descricao={`${contasVencidasReceber.length} fiado(s) vencido(s) — ${formatCurrency(
+                  contasVencidasReceber.reduce((sum, c) => sum + c.valor, 0),
+                )}`}
+                acaoLabel="Ver"
+                onAcao={() => navigate('/financas?tab=receber')}
               />
             )}
             {produtosEstoqueBaixo.length > 0 && controlaEstoque && (
@@ -469,7 +550,7 @@ export default function Dashboard() {
                   titulo={conta.descricao}
                   descricao={`Vence em ${dias} dia${dias > 1 ? 's' : ''} — ${formatCurrency(conta.valor)}`}
                   acaoLabel="Ver"
-                  onAcao={() => navigate('/financas?tab=pagar')}
+                  onAcao={() => navigate(conta.tipo === 'pagar' ? '/financas?tab=pagar' : '/financas?tab=receber')}
                 />
               );
             })}
@@ -563,12 +644,40 @@ export default function Dashboard() {
                       </div>
                       <div className="min-w-0 truncate text-sm font-medium text-ink">{mov.descricao}</div>
                     </div>
-                    <div
-                      className={`shrink-0 font-ledger text-sm font-bold tabular-nums ${
-                        isSaida ? 'text-stamp' : 'text-ledger-strong dark:text-ledger'
-                      }`}
-                    >
-                      {isSaida ? '-' : '+'} {formatCurrency(mov.valor)}
+                    <div className="flex shrink-0 items-center gap-2">
+                      <div
+                        className={`font-ledger text-sm font-bold tabular-nums ${
+                          isSaida ? 'text-stamp' : 'text-ledger-strong dark:text-ledger'
+                        }`}
+                      >
+                        {isSaida ? '-' : '+'} {formatCurrency(mov.valor)}
+                      </div>
+                      {mov.origem !== 'conta' && (
+                        <>
+                          <button
+                            onClick={() => {
+                              if (mov.origem === 'venda') {
+                                const venda = data.vendas.find((v) => v.id === mov.id);
+                                if (venda) setVendaEditando(venda);
+                              } else {
+                                const lanc = data.lancamentosManuais.find((l) => l.id === mov.id);
+                                if (lanc) setLancamentoEditando(lanc);
+                              }
+                            }}
+                            aria-label="Editar"
+                            className="rounded p-1.5 text-ink-soft transition hover:bg-line/40 hover:text-ink"
+                          >
+                            <PencilSimple size={14} />
+                          </button>
+                          <button
+                            onClick={() => setItemParaExcluir({ tipo: mov.origem, id: mov.id, label: mov.descricao })}
+                            aria-label="Excluir"
+                            className="rounded p-1.5 text-ink-soft transition hover:bg-stamp/10 hover:text-stamp"
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </li>
                 );
@@ -577,6 +686,144 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      <Modal open={vendaEditando !== null} onClose={() => setVendaEditando(null)} title="Editar Venda">
+        {vendaEditando && (
+          <form className="space-y-4" onSubmit={handleEditarVendaSubmit} key={vendaEditando.id}>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Descrição</label>
+              <input
+                name="descricao"
+                type="text"
+                required
+                defaultValue={vendaEditando.descricao}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-ink-soft">Quantidade</label>
+                <input
+                  name="quantidade"
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  defaultValue={vendaEditando.quantidade}
+                  className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-ink-soft">Valor Unitário</label>
+                <input
+                  name="valorUnitario"
+                  type="text"
+                  inputMode="decimal"
+                  required
+                  defaultValue={vendaEditando.valorUnitario.toString().replace('.', ',')}
+                  className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Data</label>
+              <input
+                name="data"
+                type="date"
+                required
+                defaultValue={vendaEditando.data}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Forma de Pagamento</label>
+              <select
+                name="formaPagamento"
+                defaultValue={vendaEditando.formaPagamento}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              >
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">Pix</option>
+                <option value="cartao_credito">Cartão Crédito</option>
+                <option value="cartao_debito">Cartão Débito</option>
+                <option value="fiado">Fiado</option>
+              </select>
+              {vendaEditando.formaPagamento === 'fiado' && (
+                <p className="mt-2 text-xs text-ink-soft">
+                  Trocar para outra forma remove a conta a receber gerada por esta venda, se ela ainda não tiver sido paga.
+                </p>
+              )}
+            </div>
+            <button type="submit" className="mt-2 w-full rounded-lg bg-ledger py-2.5 font-bold text-paper transition hover:bg-ledger-strong">
+              Salvar Alterações
+            </button>
+          </form>
+        )}
+      </Modal>
+
+      <Modal open={lancamentoEditando !== null} onClose={() => setLancamentoEditando(null)} title="Editar Lançamento">
+        {lancamentoEditando && (
+          <form className="space-y-4" onSubmit={handleEditarLancamentoSubmit} key={lancamentoEditando.id}>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Descrição</label>
+              <input
+                name="descricao"
+                type="text"
+                required
+                defaultValue={lancamentoEditando.descricao}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Valor</label>
+              <input
+                name="valor"
+                type="text"
+                inputMode="decimal"
+                required
+                defaultValue={lancamentoEditando.valor.toString().replace('.', ',')}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Data</label>
+              <input
+                name="data"
+                type="date"
+                required
+                defaultValue={lancamentoEditando.data}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <button type="submit" className="mt-2 w-full rounded-lg bg-ledger py-2.5 font-bold text-paper transition hover:bg-ledger-strong">
+              Salvar Alterações
+            </button>
+          </form>
+        )}
+      </Modal>
+
+      <Modal open={itemParaExcluir !== null} onClose={() => setItemParaExcluir(null)} title="Confirmar exclusão">
+        <div className="space-y-4">
+          <p className="text-sm text-ink-soft">
+            Tem certeza que deseja excluir <span className="font-semibold text-ink">{itemParaExcluir?.label}</span>? Esta
+            ação não pode ser desfeita.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setItemParaExcluir(null)}
+              className="flex-1 rounded-lg border border-line bg-paper px-4 py-2 text-sm font-medium text-ink transition hover:bg-line/30"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmarExclusao}
+              className="flex-1 rounded-lg bg-stamp px-4 py-2 text-sm font-semibold text-paper transition hover:bg-stamp/90"
+            >
+              Excluir
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
