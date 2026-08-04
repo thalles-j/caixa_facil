@@ -1,11 +1,12 @@
-import { useState, type FormEvent } from 'react';
-import { Plus, Trash, PaperPlaneTilt, Moon, Sun } from '@phosphor-icons/react';
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { Plus, Trash, PaperPlaneTilt, Moon, Sun, DownloadSimple, UploadSimple } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
-import { formatCurrency, parseMoney } from '../lib/format';
-import { uid } from '../lib/storage';
+import { formatCurrency, parseMoney, todayISO } from '../lib/format';
+import { isValidAppData, loadData, saveData, uid } from '../lib/storage';
 import { useDarkMode } from '../lib/theme';
 import { RAMOS_ATUACAO } from '../types';
-import type { DespesaFixa, FrequenciaRelatorio, Oferta, Recorrencia, ViewPeriod } from '../types';
+import type { AppData, DespesaFixa, FrequenciaRelatorio, Oferta, Recorrencia, ViewPeriod } from '../types';
+import Modal from '../components/Modal';
 
 export default function Configuracoes() {
   const { data, setConfig, resetData } = useAppData();
@@ -15,6 +16,9 @@ export default function Configuracoes() {
   const [novaDespesaValor, setNovaDespesaValor] = useState('');
   const [novaDespesaRecorrencia, setNovaDespesaRecorrencia] = useState<Recorrencia>('mensal');
   const [darkMode, setDarkMode] = useDarkMode();
+  const [importErro, setImportErro] = useState<string | null>(null);
+  const [importPendente, setImportPendente] = useState<AppData | null>(null);
+  const arquivoInputRef = useRef<HTMLInputElement>(null);
 
   if (!config) return null;
 
@@ -45,6 +49,55 @@ export default function Configuracoes() {
   const enviarRelatorioAgora = () => {
     // TODO: integração real fica para versão futura com backend
     alert(`Relatório simulado enviado para ${config.relatorio.email || '(nenhum e-mail cadastrado)'}.`);
+  };
+
+  const exportarDados = () => {
+    const dados = loadData();
+    const conteudo = JSON.stringify(dados, null, 2);
+    const blob = new Blob([conteudo], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `backup-mnb-${todayISO()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const abrirSeletorDeArquivo = () => {
+    setImportErro(null);
+    arquivoInputRef.current?.click();
+  };
+
+  const handleArquivoSelecionado = (e: ChangeEvent<HTMLInputElement>) => {
+    const arquivo = e.target.files?.[0];
+    e.target.value = ''; // permite selecionar o mesmo arquivo de novo depois, se precisar
+
+    if (!arquivo) return;
+
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      try {
+        const parsed = JSON.parse(String(leitor.result));
+        if (!isValidAppData(parsed)) {
+          setImportErro('Arquivo inválido: não é um backup reconhecível do Meu Negócio no Bolso.');
+          return;
+        }
+        setImportErro(null);
+        setImportPendente(parsed);
+      } catch {
+        setImportErro('Arquivo inválido: não foi possível interpretar o conteúdo como JSON.');
+      }
+    };
+    leitor.onerror = () => setImportErro('Não foi possível ler o arquivo selecionado.');
+    leitor.readAsText(arquivo);
+  };
+
+  const confirmarImportacao = () => {
+    if (!importPendente) return;
+    saveData(importPendente);
+    window.location.reload();
   };
 
   const inputClasses =
@@ -249,6 +302,35 @@ export default function Configuracoes() {
           </div>
         </section>
 
+        <section className="rounded-2xl border border-line bg-paper-raised p-4 shadow-sm">
+          <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink-soft">Backup</h3>
+          <p className="mb-3 text-xs text-ink-soft">
+            Seus dados ficam só neste aparelho. Exporte um backup de vez em quando para não correr o risco de perdê-los.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={exportarDados}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-ledger/10 py-2.5 text-sm font-bold text-ledger-strong transition hover:bg-ledger/20 dark:text-ledger"
+            >
+              <DownloadSimple size={18} /> Exportar Dados
+            </button>
+            <button
+              onClick={abrirSeletorDeArquivo}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-line py-2.5 text-sm font-bold text-ink transition hover:bg-line/30"
+            >
+              <UploadSimple size={18} /> Importar Dados
+            </button>
+            <input
+              ref={arquivoInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleArquivoSelecionado}
+              className="hidden"
+            />
+          </div>
+          {importErro && <p className="mt-2 text-xs font-medium text-stamp">{importErro}</p>}
+        </section>
+
         <button
           onClick={() => {
             if (confirm('Isso vai apagar todos os dados salvos neste dispositivo. Continuar?')) {
@@ -260,6 +342,29 @@ export default function Configuracoes() {
           Zerar Dados do App
         </button>
       </div>
+
+      <Modal open={importPendente !== null} onClose={() => setImportPendente(null)} title="Confirmar importação">
+        <div className="space-y-4">
+          <p className="text-sm text-ink-soft">
+            Isso vai <span className="font-semibold text-ink">substituir todos os dados atuais</span> pelo backup
+            selecionado. Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setImportPendente(null)}
+              className="flex-1 rounded-lg border border-line bg-paper px-4 py-2 text-sm font-medium text-ink transition hover:bg-line/30"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmarImportacao}
+              className="flex-1 rounded-lg bg-stamp px-4 py-2 text-sm font-semibold text-paper transition hover:bg-stamp/90"
+            >
+              Substituir Dados
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

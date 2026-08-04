@@ -1,13 +1,26 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Lightning, House, Receipt, Users, HandCoins, WarningCircle } from '@phosphor-icons/react';
+import {
+  Plus,
+  Lightning,
+  House,
+  Receipt,
+  Users,
+  HandCoins,
+  WarningCircle,
+  PencilSimple,
+  Trash,
+} from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate, parseMoney, todayISO } from '../lib/format';
 import Modal from '../components/Modal';
-import type { TipoConta } from '../types';
+import type { Conta, LancamentoManual, TipoConta } from '../types';
+
+type ItemParaExcluir = { tipo: 'conta' | 'lancamento'; id: string; label: string };
 
 export default function Financas() {
-  const { data, addConta, marcarContaQuitada, addLancamentoManual } = useAppData();
+  const { data, addConta, editarConta, removerConta, marcarContaQuitada, addLancamentoManual, editarLancamentoManual, removerLancamentoManual } =
+    useAppData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tabInicial = searchParams.get('tab') === 'receber' ? 'receber' : searchParams.get('tab') === 'pagar' ? 'pagar' : null;
@@ -17,6 +30,9 @@ export default function Financas() {
   const [entradaDescricao, setEntradaDescricao] = useState('');
   const [entradaValor, setEntradaValor] = useState('');
   const [entradaData, setEntradaData] = useState(todayISO());
+  const [contaEditando, setContaEditando] = useState<Conta | null>(null);
+  const [lancamentoEditando, setLancamentoEditando] = useState<LancamentoManual | null>(null);
+  const [itemParaExcluir, setItemParaExcluir] = useState<ItemParaExcluir | null>(null);
 
   const mesAtual = todayISO().slice(0, 7);
 
@@ -90,6 +106,44 @@ export default function Financas() {
     setEntradaDescricao('');
     setEntradaValor('');
     setEntradaData(todayISO());
+  };
+
+  const handleEditarContaSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!contaEditando) return;
+    const form = new FormData(e.currentTarget);
+    const descricao = String(form.get('descricao') ?? '').trim();
+    const valor = parseMoney(String(form.get('valor') ?? '0'));
+    const vencimento = String(form.get('vencimento') ?? contaEditando.vencimento);
+
+    if (!descricao || valor <= 0) return;
+
+    editarConta(contaEditando.id, { descricao, valor, vencimento });
+    setContaEditando(null);
+  };
+
+  const handleEditarLancamentoSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!lancamentoEditando) return;
+    const form = new FormData(e.currentTarget);
+    const descricao = String(form.get('descricao') ?? '').trim();
+    const valor = parseMoney(String(form.get('valor') ?? '0'));
+    const data_ = String(form.get('data') ?? lancamentoEditando.data);
+
+    if (!descricao || valor <= 0) return;
+
+    editarLancamentoManual(lancamentoEditando.id, { descricao, valor, data: data_ });
+    setLancamentoEditando(null);
+  };
+
+  const confirmarExclusao = () => {
+    if (!itemParaExcluir) return;
+    if (itemParaExcluir.tipo === 'conta') {
+      removerConta(itemParaExcluir.id);
+    } else {
+      removerLancamentoManual(itemParaExcluir.id);
+    }
+    setItemParaExcluir(null);
   };
 
   const hoje = todayISO();
@@ -230,18 +284,34 @@ export default function Financas() {
                           </div>
                         </div>
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
                         <p className={`font-ledger font-bold tabular-nums text-ink ${conta.quitado ? 'text-ink-soft line-through' : ''}`}>
                           {formatCurrency(conta.valor)}
                         </p>
-                        {!conta.quitado && (
+                        <div className="flex items-center gap-1">
+                          {!conta.quitado && (
+                            <button
+                              onClick={() => marcarContaQuitada(conta.id)}
+                              className="rounded bg-ledger/10 px-2 py-1 text-xs font-medium text-ledger-strong dark:text-ledger"
+                            >
+                              Dar Baixa
+                            </button>
+                          )}
                           <button
-                            onClick={() => marcarContaQuitada(conta.id)}
-                            className="mt-1 rounded bg-ledger/10 px-2 py-1 text-xs font-medium text-ledger-strong dark:text-ledger"
+                            onClick={() => setContaEditando(conta)}
+                            aria-label="Editar conta"
+                            className="rounded p-1.5 text-ink-soft transition hover:bg-line/40 hover:text-ink"
                           >
-                            Dar Baixa
+                            <PencilSimple size={14} />
                           </button>
-                        )}
+                          <button
+                            onClick={() => setItemParaExcluir({ tipo: 'conta', id: conta.id, label: conta.descricao })}
+                            aria-label="Excluir conta"
+                            className="rounded p-1.5 text-ink-soft transition hover:bg-stamp/10 hover:text-stamp"
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
                       </div>
                     </li>
                   );
@@ -252,13 +322,29 @@ export default function Financas() {
                       <p className="truncate font-medium text-ink">{lanc.descricao}</p>
                       <p className="truncate text-[11px] text-ink-soft">{formatDate(lanc.data)}</p>
                     </div>
-                    <p
-                      className={`shrink-0 font-ledger text-sm font-bold tabular-nums ${
-                        lanc.tipo === 'saida' ? 'text-stamp' : 'text-ledger-strong dark:text-ledger'
-                      }`}
-                    >
-                      {lanc.tipo === 'saida' ? '-' : '+'} {formatCurrency(lanc.valor)}
-                    </p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <p
+                        className={`font-ledger text-sm font-bold tabular-nums ${
+                          lanc.tipo === 'saida' ? 'text-stamp' : 'text-ledger-strong dark:text-ledger'
+                        }`}
+                      >
+                        {lanc.tipo === 'saida' ? '-' : '+'} {formatCurrency(lanc.valor)}
+                      </p>
+                      <button
+                        onClick={() => setLancamentoEditando(lanc)}
+                        aria-label="Editar lançamento"
+                        className="rounded p-1.5 text-ink-soft transition hover:bg-line/40 hover:text-ink"
+                      >
+                        <PencilSimple size={14} />
+                      </button>
+                      <button
+                        onClick={() => setItemParaExcluir({ tipo: 'lancamento', id: lanc.id, label: lanc.descricao })}
+                        aria-label="Excluir lançamento"
+                        className="rounded p-1.5 text-ink-soft transition hover:bg-stamp/10 hover:text-stamp"
+                      >
+                        <Trash size={14} />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -364,6 +450,111 @@ export default function Financas() {
             Salvar Entrada
           </button>
         </form>
+      </Modal>
+
+      <Modal open={contaEditando !== null} onClose={() => setContaEditando(null)} title="Editar Conta">
+        {contaEditando && (
+          <form className="space-y-4" onSubmit={handleEditarContaSubmit} key={contaEditando.id}>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Descrição</label>
+              <input
+                name="descricao"
+                type="text"
+                required
+                defaultValue={contaEditando.descricao}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Valor</label>
+              <input
+                name="valor"
+                type="text"
+                inputMode="decimal"
+                required
+                defaultValue={contaEditando.valor.toString().replace('.', ',')}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Vencimento</label>
+              <input
+                name="vencimento"
+                type="date"
+                required
+                defaultValue={contaEditando.vencimento}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <button type="submit" className="mt-2 w-full rounded-lg bg-ledger py-2.5 font-bold text-paper transition hover:bg-ledger-strong">
+              Salvar Alterações
+            </button>
+          </form>
+        )}
+      </Modal>
+
+      <Modal open={lancamentoEditando !== null} onClose={() => setLancamentoEditando(null)} title="Editar Lançamento">
+        {lancamentoEditando && (
+          <form className="space-y-4" onSubmit={handleEditarLancamentoSubmit} key={lancamentoEditando.id}>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Descrição</label>
+              <input
+                name="descricao"
+                type="text"
+                required
+                defaultValue={lancamentoEditando.descricao}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Valor</label>
+              <input
+                name="valor"
+                type="text"
+                inputMode="decimal"
+                required
+                defaultValue={lancamentoEditando.valor.toString().replace('.', ',')}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">Data</label>
+              <input
+                name="data"
+                type="date"
+                required
+                defaultValue={lancamentoEditando.data}
+                className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </div>
+            <button type="submit" className="mt-2 w-full rounded-lg bg-ledger py-2.5 font-bold text-paper transition hover:bg-ledger-strong">
+              Salvar Alterações
+            </button>
+          </form>
+        )}
+      </Modal>
+
+      <Modal open={itemParaExcluir !== null} onClose={() => setItemParaExcluir(null)} title="Confirmar exclusão">
+        <div className="space-y-4">
+          <p className="text-sm text-ink-soft">
+            Tem certeza que deseja excluir <span className="font-semibold text-ink">{itemParaExcluir?.label}</span>? Esta
+            ação não pode ser desfeita.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setItemParaExcluir(null)}
+              className="flex-1 rounded-lg border border-line bg-paper px-4 py-2 text-sm font-medium text-ink transition hover:bg-line/30"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmarExclusao}
+              className="flex-1 rounded-lg bg-stamp px-4 py-2 text-sm font-semibold text-paper transition hover:bg-stamp/90"
+            >
+              Excluir
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -9,7 +9,7 @@ import type {
   Venda,
   ViewPeriod,
 } from '../types';
-import { loadData, saveData, uid } from '../lib/storage';
+import { loadData, saveData, uid, STORAGE_KEY } from '../lib/storage';
 import { todayISO } from '../lib/format';
 
 interface ResumoPeriodo {
@@ -21,12 +21,30 @@ interface AppDataContextValue {
   data: AppData;
   setConfig: (config: CompanyConfig) => void;
   addVenda: (venda: Omit<Venda, 'id'>, opts?: { clienteId?: string }) => void;
+  /**
+   * Atualiza uma venda existente. Retorna `false` (e não faz nada) quando a venda
+   * tem uma conta a receber (fiado) vinculada que já foi quitada e a edição sairia
+   * do fiado — desfazer isso apagaria um recebimento que já aconteceu de fato.
+   * Retorna `true` quando a edição foi aplicada.
+   */
+  editarVenda: (id: string, patch: Partial<Omit<Venda, 'id'>>) => boolean;
+  /**
+   * Remove uma venda. Se ela tiver uma conta a receber (fiado) vinculada e ainda em
+   * aberto, a conta é removida junto (a dívida deixa de existir com a venda). Se a
+   * conta vinculada já foi quitada, a remoção é bloqueada (retorna `false`) para não
+   * apagar um recebimento que já aconteceu de fato.
+   */
+  removerVenda: (id: string) => boolean;
   addProduto: (produto: Omit<Produto, 'id'>) => void;
   atualizarProduto: (id: string, patch: Partial<Omit<Produto, 'id'>>) => void;
   removerProduto: (id: string) => void;
   addConta: (conta: Omit<Conta, 'id' | 'quitado'>) => void;
+  editarConta: (id: string, patch: Partial<Omit<Conta, 'id'>>) => void;
+  removerConta: (id: string) => void;
   marcarContaQuitada: (id: string, dataPagamento?: string) => void;
   addLancamentoManual: (lancamento: Omit<LancamentoManual, 'id'>) => void;
+  editarLancamentoManual: (id: string, patch: Partial<Omit<LancamentoManual, 'id'>>) => void;
+  removerLancamentoManual: (id: string) => void;
   addCliente: (cliente: Omit<Cliente, 'id'>) => Cliente;
   resetData: () => void;
   saldoCaixa: number;
@@ -70,6 +88,51 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     saveData(data);
   }, [data]);
 
+  useEffect(() => {
+    // Sincroniza entre abas: se outra aba salvar (ou zerar) os dados, o
+    // evento "storage" dispara aqui e recarregamos o estado local.
+    //
+    // O evento "storage" só dispara nas abas *diferentes* daquela que fez a
+    // gravação (garantia da própria spec do navegador — a aba que escreveu
+    // nunca recebe o próprio evento), então não precisa de guarda extra
+    // contra loop aqui. Confirmado manualmente com duas abas reais: como este
+    // próprio handler sempre resulta num novo `setData`, e o efeito de
+    // persistência acima roda de novo sobre esse novo `data` (nova
+    // referência, mesmo com conteúdo igual) e regrava no localStorage, a aba
+    // que originou a mudança acaba recebendo um "eco" indireto (via a
+    // gravação feita pelo efeito da OUTRA aba) — não é o mesmo evento
+    // ricocheteando, é uma segunda gravação genuína. Isso converge sozinho em
+    // uma rodada extra, porque o navegador só dispara "storage" quando o
+    // valor serializado realmente muda; a segunda gravação (eco) escreve a
+    // mesma string que já está lá, então não dispara um terceiro evento.
+    //
+    // Relemos via loadData() em vez de usar event.newValue diretamente: se
+    // mais de uma gravação aconteceu entre o evento disparar e este handler
+    // rodar, isso garante pegar o valor mais atual do localStorage, não um
+    // instantâneo já obsoleto. loadData() também já trata newValue === null
+    // (chave removida, ex: localStorage.clear() externo) devolvendo
+    // emptyData, então não precisamos tratar esse caso separadamente aqui.
+    //
+    // Limitação conhecida e assumida (não resolvida aqui — merge de conflito
+    // está fora de escopo): se a aba atual estiver no meio de uma mutação
+    // (ex: editarVenda/removerVenda, que leem `data` do closure em vez de via
+    // `prev` no updater) bem no momento em que esta sincronização substitui o
+    // estado local, a checagem de segurança dessa mutação pode ter sido
+    // decidida com base num `data` já desatualizado. Isso é uma janela de
+    // corrida estreita e rara (não é o cenário comum de "formulário aberto",
+    // que fica em estado local do componente e não é afetado por isto), mas
+    // pode, em tese, levar a uma decisão de bloqueio/permissão incorreta
+    // nesse instante específico.
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage) return;
+      if (event.key !== null && event.key !== STORAGE_KEY) return;
+      setData(loadData());
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const setConfig = (config: CompanyConfig) => {
     setData((prev) => ({ ...prev, config }));
   };
@@ -106,6 +169,84 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const editarVenda = (id: string, patch: Partial<Omit<Venda, 'id'>>): boolean => {
+    const vendaAtual = data.vendas.find((v) => v.id === id);
+    if (!vendaAtual) return false;
+
+    const vendaAtualizada: Venda = { ...vendaAtual, ...patch };
+    const saiuDoFiado = vendaAtual.formaPagamento === 'fiado' && vendaAtualizada.formaPagamento !== 'fiado';
+    const contaVinculada = saiuDoFiado ? data.contas.find((c) => c.origemVendaId === id) : undefined;
+
+    // não dá pra tirar a venda do fiado se a conta a receber gerada por ela já foi
+    // paga de fato — isso apagaria um recebimento que já aconteceu
+    if (contaVinculada?.quitado) return false;
+
+    setData((prev) => {
+      // estoque é afetado por qual produto a venda referencia e por quantidade —
+      // valorUnitario e formaPagamento não têm efeito nenhum sobre o estoque
+      let produtos = prev.produtos;
+      const produtoIdMudou = patch.produtoId !== undefined && patch.produtoId !== vendaAtual.produtoId;
+
+      if (produtoIdMudou) {
+        if (vendaAtual.produtoId) {
+          produtos = produtos.map((p) =>
+            p.id === vendaAtual.produtoId && p.type === 'product'
+              ? { ...p, quantidade: (p.quantidade ?? 0) + vendaAtual.quantidade }
+              : p,
+          );
+        }
+        if (vendaAtualizada.produtoId) {
+          produtos = produtos.map((p) =>
+            p.id === vendaAtualizada.produtoId && p.type === 'product'
+              ? { ...p, quantidade: Math.max(0, (p.quantidade ?? 0) - vendaAtualizada.quantidade) }
+              : p,
+          );
+        }
+      } else if (patch.quantidade !== undefined && patch.quantidade !== vendaAtual.quantidade && vendaAtual.produtoId) {
+        const delta = vendaAtualizada.quantidade - vendaAtual.quantidade;
+        produtos = produtos.map((p) =>
+          p.id === vendaAtual.produtoId && p.type === 'product'
+            ? { ...p, quantidade: Math.max(0, (p.quantidade ?? 0) - delta) }
+            : p,
+        );
+      }
+
+      // saindo do fiado (e já confirmado acima que a conta não está quitada):
+      // a dívida que essa venda gerou deixa de existir. Entrando no fiado a partir
+      // de outra forma de pagamento não cria uma conta automaticamente aqui — isso
+      // exigiria escolher um cliente, fora do escopo de uma correção de venda.
+      let contas = prev.contas;
+      if (contaVinculada) {
+        contas = prev.contas.filter((c) => c.id !== contaVinculada.id);
+      }
+
+      return {
+        ...prev,
+        produtos,
+        contas,
+        vendas: prev.vendas.map((v) => (v.id === id ? vendaAtualizada : v)),
+      };
+    });
+
+    return true;
+  };
+
+  const removerVenda = (id: string): boolean => {
+    const venda = data.vendas.find((v) => v.id === id);
+    if (!venda) return false;
+
+    const contaVinculada = data.contas.find((c) => c.origemVendaId === id);
+    if (contaVinculada?.quitado) return false;
+
+    setData((prev) => ({
+      ...prev,
+      vendas: prev.vendas.filter((v) => v.id !== id),
+      contas: contaVinculada ? prev.contas.filter((c) => c.id !== contaVinculada.id) : prev.contas,
+    }));
+
+    return true;
+  };
+
   const addProduto = (produto: Omit<Produto, 'id'>) => {
     setData((prev) => ({ ...prev, produtos: [...prev.produtos, { ...produto, id: uid() }] }));
   };
@@ -139,6 +280,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const editarConta = (id: string, patch: Partial<Omit<Conta, 'id'>>) => {
+    setData((prev) => ({
+      ...prev,
+      contas: prev.contas.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    }));
+  };
+
+  const removerConta = (id: string) => {
+    setData((prev) => ({ ...prev, contas: prev.contas.filter((c) => c.id !== id) }));
+  };
+
   const marcarContaQuitada = (id: string, dataPagamento?: string) => {
     setData((prev) => ({
       ...prev,
@@ -152,6 +304,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setData((prev) => ({
       ...prev,
       lancamentosManuais: [...prev.lancamentosManuais, { ...lancamento, id: uid() }],
+    }));
+  };
+
+  const editarLancamentoManual = (id: string, patch: Partial<Omit<LancamentoManual, 'id'>>) => {
+    setData((prev) => ({
+      ...prev,
+      lancamentosManuais: prev.lancamentosManuais.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+    }));
+  };
+
+  const removerLancamentoManual = (id: string) => {
+    setData((prev) => ({
+      ...prev,
+      lancamentosManuais: prev.lancamentosManuais.filter((l) => l.id !== id),
     }));
   };
 
@@ -265,10 +431,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [data.contas],
   );
 
+  // considera tanto contas a pagar quanto a receber (fiado) — um recebimento
+  // atrasado merece o mesmo alerta que uma conta a pagar atrasada
   const contasVencendoEmBreve = useMemo(
     () =>
       data.contas.filter((c) => {
-        if (c.tipo !== 'pagar' || c.quitado) return false;
+        if (c.quitado) return false;
         const dias = diffDias(hoje, c.vencimento);
         return dias > 0 && dias <= 3;
       }),
@@ -278,7 +446,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const contasVencidas = useMemo(
     () =>
       data.contas.filter((c) => {
-        if (c.tipo !== 'pagar' || c.quitado) return false;
+        if (c.quitado) return false;
         return diffDias(hoje, c.vencimento) < 0;
       }),
     [data.contas, hoje],
@@ -295,12 +463,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     data,
     setConfig,
     addVenda,
+    editarVenda,
+    removerVenda,
     addProduto,
     atualizarProduto,
     removerProduto,
     addConta,
+    editarConta,
+    removerConta,
     marcarContaQuitada,
     addLancamentoManual,
+    editarLancamentoManual,
+    removerLancamentoManual,
     addCliente,
     resetData,
     saldoCaixa,
