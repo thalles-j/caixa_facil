@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Plus, Trash, PaperPlaneTilt, Moon, Sun, DownloadSimple, UploadSimple } from '@phosphor-icons/react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Trash, PaperPlaneTilt, Moon, Sun, DownloadSimple, UploadSimple, SignOut } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney, todayISO } from '../lib/format';
 import { isValidAppData, loadData, saveData, uid } from '../lib/storage';
@@ -11,6 +12,7 @@ import Modal from '../components/Modal';
 export default function Configuracoes() {
   const { data, setConfig, resetData } = useAppData();
   const config = data.config;
+  const navigate = useNavigate();
 
   const [novaDespesaNome, setNovaDespesaNome] = useState('');
   const [novaDespesaValor, setNovaDespesaValor] = useState('');
@@ -332,15 +334,29 @@ export default function Configuracoes() {
         </section>
 
         <button
-          onClick={() => {
-            if (confirm('Isso vai apagar todos os dados salvos neste dispositivo. Continuar?')) {
-              resetData();
-            }
-          }}
-          className="w-full rounded-lg border border-stamp/30 bg-stamp/10 py-2.5 text-sm font-bold text-stamp transition hover:bg-stamp/20"
+          onClick={() => navigate('/login')}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-paper-raised py-2.5 text-sm font-bold text-ink transition hover:bg-line/30"
         >
-          Zerar Dados do App
+          <SignOut size={18} /> Sair
         </button>
+
+        <div className="rounded-2xl border border-stamp/20 p-4">
+          <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-stamp">Zona de risco</h3>
+          <p className="mb-3 text-xs text-ink-soft">
+            Apaga todos os dados salvos neste aparelho — vendas, catálogo, contas e configurações. Não pode ser
+            desfeito.
+          </p>
+          <button
+            onClick={() => {
+              if (confirm('Isso vai apagar todos os dados salvos neste dispositivo. Continuar?')) {
+                resetData();
+              }
+            }}
+            className="w-full rounded-lg border border-stamp/30 bg-stamp/10 py-2.5 text-sm font-bold text-stamp transition hover:bg-stamp/20"
+          >
+            Zerar Dados do App
+          </button>
+        </div>
       </div>
 
       <Modal open={importPendente !== null} onClose={() => setImportPendente(null)} title="Confirmar importação">
