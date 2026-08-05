@@ -495,6 +495,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- padrão usual de Context: exportar o hook de consumo junto do Provider custa apenas fast refresh completo neste arquivo, não é um bug
 export function useAppData() {
   const ctx = useContext(AppDataContext);
   if (!ctx) throw new Error('useAppData deve ser usado dentro de AppDataProvider');

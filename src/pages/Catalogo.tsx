@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { MagnifyingGlass, Package, Plus, WarningCircle, Wrench } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney } from '../lib/format';
@@ -23,9 +23,14 @@ export default function Catalogo() {
   const [itemType, setItemType] = useState<'product' | 'service'>(tipoPadrao);
   const [produtoParaRemover, setProdutoParaRemover] = useState<Produto | null>(null);
 
-  useEffect(() => {
+  // ajusta itemType quando tipoPadrao muda (ex: oferta do negócio foi alterada em
+  // outra tela) — setState direto durante o render em vez de useEffect, seguindo
+  // o padrão recomendado pelo React para "adjusting state when a prop changes"
+  const [tipoPadraoAnterior, setTipoPadraoAnterior] = useState(tipoPadrao);
+  if (tipoPadrao !== tipoPadraoAnterior) {
+    setTipoPadraoAnterior(tipoPadrao);
     setItemType(tipoPadrao);
-  }, [tipoPadrao]);
+  }
 
   const categorias = useMemo(() => {
     const set = new Set<string>();
