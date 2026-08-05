@@ -18,7 +18,8 @@ export function loadData(): AppData {
     const parsed = JSON.parse(raw);
 
     const produtos = Array.isArray(parsed.produtos)
-      ? parsed.produtos.map((p: any) => ({
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalizando JSON bruto de origem externa (localStorage/importação), sem shape garantido
+        parsed.produtos.map((p: any) => ({
           ...p,
           type: p.type ?? 'product',
           quantidade: p.quantidade !== undefined ? p.quantidade : p.type === 'service' ? undefined : 0,
