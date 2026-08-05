@@ -1,25 +1,31 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Lock, Storefront } from '@phosphor-icons/react';
+import { ArrowLeft, Storefront, UserPlus } from '@phosphor-icons/react';
 import { useAuth } from '../context/AuthContext';
 
-export default function Login() {
+export default function Cadastro() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [confirmaSenha, setConfirmaSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  const entrar = async (e: FormEvent<HTMLFormElement>) => {
+  const criarConta = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (senha !== confirmaSenha) {
+      setErro('As senhas não coincidem.');
+      return;
+    }
+
     setErro(null);
     setEnviando(true);
     try {
-      await login(email, senha);
-      navigate('/');
+      await register(email, senha, confirmaSenha);
+      navigate('/onboarding');
     } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Não foi possível entrar.');
+      setErro(err instanceof Error ? err.message : 'Não foi possível criar a conta.');
     } finally {
       setEnviando(false);
     }
@@ -36,11 +42,11 @@ export default function Login() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-ledger text-paper">
             <Storefront size={24} weight="fill" />
           </div>
-          <h1 className="font-display text-2xl font-bold">Bem-vindo de volta</h1>
-          <p className="mt-1 text-sm text-ink-soft">Entre para abrir sua caderneta.</p>
+          <h1 className="font-display text-2xl font-bold">Criar sua conta</h1>
+          <p className="mt-1 text-sm text-ink-soft">Leva menos de um minuto.</p>
         </div>
 
-        <form className="space-y-4" onSubmit={entrar}>
+        <form className="space-y-4" onSubmit={criarConta}>
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-soft">E-mail</label>
             <input
@@ -57,8 +63,21 @@ export default function Login() {
             <input
               type="password"
               required
+              minLength={6}
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-line bg-paper p-2.5 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-soft">Confirmar senha</label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={confirmaSenha}
+              onChange={(e) => setConfirmaSenha(e.target.value)}
               placeholder="••••••••"
               className="w-full rounded-lg border border-line bg-paper p-2.5 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
             />
@@ -71,14 +90,14 @@ export default function Login() {
             disabled={enviando}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-ledger py-3 text-sm font-bold text-paper shadow-md transition hover:bg-ledger-strong active:scale-[0.98] disabled:opacity-60"
           >
-            <Lock size={16} weight="fill" /> {enviando ? 'Entrando...' : 'Entrar'}
+            <UserPlus size={16} weight="fill" /> {enviando ? 'Criando conta...' : 'Criar conta'}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-ink-soft">
-          Ainda não usa o app?{' '}
-          <Link to="/cadastro" className="font-semibold text-ledger-strong dark:text-ledger">
-            Começar agora
+          Já tem conta?{' '}
+          <Link to="/login" className="font-semibold text-ledger-strong dark:text-ledger">
+            Entrar
           </Link>
         </p>
       </div>

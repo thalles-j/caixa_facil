@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Plus, Trash, PaperPlaneTilt, Moon, Sun, DownloadSimple, UploadSimple, SignOut } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
+import { useAuth } from '../context/AuthContext';
 import { formatCurrency, parseMoney, todayISO } from '../lib/format';
 import { isValidAppData, loadData, saveData, uid } from '../lib/storage';
 import { useDarkMode } from '../lib/theme';
@@ -12,7 +12,7 @@ import Modal from '../components/Modal';
 export default function Configuracoes() {
   const { data, setConfig, resetData } = useAppData();
   const config = data.config;
-  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const [novaDespesaNome, setNovaDespesaNome] = useState('');
   const [novaDespesaValor, setNovaDespesaValor] = useState('');
@@ -334,7 +334,7 @@ export default function Configuracoes() {
         </section>
 
         <button
-          onClick={() => navigate('/login')}
+          onClick={logout}
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-paper-raised py-2.5 text-sm font-bold text-ink transition hover:bg-line/30"
         >
           <SignOut size={18} /> Sair

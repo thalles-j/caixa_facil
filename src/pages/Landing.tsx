@@ -67,7 +67,7 @@ export default function Landing() {
               Entrar
             </Link>
             <Link
-              to="/onboarding"
+              to="/cadastro"
               className="rounded-lg bg-ledger px-3.5 py-2 text-sm font-semibold text-paper transition hover:bg-ledger-strong"
             >
               Começar agora
@@ -92,7 +92,7 @@ export default function Landing() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
-                to="/onboarding"
+                to="/cadastro"
                 className="flex items-center justify-center gap-2 rounded-xl bg-ledger px-6 py-3.5 text-sm font-bold text-paper shadow-md transition hover:bg-ledger-strong active:scale-[0.98]"
               >
                 Começar agora <ArrowRight size={18} weight="bold" />
@@ -212,7 +212,7 @@ export default function Landing() {
             </p>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row">
               <Link
-                to="/onboarding"
+                to="/cadastro"
                 className="flex items-center justify-center gap-2 rounded-xl bg-ledger px-6 py-3.5 text-sm font-bold text-paper shadow-md transition hover:bg-ledger-strong active:scale-[0.98]"
               >
                 Começar agora <ArrowRight size={18} weight="bold" />
