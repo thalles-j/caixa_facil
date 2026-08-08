@@ -1,6 +1,11 @@
 import type { AppData } from '../types';
 
 export const STORAGE_KEY = 'mnb-data-v1';
+export const APP_DATA_CHANGED_EVENT = 'mnb-app-data-changed';
+
+export function storageKeyForUser(userId?: string | null): string {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
 
 export const emptyData: AppData = {
   config: null,
@@ -11,9 +16,9 @@ export const emptyData: AppData = {
   clientes: [],
 };
 
-export function loadData(): AppData {
+export function loadData(userId?: string | null): AppData {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKeyForUser(userId));
     if (!raw) return emptyData;
     const parsed = JSON.parse(raw);
 
@@ -34,8 +39,8 @@ export function loadData(): AppData {
   }
 }
 
-export function saveData(data: AppData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+export function saveData(data: AppData, userId?: string | null) {
+  localStorage.setItem(storageKeyForUser(userId), JSON.stringify(data));
 }
 
 /**

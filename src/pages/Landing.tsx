@@ -124,18 +124,18 @@ export default function Landing() {
               <div className="flex gap-3">
                 <div className="flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3">
                   <div className="mb-1 flex items-center justify-between">
-                    <p className="font-ledger text-[9px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">Vendas Hoje</p>
+                    <p className="font-ledger text-[11px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">Vendas Hoje</p>
                     <TrendUp size={14} weight="fill" className="text-[#7fd9ab]" />
                   </div>
                   <p className="font-ledger text-base font-semibold tabular-nums">R$ 342,00</p>
                 </div>
                 <div className="flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3">
-                  <p className="mb-1 font-ledger text-[9px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">Fiado</p>
+                  <p className="mb-1 font-ledger text-[11px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">Despesas Hoje</p>
                   <p className="font-ledger text-base font-semibold tabular-nums">R$ 96,50</p>
                 </div>
               </div>
             </div>
-            <span className="stamp absolute -right-3 -top-3 rotate-6 bg-paper-raised text-ledger-strong shadow-md dark:text-ledger">
+            <span className="stamp absolute -right-3 -top-3 bg-paper-raised text-ledger-strong shadow-md dark:text-ledger">
               <ArrowUp size={12} weight="bold" /> em dia
             </span>
           </div>

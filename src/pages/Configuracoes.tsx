@@ -12,7 +12,7 @@ import Modal from '../components/Modal';
 export default function Configuracoes() {
   const { data, setConfig, resetData } = useAppData();
   const config = data.config;
-  const { logout } = useAuth();
+  const { user, logout, resetAccountData } = useAuth();
 
   const [novaDespesaNome, setNovaDespesaNome] = useState('');
   const [novaDespesaValor, setNovaDespesaValor] = useState('');
@@ -20,6 +20,8 @@ export default function Configuracoes() {
   const [darkMode, setDarkMode] = useDarkMode();
   const [importErro, setImportErro] = useState<string | null>(null);
   const [importPendente, setImportPendente] = useState<AppData | null>(null);
+  const [resetando, setResetando] = useState(false);
+  const [resetErro, setResetErro] = useState<string | null>(null);
   const arquivoInputRef = useRef<HTMLInputElement>(null);
 
   if (!config) return null;
@@ -54,7 +56,7 @@ export default function Configuracoes() {
   };
 
   const exportarDados = () => {
-    const dados = loadData();
+    const dados = loadData(user?.id);
     const conteudo = JSON.stringify(dados, null, 2);
     const blob = new Blob([conteudo], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -98,8 +100,26 @@ export default function Configuracoes() {
 
   const confirmarImportacao = () => {
     if (!importPendente) return;
-    saveData(importPendente);
+    saveData(importPendente, user?.id);
     window.location.reload();
+  };
+
+  const zerarDadosDaConta = async () => {
+    const confirmou = confirm(
+      'Isso apagará produtos, vendas, fiado, despesas, caixas e configurações. Seu e-mail e senha serão mantidos, e você será desconectado. Continuar?',
+    );
+    if (!confirmou) return;
+
+    setResetando(true);
+    setResetErro(null);
+    try {
+      await resetAccountData();
+      resetData();
+      logout();
+    } catch (error) {
+      setResetErro(error instanceof Error ? error.message : 'Não foi possível zerar os dados da conta.');
+      setResetando(false);
+    }
   };
 
   const inputClasses =
@@ -343,19 +363,17 @@ export default function Configuracoes() {
         <div className="rounded-2xl border border-stamp/20 p-4">
           <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-stamp">Zona de risco</h3>
           <p className="mb-3 text-xs text-ink-soft">
-            Apaga todos os dados salvos neste aparelho — vendas, catálogo, contas e configurações. Não pode ser
-            desfeito.
+            Apaga produtos, vendas, fiado, despesas, caixas e configurações. Seu e-mail e senha são mantidos. Ao
+            concluir, você será desconectado e o próximo acesso começará pela configuração inicial.
           </p>
           <button
-            onClick={() => {
-              if (confirm('Isso vai apagar todos os dados salvos neste dispositivo. Continuar?')) {
-                resetData();
-              }
-            }}
-            className="w-full rounded-lg border border-stamp/30 bg-stamp/10 py-2.5 text-sm font-bold text-stamp transition hover:bg-stamp/20"
+            onClick={zerarDadosDaConta}
+            disabled={resetando}
+            className="w-full rounded-lg border border-stamp/30 bg-stamp/10 py-2.5 text-sm font-bold text-stamp transition hover:bg-stamp/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Zerar Dados do App
+            {resetando ? 'Zerando dados...' : 'Zerar Dados do App'}
           </button>
+          {resetErro && <p className="mt-2 text-xs font-medium text-stamp">{resetErro}</p>}
         </div>
       </div>
 

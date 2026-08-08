@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type {
   AppData,
   Cliente,
@@ -9,7 +9,15 @@ import type {
   Venda,
   ViewPeriod,
 } from '../types';
-import { loadData, saveData, uid, STORAGE_KEY } from '../lib/storage';
+import { decodeToken, getStoredToken, TOKEN_KEY } from '../lib/auth';
+import {
+  APP_DATA_CHANGED_EVENT,
+  emptyData,
+  loadData,
+  saveData,
+  storageKeyForUser,
+  uid,
+} from '../lib/storage';
 import { todayISO } from '../lib/format';
 
 interface ResumoPeriodo {
@@ -82,11 +90,28 @@ function diffDias(deIso: string, paraIso: string): number {
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<AppData>(() => loadData());
+  const getAuthenticatedUserId = () => {
+    const token = getStoredToken();
+    return token ? decodeToken(token)?.sub ?? null : null;
+  };
+  const initialUserId = getAuthenticatedUserId();
+  const activeUserIdRef = useRef<string | null>(initialUserId);
+  const [data, setData] = useState<AppData>(() => loadData(initialUserId));
 
   useEffect(() => {
-    saveData(data);
+    saveData(data, activeUserIdRef.current);
   }, [data]);
+
+  useEffect(() => {
+    const reloadAuthenticatedData = () => {
+      const userId = getAuthenticatedUserId();
+      activeUserIdRef.current = userId;
+      setData(userId ? loadData(userId) : emptyData);
+    };
+
+    window.addEventListener(APP_DATA_CHANGED_EVENT, reloadAuthenticatedData);
+    return () => window.removeEventListener(APP_DATA_CHANGED_EVENT, reloadAuthenticatedData);
+  }, []);
 
   useEffect(() => {
     // Sincroniza entre abas: se outra aba salvar (ou zerar) os dados, o
@@ -125,8 +150,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // nesse instante específico.
     const handleStorageChange = (event: StorageEvent) => {
       if (event.storageArea !== localStorage) return;
-      if (event.key !== null && event.key !== STORAGE_KEY) return;
-      setData(loadData());
+      const userId = getAuthenticatedUserId();
+      if (event.key === TOKEN_KEY) {
+        activeUserIdRef.current = userId;
+        setData(userId ? loadData(userId) : emptyData);
+        return;
+      }
+      if (event.key !== null && event.key !== storageKeyForUser(userId)) return;
+      setData(loadData(userId));
     };
 
     window.addEventListener('storage', handleStorageChange);

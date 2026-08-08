@@ -265,7 +265,7 @@ export default function Catalogo() {
                       {item.quantidade ?? 0} em estoque
                     </span>
                   ) : (
-                    <span className="stamp stamp-tilt-right text-ledger-strong dark:text-ledger">
+                    <span className="stamp text-ledger-strong dark:text-ledger">
                       {item.duracao ?? '—'}
                     </span>
                   )}

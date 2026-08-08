@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "db:schema": "tsx src/scripts/apply-schema.ts",
+    "db:schema:prod": "node dist/scripts/apply-schema.js",
+    "seed": "node scripts/seed.js",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js"
   },

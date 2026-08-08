@@ -65,8 +65,8 @@ body {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Carimbo — rotated stamp badge used for every status label in the app
-   (Pago, Atrasado, Vence hoje, Estoque baixo, Fiado...) instead of a flat pill. */
+/* Etiqueta de status fixa e alinhada, compartilhada por Pago, Atrasado,
+   Vence hoje, Estoque baixo, Fiado e demais estados. */
 .stamp {
   display: inline-flex;
   align-items: center;
@@ -80,12 +80,8 @@ body {
   border-radius: 0.4rem;
   border: 1.5px solid currentColor;
   box-shadow: 0 0 0 1px currentColor inset;
-  transform: rotate(-1.5deg);
+  transform: none;
   white-space: nowrap;
-}
-
-.stamp-tilt-right {
-  transform: rotate(1.5deg);
 }
 
 /* Recibo — perforated/torn paper edge for the one hero card per screen. */
