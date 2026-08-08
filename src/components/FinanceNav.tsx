@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom';
 const links = [
   { to: '/financas', label: 'Finanças', end: true },
   { to: '/movimentacoes', label: 'Movimentações', end: false },
-  { to: '/vendas', label: 'Vendas', end: false },
   { to: '/entradas', label: 'Entradas', end: false },
   { to: '/despesas', label: 'Saídas', end: false },
 ];

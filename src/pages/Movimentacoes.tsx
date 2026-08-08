@@ -1,20 +1,19 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   FunnelSimple,
   MagnifyingGlass,
-  Plus,
   Receipt,
   X,
 } from '@phosphor-icons/react';
 import FinanceNav from '../components/FinanceNav';
 import { useAppData } from '../context/AppDataContext';
-import { formatCurrency, formatDate, parseMoney, todayISO } from '../lib/format';
+import { formatCurrency, formatDate } from '../lib/format';
 import { formaPagamentoLabel, obterMovimentacoesFinanceiras, obterVendas } from '../lib/movements';
 import type { FormaPagamento } from '../types';
 
-export type ModoMovimentacoes = 'todas' | 'vendas' | 'entradas' | 'saidas';
+export type ModoMovimentacoes = 'todas' | 'vendas' | 'saidas';
 
 const configuracao = {
   todas: {
@@ -23,13 +22,8 @@ const configuracao = {
     vazio: 'Nenhuma movimentação encontrada.',
   },
   vendas: {
-    titulo: 'Vendas',
-    subtitulo: 'Pesquise vendas e filtre por período ou forma de pagamento.',
-    vazio: 'Nenhuma venda encontrada.',
-  },
-  entradas: {
     titulo: 'Entradas',
-    subtitulo: 'Vendas recebidas, pagamentos de fiado e outras entradas.',
+    subtitulo: 'Pesquise entradas e filtre por período ou forma de pagamento.',
     vazio: 'Nenhuma entrada encontrada.',
   },
   saidas: {
@@ -40,22 +34,18 @@ const configuracao = {
 } satisfies Record<ModoMovimentacoes, { titulo: string; subtitulo: string; vazio: string }>;
 
 export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
-  const { data, addLancamentoManual } = useAppData();
+  const { data } = useAppData();
   const [busca, setBusca] = useState('');
   const [dataInicial, setDataInicial] = useState('');
   const [dataFinal, setDataFinal] = useState('');
   const [formaPagamento, setFormaPagamento] = useState<'todas' | FormaPagamento>('todas');
-  const [descricao, setDescricao] = useState('');
-  const [valor, setValor] = useState('');
-  const [dataLancamento, setDataLancamento] = useState(todayISO());
+  const [tipoItem, setTipoItem] = useState<'geral' | 'product' | 'service'>('geral');
   const texto = configuracao[modo];
 
   const movimentacoes = useMemo(() => {
     const base = modo === 'vendas' ? obterVendas(data) : obterMovimentacoesFinanceiras(data);
     const porTipo =
-      modo === 'entradas'
-        ? base.filter((movimento) => movimento.tipo === 'entrada')
-        : modo === 'saidas'
+      modo === 'saidas'
           ? base.filter((movimento) => movimento.tipo === 'saida')
           : base;
     const termo = busca.trim().toLocaleLowerCase('pt-BR');
@@ -67,9 +57,10 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
       const correspondeFim = !dataFinal || movimento.data <= dataFinal;
       const correspondePagamento =
         modo !== 'vendas' || formaPagamento === 'todas' || movimento.formaPagamento === formaPagamento;
-      return correspondeBusca && correspondeInicio && correspondeFim && correspondePagamento;
+      const correspondeTipoItem = modo !== 'vendas' || tipoItem === 'geral' || movimento.itemType === tipoItem;
+      return correspondeBusca && correspondeInicio && correspondeFim && correspondePagamento && correspondeTipoItem;
     });
-  }, [busca, data, dataFinal, dataInicial, formaPagamento, modo]);
+  }, [busca, data, dataFinal, dataInicial, formaPagamento, modo, tipoItem]);
 
   const total = movimentacoes.reduce(
     (soma, movimento) => soma + (modo === 'todas' && movimento.tipo === 'saida' ? -movimento.valor : movimento.valor),
@@ -81,26 +72,12 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
     setDataInicial('');
     setDataFinal('');
     setFormaPagamento('todas');
+    setTipoItem('geral');
   };
 
-  const salvarLancamento = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (modo !== 'entradas' && modo !== 'saidas') return;
-    const valorNumerico = parseMoney(valor);
-    if (!descricao.trim() || valorNumerico <= 0) return;
-
-    addLancamentoManual({
-      tipo: modo === 'entradas' ? 'entrada' : 'saida',
-      descricao: descricao.trim(),
-      valor: valorNumerico,
-      data: dataLancamento,
-    });
-    setDescricao('');
-    setValor('');
-    setDataLancamento(todayISO());
-  };
-
-  const filtrosAtivos = Boolean(busca || dataInicial || dataFinal || formaPagamento !== 'todas');
+  const filtrosAtivos = Boolean(
+    busca || dataInicial || dataFinal || formaPagamento !== 'todas' || tipoItem !== 'geral',
+  );
 
   return (
     <div className="fade-in">
@@ -111,66 +88,25 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
 
       <FinanceNav />
 
-      {(modo === 'entradas' || modo === 'saidas') && (
-        <form
-          onSubmit={salvarLancamento}
-          className="mb-6 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm"
-        >
-          <div className="mb-4 flex items-center gap-2">
-            <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                modo === 'entradas' ? 'bg-ledger/10 text-ledger-strong dark:text-ledger' : 'bg-stamp/10 text-stamp'
-              }`}
-            >
-              <Plus size={18} weight="bold" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-ink">Registrar {modo === 'entradas' ? 'entrada' : 'saída'}</h3>
-              <p className="text-xs text-ink-soft">O lançamento entra no histórico na data informada.</p>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-[1fr_140px_150px_auto] sm:items-end">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-soft">Descrição</span>
-              <input
-                value={descricao}
-                onChange={(event) => setDescricao(event.target.value)}
-                required
-                placeholder={modo === 'entradas' ? 'Ex: Serviço realizado' : 'Ex: Compra de material'}
-                className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-soft">Valor</span>
-              <input
-                value={valor}
-                onChange={(event) => setValor(event.target.value)}
-                required
-                inputMode="decimal"
-                placeholder="0,00"
-                className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 font-ledger text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-soft">Data</span>
-              <input
-                type="date"
-                value={dataLancamento}
-                onChange={(event) => setDataLancamento(event.target.value)}
-                required
-                className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-              />
-            </label>
+      {modo === 'vendas' && (
+        <div className="mb-4 grid grid-cols-3 rounded-xl bg-line/40 p-1" aria-label="Filtrar entradas por tipo">
+          {([
+            ['geral', 'Geral'],
+            ['product', 'Produtos'],
+            ['service', 'Serviços'],
+          ] as const).map(([valorTipo, label]) => (
             <button
-              type="submit"
-              className={`rounded-xl px-4 py-2.5 text-sm font-bold text-paper transition ${
-                modo === 'entradas' ? 'bg-ledger hover:bg-ledger-strong' : 'bg-stamp hover:bg-stamp/90'
+              key={valorTipo}
+              type="button"
+              onClick={() => setTipoItem(valorTipo)}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                tipoItem === valorTipo ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft hover:text-ink'
               }`}
             >
-              Salvar
+              {label}
             </button>
-          </div>
-        </form>
+          ))}
+        </div>
       )}
 
       <section className="mb-4 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm">
@@ -254,7 +190,7 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
               <Receipt size={23} />
             </div>
             <p className="text-sm font-medium text-ink">{texto.vazio}</p>
-            <p className="mt-1 text-xs text-ink-soft">Altere os filtros ou registre um novo lançamento.</p>
+            <p className="mt-1 text-xs text-ink-soft">Altere os filtros para ampliar a pesquisa.</p>
           </div>
         ) : (
           <ul className="divide-y divide-line">

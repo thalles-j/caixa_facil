@@ -1,4 +1,4 @@
-import type { AppData, FormaPagamento, TipoLancamento } from '../types';
+import type { AppData, FormaPagamento, Produto, TipoLancamento } from '../types';
 
 export type OrigemMovimentacao = 'venda' | 'lancamento' | 'conta';
 
@@ -12,6 +12,7 @@ export interface Movimentacao {
   categoria: 'venda' | 'entrada' | 'despesa';
   detalhe: string;
   formaPagamento?: FormaPagamento;
+  itemType?: Produto['type'];
   fiadoPendente?: boolean;
   ordem: number;
 }
@@ -85,6 +86,7 @@ export function obterMovimentacoesFinanceiras(data: AppData): Movimentacao[] {
 
 /** Histórico comercial completo, incluindo fiado ainda não recebido. */
 export function obterVendas(data: AppData): Movimentacao[] {
+  const produtosPorId = new Map(data.produtos.map((produto) => [produto.id, produto]));
   const contasPorVenda = new Map(
     data.contas.filter((conta) => conta.origemVendaId).map((conta) => [conta.origemVendaId!, conta]),
   );
@@ -108,6 +110,7 @@ export function obterVendas(data: AppData): Movimentacao[] {
               : `Fiado · recebido${conta?.dataQuitacao ? ` em ${conta.dataQuitacao}` : ''}`
             : `${venda.quantidade} un. · ${formaPagamentoLabel(venda.formaPagamento)}`,
         formaPagamento: venda.formaPagamento,
+        itemType: venda.produtoId ? produtosPorId.get(venda.produtoId)?.type : undefined,
         fiadoPendente,
         ordem: index,
       };

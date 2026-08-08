@@ -128,16 +128,18 @@ async function seedTenant(client, user, passwordHash) {
       `,
       [alimentosId, paoPrice, money(2.5, f)],
     );
-    await client.query(
+    const servicesResult = await client.query(
       `
         INSERT INTO products
           (category_id, kind, name, sale_price, cost_price, service_duration)
         VALUES
           ($1, 'service', 'Entrega local', $2, 0, interval '30 minutes'),
           ($1, 'service', 'Atendimento personalizado', $3, 0, interval '1 hour')
+        RETURNING id, name
       `,
       [servicosId, money(12, f), money(75, f)],
     );
+    const atendimentoId = servicesResult.rows.find((service) => service.name === 'Atendimento personalizado').id;
 
     const mariaId = await insertReturningId(
       client,
@@ -321,10 +323,10 @@ async function seedTenant(client, user, passwordHash) {
     await client.query(
       `
         INSERT INTO sale_items
-          (sale_id, product_name, quantity, unit_price, unit_cost)
-        VALUES ($1, 'Serviço personalizado', 1, $2, 0)
+          (sale_id, product_id, product_name, quantity, unit_price, unit_cost)
+        VALUES ($1, $2, 'Atendimento personalizado', 1, $3, 0)
       `,
-      [partialSaleId, partialTotal],
+      [partialSaleId, atendimentoId, partialTotal],
     );
     const partialCreditId = await insertReturningId(
       client,

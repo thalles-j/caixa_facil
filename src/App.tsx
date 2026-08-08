@@ -50,8 +50,8 @@ export default function App() {
         <Route path="/estoque" element={<Navigate to="/catalogo" replace />} />
         <Route path="/financas" element={<Financas />} />
         <Route path="/movimentacoes" element={<Movimentacoes modo="todas" />} />
-        <Route path="/vendas" element={<Movimentacoes modo="vendas" />} />
-        <Route path="/entradas" element={<Movimentacoes modo="entradas" />} />
+        <Route path="/entradas" element={<Movimentacoes modo="vendas" />} />
+        <Route path="/vendas" element={<Navigate to="/entradas" replace />} />
         <Route path="/despesas" element={<Movimentacoes modo="saidas" />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />

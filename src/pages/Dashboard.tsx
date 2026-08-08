@@ -205,12 +205,12 @@ export default function Dashboard() {
 
         <div className="flex gap-3">
           <Link
-            to="/vendas"
+            to="/entradas"
             className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3 transition hover:bg-[#f7f1e4]/15"
           >
             <div className="mb-1 flex items-start justify-between gap-2">
               <p className="truncate font-ledger text-[9px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">
-                Vendas {sufixoPeriodo}
+                Entradas {sufixoPeriodo}
               </p>
               <span className="flex shrink-0 items-center text-[#7fd9ab]">
                 <TrendUp size={16} weight="fill" />
@@ -249,7 +249,7 @@ export default function Dashboard() {
         <QuickAction icon={Calculator} label="Caixa" to="/caixa" />
         <QuickAction
           icon={ArrowUpRight}
-          label="Entrada"
+          label="Entradas"
           to="/entradas"
         />
         <QuickAction
@@ -459,7 +459,7 @@ export default function Dashboard() {
           <p className="font-ledger text-lg font-semibold tabular-nums text-ledger-strong dark:text-ledger">
             {formatCurrency(lucroEstimadoHoje)}
           </p>
-          <p className="text-[10px] text-ink-soft">Considera só vendas com custo cadastrado.</p>
+          <p className="text-[10px] text-ink-soft">Considera só itens com custo cadastrado.</p>
         </div>
         {metaDiaria > 0 && (
           <div className="col-span-2 flex min-w-0 flex-col justify-between gap-2 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm md:col-span-1">
@@ -604,9 +604,9 @@ export default function Dashboard() {
                 <Newspaper size={20} />
               </div>
               <p className="mb-1 text-sm font-medium text-ink">Nenhuma movimentação registrada</p>
-              <p className="mb-3 text-xs text-ink-soft">Vendas recebidas e despesas pagas aparecem aqui.</p>
+              <p className="mb-3 text-xs text-ink-soft">Entradas recebidas e despesas pagas aparecem aqui.</p>
               <button onClick={() => navigate('/caixa')} className="text-xs font-medium text-ledger-strong dark:text-ledger">
-                Registrar uma venda
+                Registrar uma entrada
               </button>
             </div>
           ) : (

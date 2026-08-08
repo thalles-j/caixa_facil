@@ -41,6 +41,13 @@ export async function loadBootstrapData(user: UserIdentity) {
         client.query(`
           SELECT cs.id, cs.sale_id, cs.customer_id, cs.amount, cs.status,
                  cs.due_date, cs.paid_at, cs.created_at,
+                 (
+                   SELECT si.id
+                   FROM sale_items si
+                   WHERE si.user_id = cs.user_id AND si.sale_id = cs.sale_id
+                   ORDER BY si.created_at, si.id
+                   LIMIT 1
+                 ) AS sale_item_id,
                  COALESCE(s.description, 'Venda fiado') AS description
           FROM credit_sales cs
           JOIN sales s ON s.user_id = cs.user_id AND s.id = cs.sale_id
@@ -117,6 +124,7 @@ export async function loadBootstrapData(user: UserIdentity) {
         vencimento: isoDate(credit.due_date ?? credit.created_at),
         quitado: credit.status === 'pago',
         dataQuitacao: isoDate(credit.paid_at),
+        origemVendaId: credit.sale_item_id ?? undefined,
         clienteId: credit.customer_id,
       })),
       lancamentosManuais: manualResult.rows.map((entry) => ({
