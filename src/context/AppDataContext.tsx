@@ -54,6 +54,7 @@ interface AppDataContextValue {
   editarLancamentoManual: (id: string, patch: Partial<Omit<LancamentoManual, 'id'>>) => void;
   removerLancamentoManual: (id: string) => void;
   addCliente: (cliente: Omit<Cliente, 'id'>) => Cliente;
+  editarCliente: (id: string, patch: Partial<Omit<Cliente, 'id'>>) => void;
   resetData: () => void;
   saldoCaixa: number;
   vendasHoje: number;
@@ -358,6 +359,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return novoCliente;
   };
 
+  const editarCliente = (id: string, patch: Partial<Omit<Cliente, 'id'>>) => {
+    setData((prev) => ({
+      ...prev,
+      clientes: prev.clientes.map((cliente) => (cliente.id === id ? { ...cliente, ...patch } : cliente)),
+    }));
+  };
+
   const resetData = () => {
     setData({ config: null, vendas: [], produtos: [], contas: [], lancamentosManuais: [], clientes: [] });
   };
@@ -528,6 +536,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     editarLancamentoManual,
     removerLancamentoManual,
     addCliente,
+    editarCliente,
     resetData,
     saldoCaixa,
     vendasHoje,

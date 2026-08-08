@@ -71,14 +71,14 @@ export default function Layout() {
             <div className="flex shrink-0 items-center gap-1">
               <button
                 onClick={() => setDark(!dark)}
-                className="rounded-full p-2 text-ink-soft transition hover:bg-line/50 hover:text-ink"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition hover:bg-line/50 hover:text-ink"
                 aria-label={dark ? 'Ativar modo claro' : 'Ativar modo escuro'}
               >
                 {dark ? <Sun size={20} /> : <Moon size={20} />}
               </button>
               <button
                 onClick={() => navigate('/configuracoes')}
-                className="rounded-full p-2 text-ink-soft transition hover:bg-line/50 hover:text-ink"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition hover:bg-line/50 hover:text-ink"
                 aria-label="Configurações"
               >
                 <GearSix size={20} />
@@ -86,7 +86,7 @@ export default function Layout() {
               <div className="relative" ref={notificacoesRef}>
                 <button
                   onClick={() => setNotificacoesAbertas((v) => !v)}
-                  className="rounded-full p-2 text-ink-soft transition hover:bg-line/50 hover:text-ink"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition hover:bg-line/50 hover:text-ink"
                   aria-label="Notificações"
                   aria-expanded={notificacoesAbertas}
                 >

@@ -10,17 +10,18 @@ import {
   WarningCircle,
   PencilSimple,
   Trash,
+  Phone,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate, parseMoney, todayISO } from '../lib/format';
 import Modal from '../components/Modal';
-import type { Conta, LancamentoManual, TipoConta } from '../types';
+import type { Cliente, Conta, LancamentoManual, TipoConta } from '../types';
 import FinanceNav from '../components/FinanceNav';
 
 type ItemParaExcluir = { tipo: 'conta' | 'lancamento'; id: string; label: string };
 
 export default function Financas() {
-  const { data, addConta, editarConta, removerConta, marcarContaQuitada, addLancamentoManual, editarLancamentoManual, removerLancamentoManual } =
+  const { data, addConta, editarConta, removerConta, marcarContaQuitada, addLancamentoManual, editarLancamentoManual, removerLancamentoManual, editarCliente } =
     useAppData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -37,8 +38,8 @@ export default function Financas() {
   const mesAtual = todayISO().slice(0, 7);
 
   const clientesPorId = useMemo(() => {
-    const map = new Map<string, string>();
-    data.clientes.forEach((c) => map.set(c.id, c.nome));
+    const map = new Map<string, Cliente>();
+    data.clientes.forEach((c) => map.set(c.id, c));
     return map;
   }, [data.clientes]);
 
@@ -65,12 +66,17 @@ export default function Financas() {
 
   const saldoPorCliente = useMemo(() => {
     if (aba !== 'receber') return [];
-    const mapa = new Map<string, { nome: string; total: number }>();
+    const mapa = new Map<string, { id: string; nome: string; telefone?: string; total: number }>();
     data.contas
       .filter((c) => c.tipo === 'receber' && !c.quitado && c.clienteId)
       .forEach((c) => {
-        const nome = clientesPorId.get(c.clienteId!) ?? 'Cliente';
-        const atual = mapa.get(c.clienteId!) ?? { nome, total: 0 };
+        const cliente = clientesPorId.get(c.clienteId!);
+        const atual = mapa.get(c.clienteId!) ?? {
+          id: c.clienteId!,
+          nome: cliente?.nome ?? 'Cliente',
+          telefone: cliente?.telefone,
+          total: 0,
+        };
         atual.total += c.valor;
         mapa.set(c.clienteId!, atual);
       });
@@ -115,10 +121,18 @@ export default function Financas() {
     const descricao = String(form.get('descricao') ?? '').trim();
     const valor = parseMoney(String(form.get('valor') ?? '0'));
     const vencimento = String(form.get('vencimento') ?? contaEditando.vencimento);
+    const clienteNome = String(form.get('clienteNome') ?? '').trim();
+    const clienteTelefone = String(form.get('clienteTelefone') ?? '').trim();
 
-    if (!descricao || valor <= 0) return;
+    if (!descricao || valor <= 0 || (contaEditando.clienteId && !clienteNome)) return;
 
     editarConta(contaEditando.id, { descricao, valor, vencimento });
+    if (contaEditando.clienteId) {
+      editarCliente(contaEditando.clienteId, {
+        nome: clienteNome,
+        telefone: clienteTelefone || undefined,
+      });
+    }
     setContaEditando(null);
   };
 
@@ -238,7 +252,7 @@ export default function Financas() {
                 {contasDaAba.map((conta) => {
                   const venceHoje = conta.vencimento === hoje && !conta.quitado;
                   const atrasada = !conta.quitado && conta.vencimento < hoje;
-                  const nomeCliente = conta.clienteId ? clientesPorId.get(conta.clienteId) : undefined;
+                  const cliente = conta.clienteId ? clientesPorId.get(conta.clienteId) : undefined;
                   return (
                     <li
                       key={conta.id}
@@ -268,9 +282,14 @@ export default function Financas() {
                         </div>
                         <div className="min-w-0">
                           <p className={`truncate font-medium text-ink ${conta.quitado ? 'line-through' : ''}`}>
-                            {nomeCliente ?? conta.descricao}
+                            {cliente?.nome ?? conta.descricao}
                           </p>
-                          {nomeCliente && <p className="truncate text-[11px] text-ink-soft">{conta.descricao}</p>}
+                          {cliente && <p className="truncate text-[11px] text-ink-soft">{conta.descricao}</p>}
+                          {cliente?.telefone && (
+                            <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-ink-soft">
+                              <Phone size={11} className="shrink-0" /> {cliente.telefone}
+                            </p>
+                          )}
                           <div className="mt-1">
                             {conta.quitado ? (
                               <span className="stamp text-ledger-strong dark:text-ledger">
@@ -363,8 +382,15 @@ export default function Financas() {
               </div>
               <ul className="divide-y divide-line">
                 {saldoPorCliente.map((c) => (
-                  <li key={c.nome} className="flex items-center justify-between gap-2 py-1.5 text-sm">
-                    <span className="min-w-0 truncate text-ink">{c.nome}</span>
+                  <li key={c.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate text-ink">{c.nome}</p>
+                      {c.telefone && (
+                        <p className="flex items-center gap-1 truncate text-[11px] text-ink-soft">
+                          <Phone size={11} className="shrink-0" /> {c.telefone}
+                        </p>
+                      )}
+                    </div>
                     <span className="shrink-0 font-ledger font-bold tabular-nums text-brass">{formatCurrency(c.total)}</span>
                   </li>
                 ))}
@@ -454,9 +480,41 @@ export default function Financas() {
         </form>
       </Modal>
 
-      <Modal open={contaEditando !== null} onClose={() => setContaEditando(null)} title="Editar Conta">
+      <Modal
+        open={contaEditando !== null}
+        onClose={() => setContaEditando(null)}
+        title={contaEditando?.clienteId ? 'Editar Conta e Cliente' : 'Editar Conta'}
+      >
         {contaEditando && (
           <form className="space-y-4" onSubmit={handleEditarContaSubmit} key={contaEditando.id}>
+            {contaEditando.clienteId && (() => {
+              const cliente = clientesPorId.get(contaEditando.clienteId);
+              return (
+                <fieldset className="space-y-3 rounded-xl border border-line bg-line/10 p-3">
+                  <legend className="px-1 text-xs font-bold uppercase tracking-wide text-ink-soft">Dados do cliente</legend>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-ink-soft">Nome</label>
+                    <input
+                      name="clienteNome"
+                      type="text"
+                      required
+                      defaultValue={cliente?.nome ?? ''}
+                      className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-ink-soft">Telefone</label>
+                    <input
+                      name="clienteTelefone"
+                      type="tel"
+                      defaultValue={cliente?.telefone ?? ''}
+                      placeholder="Ex: (11) 99999-9999"
+                      className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                    />
+                  </div>
+                </fieldset>
+              );
+            })()}
             <div>
               <label className="mb-1 block text-xs font-medium text-ink-soft">Descrição</label>
               <input
