@@ -76,6 +76,28 @@ export async function loginRequest(email: string, password: string): Promise<Aut
   return parseJsonOrThrow(res);
 }
 
+export async function forgotPasswordRequest(email: string): Promise<{ message: string; resetToken?: string }> {
+  const res = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function resetPasswordRequest(
+  token: string,
+  password: string,
+  confirmPassword: string,
+): Promise<{ message: string }> {
+  const res = await fetch(`${API_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password, confirmPassword }),
+  });
+  return parseJsonOrThrow(res);
+}
+
 export async function sessionRequest(token: string): Promise<SessionResponse> {
   const res = await fetch(`${API_URL}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },

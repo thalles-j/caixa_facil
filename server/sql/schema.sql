@@ -63,6 +63,26 @@ COMMENT ON TABLE users IS
   'Contas autenticaveis. O hash e produzido pela API com bcrypt/argon2; senhas nunca sao armazenadas.';
 COMMENT ON COLUMN users.password_hash IS 'Hash bcrypt/argon2 gerado fora do banco.';
 
+-- Tokens de uso unico para recuperacao de senha. Apenas o hash do token fica
+-- armazenado; a API nunca persiste o valor enviado ao usuario.
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_created
+  ON password_reset_tokens (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expiry
+  ON password_reset_tokens (expires_at)
+  WHERE used_at IS NULL;
+
+COMMENT ON TABLE password_reset_tokens IS
+  'Tokens de uso unico e curta duracao para recuperar senhas sem expor se um e-mail possui conta.';
+
 -- ============================================================
 -- CATEGORIAS E PRODUTOS
 -- ============================================================
