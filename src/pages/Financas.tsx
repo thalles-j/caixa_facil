@@ -11,6 +11,7 @@ import {
   PencilSimple,
   Trash,
   Phone,
+  ArrowsClockwise,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate, parseMoney, todayISO } from '../lib/format';
@@ -36,6 +37,12 @@ export default function Financas() {
   const [itemParaExcluir, setItemParaExcluir] = useState<ItemParaExcluir | null>(null);
 
   const mesAtual = todayISO().slice(0, 7);
+  const gastosFixos = useMemo(() => data.config?.despesasFixas ?? [], [data.config?.despesasFixas]);
+
+  const totalFixosMensal = useMemo(
+    () => gastosFixos.reduce((total, gasto) => total + gasto.valor * (gasto.recorrencia === 'semanal' ? 4 : 1), 0),
+    [gastosFixos],
+  );
 
   const clientesPorId = useMemo(() => {
     const map = new Map<string, Cliente>();
@@ -60,8 +67,12 @@ export default function Financas() {
     () =>
       contasDaAba
         .filter((c) => c.vencimento.slice(0, 7) === mesAtual)
-        .reduce((sum, c) => sum + c.valor, 0),
-    [contasDaAba, mesAtual],
+        .reduce((sum, c) => sum + c.valor, 0) +
+      lancamentosDaAba
+        .filter((lancamento) => lancamento.data.slice(0, 7) === mesAtual)
+        .reduce((sum, lancamento) => sum + lancamento.valor, 0) +
+      (aba === 'pagar' ? totalFixosMensal : 0),
+    [aba, contasDaAba, lancamentosDaAba, mesAtual, totalFixosMensal],
   );
 
   const saldoPorCliente = useMemo(() => {
@@ -191,7 +202,7 @@ export default function Financas() {
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold uppercase tracking-wide text-ink-soft">
-            Total {aba === 'pagar' ? 'a Pagar' : 'a Receber'} (Mês)
+            {aba === 'pagar' ? 'Total previsto' : 'Total a Receber'} (Mês)
           </p>
           <p className={`font-ledger text-2xl font-bold tabular-nums ${aba === 'pagar' ? 'text-stamp' : 'text-brass'}`}>
             {formatCurrency(totalMes)}
@@ -216,8 +227,30 @@ export default function Financas() {
 
       <div className={mostrarPainelClientes ? 'lg:grid lg:grid-cols-3 lg:items-start lg:gap-6' : ''}>
         <div className={mostrarPainelClientes ? 'min-w-0 lg:col-span-2' : 'min-w-0'}>
+          {aba === 'pagar' && gastosFixos.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-brass/25 bg-brass/5 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="mb-1 flex items-center gap-2 text-brass">
+                    <ArrowsClockwise size={17} weight="bold" />
+                    <h3 className="text-xs font-bold uppercase tracking-wide">Gastos fixos</h3>
+                  </div>
+                  <p className="text-xs text-ink-soft">
+                    {gastosFixos.length} gasto(s) recorrente(s) · semanais calculados em 4 vezes no mês
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-ledger text-sm font-bold tabular-nums text-brass">{formatCurrency(totalFixosMensal)}</p>
+                  <Link to="/configuracoes" className="text-[11px] font-medium text-brass hover:underline">
+                    Gerenciar
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-sm">
-            {contasDaAba.length === 0 && lancamentosDaAba.length === 0 ? (
+            {contasDaAba.length === 0 && lancamentosDaAba.length === 0 && (aba !== 'pagar' || gastosFixos.length === 0) ? (
               <div className="flex flex-col items-center px-4 py-10 text-center">
                 <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-full ${aba === 'pagar' ? 'bg-stamp/10 text-stamp' : 'bg-brass/10 text-brass'}`}>
                   {aba === 'pagar' ? <Receipt size={24} /> : <HandCoins size={24} />}
@@ -249,6 +282,26 @@ export default function Financas() {
               </div>
             ) : (
               <ul className="divide-y divide-line">
+                {aba === 'pagar' &&
+                  gastosFixos.map((gasto) => (
+                    <li key={`fixo-${gasto.id}`} className="flex items-center justify-between gap-3 bg-brass/[0.03] p-4">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="shrink-0 rounded-lg bg-brass/10 p-2 text-brass">
+                          <ArrowsClockwise size={20} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-ink">{gasto.nome}</p>
+                          <p className="mt-0.5 text-[11px] font-medium capitalize text-brass">
+                            Gasto fixo · {gasto.recorrencia}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-ledger font-bold tabular-nums text-ink">{formatCurrency(gasto.valor)}</p>
+                        <p className="text-[10px] text-ink-soft">por {gasto.recorrencia === 'semanal' ? 'semana' : 'mês'}</p>
+                      </div>
+                    </li>
+                  ))}
                 {contasDaAba.map((conta) => {
                   const venceHoje = conta.vencimento === hoje && !conta.quitado;
                   const atrasada = !conta.quitado && conta.vencimento < hoje;
