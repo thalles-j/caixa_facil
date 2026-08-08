@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&family=Karla:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: 'Fraunces', ui-serif, serif;
-  --font-body: 'Karla', ui-sans-serif, sans-serif;
+  --font-display: 'Anthropic Sans', 'Inter', ui-sans-serif, sans-serif;
+  --font-body: 'Anthropic Sans', 'Inter', ui-sans-serif, sans-serif;
   --font-ledger: 'IBM Plex Mono', ui-monospace, monospace;
 
   --color-paper: #f7f1e4;

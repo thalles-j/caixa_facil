@@ -102,7 +102,7 @@ describe('AppDataContext', () => {
       expect(result.current.vendasHoje).toBe(20);
     });
 
-    it('vendasHoje inclui vendas fiado, mesmo ainda não recebidas', () => {
+    it('vendasHoje só inclui uma venda fiado depois do recebimento', () => {
       mockarAgora('2026-08-03T10:00:00-03:00');
       const { result } = renderAppData();
 
@@ -114,6 +114,13 @@ describe('AppDataContext', () => {
           valorUnitario: 50,
           formaPagamento: 'fiado',
         });
+      });
+
+      expect(result.current.vendasHoje).toBe(0);
+
+      const contaFiado = result.current.data.contas.find((conta) => conta.origemVendaId)!;
+      act(() => {
+        result.current.marcarContaQuitada(contaFiado.id, '2026-08-03');
       });
 
       expect(result.current.vendasHoje).toBe(50);

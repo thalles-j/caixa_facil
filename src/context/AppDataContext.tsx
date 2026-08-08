@@ -366,11 +366,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const viewPeriod: ViewPeriod = data.config?.viewPeriod ?? 'day';
 
   const vendasHoje = useMemo(
-    () =>
-      data.vendas
-        .filter((v) => v.data === hoje)
-        .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0),
-    [data.vendas, hoje],
+    () => {
+      const vendasRecebidas = data.vendas
+        .filter((v) => v.data === hoje && v.formaPagamento !== 'fiado')
+        .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0);
+      const fiadosRecebidos = data.contas
+        .filter((c) => c.tipo === 'receber' && c.quitado && c.dataQuitacao === hoje)
+        .reduce((sum, c) => sum + c.valor, 0);
+      return vendasRecebidas + fiadosRecebidos;
+    },
+    [data.vendas, data.contas, hoje],
   );
 
   const contasQuitadasHoje = useMemo(
@@ -389,22 +394,35 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [contasQuitadasHoje, data.lancamentosManuais, hoje]);
 
   const lucroEstimadoHoje = useMemo(() => {
+    const vendasFiadoRecebidasHoje = new Set(
+      data.contas
+        .filter((c) => c.tipo === 'receber' && c.quitado && c.dataQuitacao === hoje && c.origemVendaId)
+        .map((c) => c.origemVendaId),
+    );
     return data.vendas
-      .filter((v) => v.data === hoje && v.produtoId)
+      .filter(
+        (v) =>
+          v.produtoId &&
+          ((v.data === hoje && v.formaPagamento !== 'fiado') || vendasFiadoRecebidasHoje.has(v.id)),
+      )
       .reduce((sum, v) => {
         const produto = data.produtos.find((p) => p.id === v.produtoId);
         if (!produto || produto.custo === undefined) return sum;
         return sum + (v.valorUnitario - produto.custo) * v.quantidade;
       }, 0);
-  }, [data.vendas, data.produtos, hoje]);
+  }, [data.vendas, data.produtos, data.contas, hoje]);
 
   const resumoPeriodo = useMemo<ResumoPeriodo>(() => {
     const dias = viewPeriod === 'day' ? [hoje] : ultimosNDias(hoje, 7);
     const diasSet = new Set(dias);
 
     const vendas = data.vendas
-      .filter((v) => diasSet.has(v.data))
+      .filter((v) => v.formaPagamento !== 'fiado' && diasSet.has(v.data))
       .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0);
+
+    const recebimentos = data.contas
+      .filter((c) => c.tipo === 'receber' && c.quitado && c.dataQuitacao && diasSet.has(c.dataQuitacao))
+      .reduce((sum, c) => sum + c.valor, 0);
 
     const contasPagas = data.contas
       .filter((c) => c.tipo === 'pagar' && c.quitado && c.dataQuitacao && diasSet.has(c.dataQuitacao))
@@ -413,7 +431,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .filter((l) => l.tipo === 'saida' && diasSet.has(l.data))
       .reduce((sum, l) => sum + l.valor, 0);
 
-    return { vendas, despesas: contasPagas + lancamentosSaida };
+    return { vendas: vendas + recebimentos, despesas: contasPagas + lancamentosSaida };
   }, [data.vendas, data.contas, data.lancamentosManuais, viewPeriod, hoje]);
 
   const vendasUltimos7Dias = useMemo(() => {
@@ -421,10 +439,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return dias.map((data_) => ({
       data: data_,
       total: data.vendas
-        .filter((v) => v.data === data_)
-        .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0),
+        .filter((v) => v.data === data_ && v.formaPagamento !== 'fiado')
+        .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0) +
+        data.contas
+          .filter((c) => c.tipo === 'receber' && c.quitado && c.dataQuitacao === data_)
+          .reduce((sum, c) => sum + c.valor, 0),
     }));
-  }, [data.vendas, hoje]);
+  }, [data.vendas, data.contas, hoje]);
 
   const saldoCaixa = useMemo(() => {
     const entradasVendas = data.vendas

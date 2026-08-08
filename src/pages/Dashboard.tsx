@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Eye,
   EyeSlash,
@@ -21,11 +21,13 @@ import {
   Clock,
   PencilSimple,
   Trash,
+  CaretRight,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import Modal from '../components/Modal';
 import { formatCurrency, parseMoney, todayISO } from '../lib/format';
 import type { FormaPagamento, LancamentoManual, Venda } from '../types';
+import { obterMovimentacoesFinanceiras } from '../lib/movements';
 
 const diaSemanaCurto = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
 
@@ -44,7 +46,6 @@ export default function Dashboard() {
     contasAReceberEmAberto,
     contasVencendoEmBreve,
     contasVencidas,
-    contasQuitadasHoje,
     produtosEstoqueBaixo,
     addConta,
     addLancamentoManual,
@@ -56,7 +57,7 @@ export default function Dashboard() {
 
   const [saldoVisivel, setSaldoVisivel] = useState(true);
   const [lancamentoModalAberto, setLancamentoModalAberto] = useState(false);
-  const [lancamentoTipo, setLancamentoTipo] = useState<'entrada' | 'saida'>('entrada');
+  const [lancamentoTipo] = useState<'entrada' | 'saida'>('entrada');
   const [lancamentoDescricao, setLancamentoDescricao] = useState('');
   const [lancamentoValor, setLancamentoValor] = useState('');
   const [lancamentoItemType, setLancamentoItemType] = useState<'product' | 'service'>('product');
@@ -176,31 +177,7 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [data.vendas, hoje]);
 
-  const movimentacoesHoje = useMemo(() => {
-    const vendas = data.vendas
-      .filter((v) => v.data === hoje)
-      .map((v) => ({
-        id: v.id,
-        descricao: `${v.descricao} (${formaPagamentoLabel(v.formaPagamento)})`,
-        valor: v.quantidade * v.valorUnitario,
-        tipo: 'entrada' as const,
-        origem: 'venda' as const,
-      }));
-    const manuais = data.lancamentosManuais
-      .filter((l) => l.data === hoje)
-      .map((l) => ({ id: l.id, descricao: l.descricao, valor: l.valor, tipo: l.tipo, origem: 'lancamento' as const }));
-    // contas quitadas hoje entram só como leitura — já são editáveis/removíveis em Finanças
-    const contas = contasQuitadasHoje
-      .filter((c) => !c.origemVendaId)
-      .map((c) => ({
-        id: c.id,
-        descricao: c.descricao,
-        valor: c.valor,
-        tipo: c.tipo === 'pagar' ? ('saida' as const) : ('entrada' as const),
-        origem: 'conta' as const,
-      }));
-    return [...vendas, ...manuais, ...contas];
-  }, [data.vendas, data.lancamentosManuais, contasQuitadasHoje, hoje]);
+  const movimentacoesRecentes = useMemo(() => obterMovimentacoesFinanceiras(data).slice(0, 5), [data]);
 
   const maxHistorico = Math.max(1, ...vendasUltimos7Dias.map((d) => d.total));
 
@@ -227,28 +204,40 @@ export default function Dashboard() {
         </div>
 
         <div className="flex gap-3">
-          <div className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3">
+          <Link
+            to="/vendas"
+            className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3 transition hover:bg-[#f7f1e4]/15"
+          >
             <div className="mb-1 flex items-start justify-between gap-2">
               <p className="truncate font-ledger text-[9px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">
                 Vendas {sufixoPeriodo}
               </p>
-              <TrendUp size={16} weight="fill" className="shrink-0 text-[#7fd9ab]" />
+              <span className="flex shrink-0 items-center text-[#7fd9ab]">
+                <TrendUp size={16} weight="fill" />
+                <CaretRight size={14} weight="bold" />
+              </span>
             </div>
             <p className="truncate font-ledger text-lg font-semibold tabular-nums">
               {saldoVisivel ? formatCurrency(resumoPeriodo.vendas) : '••••'}
             </p>
-          </div>
-          <div className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3">
+          </Link>
+          <Link
+            to="/despesas"
+            className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3 transition hover:bg-[#f7f1e4]/15"
+          >
             <div className="mb-1 flex items-start justify-between gap-2">
               <p className="truncate font-ledger text-[9px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">
                 Despesas {sufixoPeriodo}
               </p>
-              <TrendDown size={16} weight="fill" className="shrink-0 text-[#f0a89f]" />
+              <span className="flex shrink-0 items-center text-[#f0a89f]">
+                <TrendDown size={16} weight="fill" />
+                <CaretRight size={14} weight="bold" />
+              </span>
             </div>
             <p className="truncate font-ledger text-lg font-semibold tabular-nums">
               {saldoVisivel ? formatCurrency(resumoPeriodo.despesas) : '••••'}
             </p>
-          </div>
+          </Link>
         </div>
       </div>
 
@@ -257,24 +246,16 @@ export default function Dashboard() {
         id="dashboard-action-buttons"
         className="grid grid-cols-4 gap-2 rounded-2xl border border-line bg-paper-raised p-3 shadow-sm"
       >
-        <QuickAction icon={Calculator} label="Caixa" onClick={() => navigate('/caixa')} />
+        <QuickAction icon={Calculator} label="Caixa" to="/caixa" />
         <QuickAction
           icon={ArrowUpRight}
           label="Entrada"
-          onClick={() => {
-            setLancamentoTipo('entrada');
-            setLancamentoItemType('product');
-            setLancamentoItemId('');
-            setLancamentoModalAberto(true);
-          }}
+          to="/entradas"
         />
         <QuickAction
           icon={ArrowDownRight}
           label="Despesa"
-          onClick={() => {
-            setLancamentoTipo('saida');
-            setLancamentoModalAberto(true);
-          }}
+          to="/despesas"
         />
         <QuickAction icon={Clock} label="Em breve" disabled />
       </div>
@@ -611,29 +592,29 @@ export default function Dashboard() {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-ink-soft">Movimentações Hoje</h2>
-          <button onClick={() => navigate('/financas')} className="text-xs font-medium text-ledger-strong dark:text-ledger">
-            Ver Finanças
-          </button>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-ink-soft">Movimentações recentes</h2>
+          <Link to="/movimentacoes" className="inline-flex items-center gap-1 text-xs font-medium text-ledger-strong dark:text-ledger">
+            Ver todas <CaretRight size={13} weight="bold" />
+          </Link>
         </div>
         <div className="overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-sm">
-          {movimentacoesHoje.length === 0 ? (
+          {movimentacoesRecentes.length === 0 ? (
             <div className="flex flex-col items-center px-4 py-8 text-center">
               <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-line/50 text-ink-soft">
                 <Newspaper size={20} />
               </div>
-              <p className="mb-1 text-sm font-medium text-ink">Nenhuma movimentação hoje</p>
-              <p className="mb-3 text-xs text-ink-soft">Vendas e contas pagas hoje aparecem aqui.</p>
+              <p className="mb-1 text-sm font-medium text-ink">Nenhuma movimentação registrada</p>
+              <p className="mb-3 text-xs text-ink-soft">Vendas recebidas e despesas pagas aparecem aqui.</p>
               <button onClick={() => navigate('/caixa')} className="text-xs font-medium text-ledger-strong dark:text-ledger">
                 Registrar uma venda
               </button>
             </div>
           ) : (
             <ul className="divide-y divide-line">
-              {movimentacoesHoje.map((mov) => {
+              {movimentacoesRecentes.map((mov) => {
                 const isSaida = mov.tipo === 'saida';
                 return (
-                  <li key={mov.id} className="flex items-center justify-between gap-3 p-3">
+                  <li key={`${mov.origem}-${mov.id}`} className="flex items-center justify-between gap-3 p-3">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-line/40">
                         {isSaida ? (
@@ -642,7 +623,10 @@ export default function Dashboard() {
                           <ArrowUp size={18} className="text-ledger-strong dark:text-ledger" />
                         )}
                       </div>
-                      <div className="min-w-0 truncate text-sm font-medium text-ink">{mov.descricao}</div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-ink">{mov.descricao}</div>
+                        <div className="text-[10px] text-ink-soft">{mov.data.split('-').reverse().join('/')}</div>
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <div
@@ -670,7 +654,13 @@ export default function Dashboard() {
                             <PencilSimple size={14} />
                           </button>
                           <button
-                            onClick={() => setItemParaExcluir({ tipo: mov.origem, id: mov.id, label: mov.descricao })}
+                            onClick={() =>
+                              setItemParaExcluir({
+                                tipo: mov.origem === 'venda' ? 'venda' : 'lancamento',
+                                id: mov.id,
+                                label: mov.descricao,
+                              })
+                            }
                             aria-label="Excluir"
                             className="rounded p-1.5 text-ink-soft transition hover:bg-stamp/10 hover:text-stamp"
                           >
@@ -896,22 +886,16 @@ function AlertRow({
 function QuickAction({
   icon: Icon,
   label,
-  onClick,
+  to,
   disabled,
 }: {
   icon: typeof Calculator;
   label: string;
-  onClick?: () => void;
+  to?: string;
   disabled?: boolean;
 }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex flex-col items-center gap-1 rounded-xl py-2 transition ${
-        disabled ? 'cursor-default text-ink-soft/50' : 'text-ink-soft hover:bg-line/40 hover:text-ink'
-      }`}
-    >
+  const content = (
+    <>
       <div
         className={`flex h-9 w-9 items-center justify-center rounded-full ${
           disabled ? 'bg-line/30' : 'bg-ledger/10 text-ledger-strong dark:text-ledger'
@@ -920,24 +904,20 @@ function QuickAction({
         <Icon size={18} />
       </div>
       <span className="text-[10px] font-medium">{label}</span>
+    </>
+  );
+
+  const className = `flex flex-col items-center gap-1 rounded-xl py-2 transition ${
+    disabled ? 'cursor-default text-ink-soft/50' : 'text-ink-soft hover:bg-line/40 hover:text-ink'
+  }`;
+
+  return to ? (
+    <Link to={to} className={className}>
+      {content}
+    </Link>
+  ) : (
+    <button disabled={disabled} className={className}>
+      {content}
     </button>
   );
 }
-
-function formaPagamentoLabel(forma: string) {
-  switch (forma) {
-    case 'dinheiro':
-      return 'Dinheiro';
-    case 'pix':
-      return 'Pix';
-    case 'cartao_credito':
-      return 'Cartão Crédito';
-    case 'cartao_debito':
-      return 'Cartão Débito';
-    case 'fiado':
-      return 'Fiado';
-    default:
-      return forma;
-  }
-}
-

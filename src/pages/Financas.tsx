@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
   Lightning,
@@ -15,6 +15,7 @@ import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate, parseMoney, todayISO } from '../lib/format';
 import Modal from '../components/Modal';
 import type { Conta, LancamentoManual, TipoConta } from '../types';
+import FinanceNav from '../components/FinanceNav';
 
 type ItemParaExcluir = { tipo: 'conta' | 'lancamento'; id: string; label: string };
 
@@ -23,8 +24,7 @@ export default function Financas() {
     useAppData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const tabInicial = searchParams.get('tab') === 'receber' ? 'receber' : searchParams.get('tab') === 'pagar' ? 'pagar' : null;
-  const [aba, setAba] = useState<TipoConta>(tabInicial ?? 'pagar');
+  const aba: TipoConta = searchParams.get('tab') === 'receber' ? 'receber' : 'pagar';
   const [modalAberto, setModalAberto] = useState(false);
   const [entradaModalAberto, setEntradaModalAberto] = useState(false);
   const [entradaDescricao, setEntradaDescricao] = useState('');
@@ -153,23 +153,25 @@ export default function Financas() {
     <div className="fade-in">
       <h2 className="mb-4 font-display text-xl font-bold">Financeiro</h2>
 
+      <FinanceNav />
+
       <div className="mb-6 flex rounded-xl bg-line/40 p-1">
-        <button
-          onClick={() => setAba('pagar')}
+        <Link
+          to="/financas?tab=pagar"
           className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
             aba === 'pagar' ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft'
-          }`}
+          } text-center`}
         >
           A Pagar
-        </button>
-        <button
-          onClick={() => setAba('receber')}
+        </Link>
+        <Link
+          to="/financas?tab=receber"
           className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
             aba === 'receber' ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft'
-          }`}
+          } text-center`}
         >
           A Receber (Fiado)
-        </button>
+        </Link>
       </div>
 
       <div className="mb-4 flex items-end justify-between gap-3">

@@ -11,6 +11,7 @@ import Caixa from './pages/Caixa';
 import Catalogo from './pages/Catalogo';
 import Financas from './pages/Financas';
 import Configuracoes from './pages/Configuracoes';
+import Movimentacoes from './pages/Movimentacoes';
 
 export default function App() {
   const { isAuthenticated } = useAuth();
@@ -48,6 +49,10 @@ export default function App() {
         <Route path="/catalogo" element={<Catalogo />} />
         <Route path="/estoque" element={<Navigate to="/catalogo" replace />} />
         <Route path="/financas" element={<Financas />} />
+        <Route path="/movimentacoes" element={<Movimentacoes modo="todas" />} />
+        <Route path="/vendas" element={<Movimentacoes modo="vendas" />} />
+        <Route path="/entradas" element={<Movimentacoes modo="entradas" />} />
+        <Route path="/despesas" element={<Movimentacoes modo="saidas" />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
