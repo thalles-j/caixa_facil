@@ -61,6 +61,7 @@ export default function Dashboard() {
   const [lancamentoValor, setLancamentoValor] = useState('');
   const [lancamentoItemType, setLancamentoItemType] = useState<'product' | 'service'>('product');
   const [lancamentoItemId, setLancamentoItemId] = useState('');
+  const [lancamentoCategoria, setLancamentoCategoria] = useState('');
   const [lancamentoData, setLancamentoData] = useState(todayISO());
   const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
   const [lancamentoEditando, setLancamentoEditando] = useState<LancamentoManual | null>(null);
@@ -87,12 +88,16 @@ export default function Dashboard() {
   const handleSalvarLancamento = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const valor = parseMoney(lancamentoValor);
-    if (!lancamentoDescricao.trim() || valor <= 0) return;
-
     const itemSelecionado = data.produtos.find((item) => item.id === lancamentoItemId);
+    const descricao =
+      lancamentoDescricao.trim() ||
+      (lancamentoTipo === 'saida' ? lancamentoCategoria : itemSelecionado?.nome) ||
+      '';
+    if (!descricao || valor <= 0) return;
+
     addLancamentoManual({
       tipo: lancamentoTipo,
-      descricao: lancamentoDescricao.trim() || itemSelecionado?.nome || '',
+      descricao,
       valor,
       data: lancamentoData,
     });
@@ -100,6 +105,7 @@ export default function Dashboard() {
     setLancamentoModalAberto(false);
     setLancamentoDescricao('');
     setLancamentoValor('');
+    setLancamentoCategoria('');
     setLancamentoData(todayISO());
   };
 
@@ -250,6 +256,7 @@ export default function Dashboard() {
           label="Despesa"
           onClick={() => {
             setLancamentoTipo('saida');
+            setLancamentoCategoria('');
             setLancamentoModalAberto(true);
           }}
         />
@@ -335,7 +342,7 @@ export default function Dashboard() {
               value={lancamentoDescricao}
               onChange={(e) => setLancamentoDescricao(e.target.value)}
               type="text"
-              required
+              required={lancamentoTipo === 'entrada' ? !lancamentoItemId : !lancamentoCategoria}
               placeholder={lancamentoTipo === 'entrada' ? 'Ex: Venda de Produtos' : 'Ex: Conta de luz ou fornecimento'}
               className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
             />
@@ -404,7 +411,12 @@ export default function Dashboard() {
           ) : (
             <div>
               <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Categoria de despesa</label>
-              <select id="lancamento-categoria" className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink">
+              <select
+                id="lancamento-categoria"
+                value={lancamentoCategoria}
+                onChange={(e) => setLancamentoCategoria(e.target.value)}
+                className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
+              >
                 <option value="">Selecione uma categoria</option>
                 <option>Mercadoria</option>
                 <option>Fornecedor</option>
