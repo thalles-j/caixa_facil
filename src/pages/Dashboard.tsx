@@ -47,7 +47,6 @@ export default function Dashboard() {
     contasVencendoEmBreve,
     contasVencidas,
     produtosEstoqueBaixo,
-    addConta,
     addLancamentoManual,
     editarVenda,
     removerVenda,
@@ -63,7 +62,6 @@ export default function Dashboard() {
   const [lancamentoItemType, setLancamentoItemType] = useState<'product' | 'service'>('product');
   const [lancamentoItemId, setLancamentoItemId] = useState('');
   const [lancamentoData, setLancamentoData] = useState(todayISO());
-  const [lancamentoVencimento, setLancamentoVencimento] = useState(todayISO());
   const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
   const [lancamentoEditando, setLancamentoEditando] = useState<LancamentoManual | null>(null);
   const [itemParaExcluir, setItemParaExcluir] = useState<ItemParaExcluir | null>(null);
@@ -91,28 +89,18 @@ export default function Dashboard() {
     const valor = parseMoney(lancamentoValor);
     if (!lancamentoDescricao.trim() || valor <= 0) return;
 
-    if (lancamentoTipo === 'entrada') {
-      const itemSelecionado = data.produtos.find((item) => item.id === lancamentoItemId);
-      addLancamentoManual({
-        tipo: 'entrada',
-        descricao: lancamentoDescricao.trim() || itemSelecionado?.nome || '',
-        valor,
-        data: lancamentoData,
-      });
-    } else {
-      addConta({
-        tipo: 'pagar',
-        descricao: lancamentoDescricao.trim(),
-        valor,
-        vencimento: lancamentoVencimento,
-      });
-    }
+    const itemSelecionado = data.produtos.find((item) => item.id === lancamentoItemId);
+    addLancamentoManual({
+      tipo: lancamentoTipo,
+      descricao: lancamentoDescricao.trim() || itemSelecionado?.nome || '',
+      valor,
+      data: lancamentoData,
+    });
 
     setLancamentoModalAberto(false);
     setLancamentoDescricao('');
     setLancamentoValor('');
     setLancamentoData(todayISO());
-    setLancamentoVencimento(todayISO());
   };
 
   const handleEditarVendaSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -431,6 +419,17 @@ export default function Dashboard() {
               </select>
             </div>
           )}
+
+          <div>
+            <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Data</label>
+            <input
+              type="date"
+              value={lancamentoData}
+              onChange={(e) => setLancamentoData(e.target.value)}
+              required
+              className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
+            />
+          </div>
 
           <div>
             <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">
