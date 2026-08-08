@@ -57,7 +57,7 @@ export default function Dashboard() {
 
   const [saldoVisivel, setSaldoVisivel] = useState(true);
   const [lancamentoModalAberto, setLancamentoModalAberto] = useState(false);
-  const [lancamentoTipo] = useState<'entrada' | 'saida'>('entrada');
+  const [lancamentoTipo, setLancamentoTipo] = useState<'entrada' | 'saida'>('entrada');
   const [lancamentoDescricao, setLancamentoDescricao] = useState('');
   const [lancamentoValor, setLancamentoValor] = useState('');
   const [lancamentoItemType, setLancamentoItemType] = useState<'product' | 'service'>('product');
@@ -250,12 +250,20 @@ export default function Dashboard() {
         <QuickAction
           icon={ArrowUpRight}
           label="Entradas"
-          to="/entradas"
+          onClick={() => {
+            setLancamentoTipo('entrada');
+            setLancamentoItemType('product');
+            setLancamentoItemId('');
+            setLancamentoModalAberto(true);
+          }}
         />
         <QuickAction
           icon={ArrowDownRight}
           label="Despesa"
-          to="/despesas"
+          onClick={() => {
+            setLancamentoTipo('saida');
+            setLancamentoModalAberto(true);
+          }}
         />
         <QuickAction icon={Clock} label="Em breve" disabled />
       </div>
@@ -265,6 +273,35 @@ export default function Dashboard() {
         onClose={() => setLancamentoModalAberto(false)}
         title={lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Despesa'}
       >
+        <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-line/40 p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setLancamentoTipo('entrada');
+              setLancamentoItemType('product');
+              setLancamentoItemId('');
+            }}
+            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+              lancamentoTipo === 'entrada'
+                ? 'bg-paper-raised text-ledger-strong shadow-sm dark:text-ledger'
+                : 'text-ink-soft hover:text-ink'
+            }`}
+          >
+            <ArrowUpRight size={17} /> Entrada
+          </button>
+          <button
+            type="button"
+            onClick={() => setLancamentoTipo('saida')}
+            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+              lancamentoTipo === 'saida'
+                ? 'bg-paper-raised text-stamp shadow-sm'
+                : 'text-ink-soft hover:text-ink'
+            }`}
+          >
+            <ArrowDownRight size={17} /> Despesa
+          </button>
+        </div>
+
         <div className="mb-6 flex items-center gap-3">
           <div
             className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
@@ -887,11 +924,13 @@ function QuickAction({
   icon: Icon,
   label,
   to,
+  onClick,
   disabled,
 }: {
   icon: typeof Calculator;
   label: string;
   to?: string;
+  onClick?: () => void;
   disabled?: boolean;
 }) {
   const content = (
@@ -916,7 +955,7 @@ function QuickAction({
       {content}
     </Link>
   ) : (
-    <button disabled={disabled} className={className}>
+    <button type="button" onClick={onClick} disabled={disabled} className={className}>
       {content}
     </button>
   );
