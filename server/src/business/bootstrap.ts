@@ -61,7 +61,7 @@ export async function loadBootstrapData(user: UserIdentity) {
           ORDER BY created_at, description
         `, [user.id]),
         client.query(`
-          SELECT id, occurred_at, type, description, amount
+          SELECT id, occurred_at, type, description, amount, payment_method
           FROM transactions
           WHERE user_id = $1 AND source IN ('ajuste', 'despesa_avulsa')
           ORDER BY occurred_at
@@ -105,6 +105,7 @@ export async function loadBootstrapData(user: UserIdentity) {
       vendas: salesResult.rows.map((sale) => ({
         id: sale.id,
         data: isoDate(sale.sold_at),
+        createdAt: new Date(sale.sold_at).toISOString(),
         descricao: sale.product_name,
         quantidade: Number(sale.quantity),
         valorUnitario: Number(sale.unit_price),
@@ -124,15 +125,18 @@ export async function loadBootstrapData(user: UserIdentity) {
         vencimento: isoDate(credit.due_date ?? credit.created_at),
         quitado: credit.status === 'pago',
         dataQuitacao: isoDate(credit.paid_at),
+        quitadoEm: credit.paid_at ? new Date(credit.paid_at).toISOString() : undefined,
         origemVendaId: credit.sale_item_id ?? undefined,
         clienteId: credit.customer_id,
       })),
       lancamentosManuais: manualResult.rows.map((entry) => ({
         id: entry.id,
         data: isoDate(entry.occurred_at),
+        createdAt: new Date(entry.occurred_at).toISOString(),
         tipo: entry.type,
         descricao: entry.description ?? 'Lançamento manual',
         valor: Number(entry.amount),
+        formaPagamento: entry.payment_method ?? undefined,
       })),
     };
   });

@@ -170,7 +170,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const addVenda = (venda: Omit<Venda, 'id'>, opts?: { clienteId?: string }) => {
-    const novaVenda: Venda = { ...venda, id: uid() };
+    const novaVenda: Venda = { ...venda, createdAt: venda.createdAt ?? new Date().toISOString(), id: uid() };
 
     setData((prev) => {
       let produtos = prev.produtos;
@@ -205,7 +205,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const vendaAtual = data.vendas.find((v) => v.id === id);
     if (!vendaAtual) return false;
 
-    const vendaAtualizada: Venda = { ...vendaAtual, ...patch };
+    const vendaAtualizada: Venda = {
+      ...vendaAtual,
+      ...patch,
+      createdAt:
+        patch.data && patch.data !== vendaAtual.data
+          ? `${patch.data}T12:00:00.000Z`
+          : vendaAtual.createdAt,
+    };
     const saiuDoFiado = vendaAtual.formaPagamento === 'fiado' && vendaAtualizada.formaPagamento !== 'fiado';
     const contaVinculada = saiuDoFiado ? data.contas.find((c) => c.origemVendaId === id) : undefined;
 
@@ -324,10 +331,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const marcarContaQuitada = (id: string, dataPagamento?: string) => {
+    const dataQuitacao = dataPagamento ?? todayISO();
+    const quitadoEm = dataQuitacao === todayISO() ? new Date().toISOString() : `${dataQuitacao}T12:00:00.000Z`;
     setData((prev) => ({
       ...prev,
       contas: prev.contas.map((c) =>
-        c.id === id ? { ...c, quitado: true, dataQuitacao: dataPagamento ?? todayISO() } : c,
+        c.id === id ? { ...c, quitado: true, dataQuitacao, quitadoEm } : c,
       ),
     }));
   };
@@ -335,14 +344,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const addLancamentoManual = (lancamento: Omit<LancamentoManual, 'id'>) => {
     setData((prev) => ({
       ...prev,
-      lancamentosManuais: [...prev.lancamentosManuais, { ...lancamento, id: uid() }],
+      lancamentosManuais: [
+        ...prev.lancamentosManuais,
+        { ...lancamento, createdAt: lancamento.createdAt ?? new Date().toISOString(), id: uid() },
+      ],
     }));
   };
 
   const editarLancamentoManual = (id: string, patch: Partial<Omit<LancamentoManual, 'id'>>) => {
     setData((prev) => ({
       ...prev,
-      lancamentosManuais: prev.lancamentosManuais.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+      lancamentosManuais: prev.lancamentosManuais.map((l) =>
+        l.id === id
+          ? {
+              ...l,
+              ...patch,
+              createdAt: patch.data && patch.data !== l.data ? `${patch.data}T12:00:00.000Z` : l.createdAt,
+            }
+          : l,
+      ),
     }));
   };
 

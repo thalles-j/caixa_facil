@@ -32,6 +32,7 @@ export interface CompanyConfig {
 export interface Venda {
   id: string;
   data: string; // ISO date
+  createdAt?: string; // instante ISO usado para ordenar vendas do mesmo dia
   descricao: string;
   quantidade: number;
   valorUnitario: number;
@@ -65,6 +66,7 @@ export interface Conta {
   vencimento: string; // ISO date
   quitado: boolean;
   dataQuitacao?: string; // ISO date — quando a conta foi de fato paga/recebida (preenchido ao dar baixa)
+  quitadoEm?: string; // instante ISO da baixa, para ordenação dentro do mesmo dia
   origemVendaId?: string; // preenchido quando a conta a receber nasce de uma venda "fiado"
   clienteId?: string; // preenchido quando a conta a receber está vinculada a um cliente cadastrado
 }
@@ -72,9 +74,11 @@ export interface Conta {
 export interface LancamentoManual {
   id: string;
   data: string;
+  createdAt?: string; // instante ISO usado para ordenar lançamentos do mesmo dia
   tipo: TipoLancamento;
   descricao: string;
   valor: number;
+  formaPagamento?: FormaPagamento;
 }
 
 export interface AppData {

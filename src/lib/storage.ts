@@ -16,6 +16,11 @@ export const emptyData: AppData = {
   clientes: [],
 };
 
+function instanteLegado(data: string, hora: number, ordem: number): string {
+  const base = new Date(`${data}T${String(hora).padStart(2, '0')}:00:00.000Z`).getTime();
+  return Number.isNaN(base) ? `${data}T00:00:00.000Z` : new Date(base + ordem).toISOString();
+}
+
 export function loadData(userId?: string | null): AppData {
   try {
     const raw = localStorage.getItem(storageKeyForUser(userId));
@@ -33,7 +38,33 @@ export function loadData(userId?: string | null): AppData {
         }))
       : [];
 
-    return { ...emptyData, ...parsed, produtos };
+    const vendas = Array.isArray(parsed.vendas)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalização do backup/localStorage legado
+        parsed.vendas.map((venda: any, index: number) => ({
+          ...venda,
+          createdAt: venda.createdAt ?? instanteLegado(venda.data, 12, index),
+        }))
+      : [];
+
+    const lancamentosManuais = Array.isArray(parsed.lancamentosManuais)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalização do backup/localStorage legado
+        parsed.lancamentosManuais.map((lancamento: any, index: number) => ({
+          ...lancamento,
+          createdAt: lancamento.createdAt ?? instanteLegado(lancamento.data, 23, index),
+        }))
+      : [];
+
+    const contas = Array.isArray(parsed.contas)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalização do backup/localStorage legado
+        parsed.contas.map((conta: any, index: number) => ({
+          ...conta,
+          quitadoEm:
+            conta.quitadoEm ??
+            (conta.quitado && conta.dataQuitacao ? instanteLegado(conta.dataQuitacao, 20, index) : undefined),
+        }))
+      : [];
+
+    return { ...emptyData, ...parsed, produtos, vendas, contas, lancamentosManuais };
   } catch {
     return emptyData;
   }

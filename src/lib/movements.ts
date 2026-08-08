@@ -14,11 +14,12 @@ export interface Movimentacao {
   formaPagamento?: FormaPagamento;
   itemType?: Produto['type'];
   fiadoPendente?: boolean;
+  ocorridoEm: string;
   ordem: number;
 }
 
 function ordenarMaisRecentesPrimeiro(movimentacoes: Movimentacao[]): Movimentacao[] {
-  return movimentacoes.sort((a, b) => b.data.localeCompare(a.data) || b.ordem - a.ordem);
+  return movimentacoes.sort((a, b) => b.ocorridoEm.localeCompare(a.ocorridoEm) || b.ordem - a.ordem);
 }
 
 export function formaPagamentoLabel(forma: FormaPagamento): string {
@@ -48,6 +49,7 @@ export function obterMovimentacoesFinanceiras(data: AppData): Movimentacao[] {
       categoria: 'venda',
       detalhe: `Venda · ${formaPagamentoLabel(venda.formaPagamento)}`,
       formaPagamento: venda.formaPagamento,
+      ocorridoEm: venda.createdAt ?? `${venda.data}T12:00:00.000Z`,
       ordem: index * 3 + 2,
     }));
 
@@ -59,7 +61,11 @@ export function obterMovimentacoesFinanceiras(data: AppData): Movimentacao[] {
     tipo: lancamento.tipo,
     origem: 'lancamento',
     categoria: lancamento.tipo === 'entrada' ? 'entrada' : 'despesa',
-    detalhe: lancamento.tipo === 'entrada' ? 'Entrada manual' : 'Saída manual',
+    detalhe: `${lancamento.tipo === 'entrada' ? 'Entrada manual' : 'Saída manual'}${
+      lancamento.formaPagamento ? ` · ${formaPagamentoLabel(lancamento.formaPagamento)}` : ''
+    }`,
+    formaPagamento: lancamento.formaPagamento,
+    ocorridoEm: lancamento.createdAt ?? `${lancamento.data}T23:00:00.000Z`,
     ordem: index * 3 + 1,
   }));
 
@@ -77,6 +83,7 @@ export function obterMovimentacoesFinanceiras(data: AppData): Movimentacao[] {
         origem: 'conta',
         categoria: conta.tipo === 'receber' ? 'entrada' : 'despesa',
         detalhe: recebimentoFiado ? 'Pagamento de fiado' : conta.tipo === 'receber' ? 'Conta recebida' : 'Despesa paga',
+        ocorridoEm: conta.quitadoEm ?? `${conta.dataQuitacao!}T20:00:00.000Z`,
         ordem: index * 3,
       };
     });
@@ -112,6 +119,7 @@ export function obterVendas(data: AppData): Movimentacao[] {
         formaPagamento: venda.formaPagamento,
         itemType: venda.produtoId ? produtosPorId.get(venda.produtoId)?.type : undefined,
         fiadoPendente,
+        ocorridoEm: venda.createdAt ?? `${venda.data}T12:00:00.000Z`,
         ordem: index,
       };
     }),

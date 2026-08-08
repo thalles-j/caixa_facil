@@ -22,6 +22,10 @@ import {
   PencilSimple,
   Trash,
   CaretRight,
+  Money,
+  QrCode,
+  CreditCard,
+  CheckCircle,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import Modal from '../components/Modal';
@@ -32,6 +36,24 @@ import { obterMovimentacoesFinanceiras } from '../lib/movements';
 const diaSemanaCurto = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
 
 type ItemParaExcluir = { tipo: 'venda' | 'lancamento'; id: string; label: string };
+type FormaPagamentoLancamento = 'dinheiro' | 'pix' | 'cartao_credito';
+
+const FORMAS_LANCAMENTO: {
+  value: FormaPagamentoLancamento;
+  label: string;
+  Icon: typeof Money;
+}[] = [
+  { value: 'dinheiro', label: 'Dinheiro', Icon: Money },
+  { value: 'pix', label: 'Pix', Icon: QrCode },
+  { value: 'cartao_credito', label: 'Cartão', Icon: CreditCard },
+];
+
+function somenteValorMonetario(valor: string): string {
+  const limpo = valor.replace(/\./g, '').replace(/[^\d,]/g, '');
+  const [inteiro, ...decimais] = limpo.split(',');
+  const decimal = decimais.join('').slice(0, 2);
+  return decimais.length > 0 ? `${inteiro},${decimal}` : inteiro;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -59,10 +81,9 @@ export default function Dashboard() {
   const [lancamentoTipo, setLancamentoTipo] = useState<'entrada' | 'saida'>('entrada');
   const [lancamentoDescricao, setLancamentoDescricao] = useState('');
   const [lancamentoValor, setLancamentoValor] = useState('');
-  const [lancamentoItemType, setLancamentoItemType] = useState<'product' | 'service'>('product');
-  const [lancamentoItemId, setLancamentoItemId] = useState('');
   const [lancamentoCategoria, setLancamentoCategoria] = useState('');
   const [lancamentoData, setLancamentoData] = useState(todayISO());
+  const [lancamentoPagamento, setLancamentoPagamento] = useState<FormaPagamentoLancamento>('dinheiro');
   const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
   const [lancamentoEditando, setLancamentoEditando] = useState<LancamentoManual | null>(null);
   const [itemParaExcluir, setItemParaExcluir] = useState<ItemParaExcluir | null>(null);
@@ -88,10 +109,9 @@ export default function Dashboard() {
   const handleSalvarLancamento = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const valor = parseMoney(lancamentoValor);
-    const itemSelecionado = data.produtos.find((item) => item.id === lancamentoItemId);
     const descricao =
       lancamentoDescricao.trim() ||
-      (lancamentoTipo === 'saida' ? lancamentoCategoria : itemSelecionado?.nome) ||
+      (lancamentoTipo === 'saida' ? lancamentoCategoria : '') ||
       '';
     if (!descricao || valor <= 0) return;
 
@@ -100,6 +120,7 @@ export default function Dashboard() {
       descricao,
       valor,
       data: lancamentoData,
+      formaPagamento: lancamentoPagamento,
     });
 
     setLancamentoModalAberto(false);
@@ -107,6 +128,7 @@ export default function Dashboard() {
     setLancamentoValor('');
     setLancamentoCategoria('');
     setLancamentoData(todayISO());
+    setLancamentoPagamento('dinheiro');
   };
 
   const handleEditarVendaSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -246,8 +268,6 @@ export default function Dashboard() {
           label="Entradas"
           onClick={() => {
             setLancamentoTipo('entrada');
-            setLancamentoItemType('product');
-            setLancamentoItemId('');
             setLancamentoModalAberto(true);
           }}
         />
@@ -271,11 +291,7 @@ export default function Dashboard() {
         <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-line/40 p-1">
           <button
             type="button"
-            onClick={() => {
-              setLancamentoTipo('entrada');
-              setLancamentoItemType('product');
-              setLancamentoItemId('');
-            }}
+            onClick={() => setLancamentoTipo('entrada')}
             className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
               lancamentoTipo === 'entrada'
                 ? 'bg-paper-raised text-ledger-strong shadow-sm dark:text-ledger'
@@ -325,9 +341,10 @@ export default function Dashboard() {
               <input
                 id="lancamento-valor"
                 value={lancamentoValor}
-                onChange={(e) => setLancamentoValor(e.target.value)}
+                onChange={(e) => setLancamentoValor(somenteValorMonetario(e.target.value))}
                 type="text"
                 inputMode="decimal"
+                pattern="[0-9]+([,][0-9]{1,2})?"
                 required
                 className="w-full rounded-2xl border border-line bg-paper py-4 pl-12 pr-4 font-ledger text-3xl font-black text-ink"
                 placeholder="0,00"
@@ -342,73 +359,13 @@ export default function Dashboard() {
               value={lancamentoDescricao}
               onChange={(e) => setLancamentoDescricao(e.target.value)}
               type="text"
-              required={lancamentoTipo === 'entrada' ? !lancamentoItemId : !lancamentoCategoria}
+              required={lancamentoTipo === 'entrada' || !lancamentoCategoria}
               placeholder={lancamentoTipo === 'entrada' ? 'Ex: Venda de Produtos' : 'Ex: Conta de luz ou fornecimento'}
               className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
             />
           </div>
 
-          {lancamentoTipo === 'entrada' ? (
-            <>
-              <div>
-                <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Produto ou Serviço</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLancamentoItemType('product');
-                      setLancamentoItemId('');
-                    }}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                      lancamentoItemType === 'product'
-                        ? 'border-ink bg-ink/5 text-ink'
-                        : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
-                    }`}
-                  >
-                    Produto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLancamentoItemType('service');
-                      setLancamentoItemId('');
-                    }}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                      lancamentoItemType === 'service'
-                        ? 'border-ink bg-ink/5 text-ink'
-                        : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
-                    }`}
-                  >
-                    Serviço
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Item</label>
-                <select
-                  id="lancamento-item"
-                  value={lancamentoItemId}
-                  onChange={(e) => setLancamentoItemId(e.target.value)}
-                  className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
-                >
-                  <option value="">{`Selecione um ${lancamentoItemType === 'product' ? 'produto' : 'serviço'}`}</option>
-                  {data.produtos
-                    .filter((item) => item.type === lancamentoItemType)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nome}
-                      </option>
-                    ))}
-                </select>
-                {data.produtos.filter((item) => item.type === lancamentoItemType).length === 0 && (
-                  <p className="mt-2 text-xs text-ink-soft">
-                    Nenhum {lancamentoItemType === 'product' ? 'produto' : 'serviço'} cadastrado.
-                  </p>
-                )}
-              </div>
-            </>
-          ) : (
+          {lancamentoTipo === 'saida' && (
             <div>
               <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Categoria de despesa</label>
               <select
@@ -448,18 +405,38 @@ export default function Dashboard() {
               {lancamentoTipo === 'entrada' ? 'Forma de Recebimento' : 'Forma de Pagamento'}
             </label>
             <div className="grid grid-cols-3 gap-2">
-              <label className="radio-card">
-                <input type="radio" name="lancamento-pagamento" value="Dinheiro" defaultChecked hidden />
-                <div>💵 Dinheiro</div>
-              </label>
-              <label className="radio-card">
-                <input type="radio" name="lancamento-pagamento" value="Pix" hidden />
-                <div>📱 Pix</div>
-              </label>
-              <label className="radio-card">
-                <input type="radio" name="lancamento-pagamento" value="Cartão" hidden />
-                <div>💳 Cartão</div>
-              </label>
+              {FORMAS_LANCAMENTO.map(({ value, label, Icon }) => {
+                const selecionado = lancamentoPagamento === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={selecionado}
+                    onClick={() => setLancamentoPagamento(value)}
+                    className={`relative flex min-w-0 flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-semibold transition ${
+                      selecionado
+                        ? 'border-ledger bg-ledger/10 text-ledger-strong ring-2 ring-ledger/15 dark:text-ledger'
+                        : 'border-line bg-paper text-ink-soft hover:border-ink-soft hover:text-ink'
+                    }`}
+                  >
+                    {selecionado && (
+                      <CheckCircle
+                        size={15}
+                        weight="fill"
+                        className="absolute right-1.5 top-1.5 text-ledger-strong dark:text-ledger"
+                      />
+                    )}
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        selecionado ? 'bg-ledger text-paper' : 'bg-line/50 text-ink-soft'
+                      }`}
+                    >
+                      <Icon size={17} weight={selecionado ? 'fill' : 'regular'} />
+                    </span>
+                    <span className="truncate">{label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
