@@ -19,7 +19,7 @@ export default function BottomNav({ informacoesVisiveis }: { informacoesVisiveis
     <>
       {/* Barra inferior — telas estreitas (celular) */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-paper-raised shadow-[0_-2px_10px_rgba(36,26,18,0.08)] md:hidden">
-        <div className="mx-auto flex max-w-md items-center justify-between px-2 py-2">
+        <div className="mx-auto flex max-w-xl items-center justify-between px-1 py-2">
           {itensVisiveis.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
@@ -28,15 +28,17 @@ export default function BottomNav({ informacoesVisiveis }: { informacoesVisiveis
               title={label}
               aria-label={label}
               className={({ isActive }) =>
-                `flex min-w-0 flex-1 flex-col items-center gap-1 p-2 transition ${
+                `flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2 transition ${
                   isActive ? 'text-ledger' : 'text-ink-soft hover:text-ledger'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={24} weight={isActive ? 'fill' : 'regular'} />
-                  <span className="max-w-full truncate text-[10px] font-medium">{label}</span>
+                  <Icon size={22} weight={isActive ? 'fill' : 'regular'} />
+                  <span className="whitespace-nowrap text-[clamp(8px,2.2vw,10px)] font-medium leading-tight">
+                    {label}
+                  </span>
                 </>
               )}
             </NavLink>

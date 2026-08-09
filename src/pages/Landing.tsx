@@ -15,11 +15,14 @@ import {
   Package,
   Receipt,
   ShieldCheck,
+  Moon,
   Sparkle,
   Storefront,
+  Sun,
   TrendUp,
 } from '@phosphor-icons/react';
 import { getCategoryTheme } from '../lib/categoryThemes';
+import { useDarkMode } from '../lib/theme';
 import { RAMOS_ATUACAO } from '../types';
 
 const RECURSOS = [
@@ -80,6 +83,7 @@ const toneClasses: Record<'ledger' | 'brass' | 'stamp', string> = {
 };
 
 export default function Landing() {
+  const [dark, setDark] = useDarkMode();
   const [valoresDemonstracaoVisiveis, setValoresDemonstracaoVisiveis] = useState(true);
   const [recursosExpandidos, setRecursosExpandidos] = useState(false);
   const [ramosExpandidos, setRamosExpandidos] = useState(false);
@@ -105,6 +109,15 @@ export default function Landing() {
             >
               Recursos
             </a>
+            <button
+              type="button"
+              onClick={() => setDark(!dark)}
+              aria-label={dark ? 'Ativar modo claro' : 'Ativar modo escuro'}
+              title={dark ? 'Ativar modo claro' : 'Ativar modo escuro'}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-paper-raised text-ink-soft transition hover:border-ink-soft hover:text-ink"
+            >
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <Link to="/login" className="text-sm font-medium text-ink-soft hover:text-ink">
               Entrar
             </Link>
