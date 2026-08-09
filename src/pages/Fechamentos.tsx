@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarBlank, CaretRight, ChartBar, CheckCircle, Receipt, WarningCircle } from '@phosphor-icons/react';
+import { CalendarBlank, CaretRight, CheckCircle, Receipt, WarningCircle } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate } from '../lib/format';
-import { dataLocalISO, inicioDaSemanaISO, semanaISO, somarDias } from '../lib/reporting';
+import { dataLocalISO } from '../lib/reporting';
 import type { SessaoCaixa } from '../types';
 
 function somar(sessoes: SessaoCaixa[], campo: keyof SessaoCaixa): number {
@@ -25,71 +25,12 @@ export default function Fechamentos() {
       .sort((a, b) => b.dia.localeCompare(a.dia));
   }, [data.fechamentosCaixa]);
 
-  const dataReferencia = dias[0]?.dia ?? dataLocalISO(new Date().toISOString());
-  const mesReferencia = dataReferencia.slice(0, 7);
-  const semanaReferencia = semanaISO(dataReferencia);
-  const [mesSelecionado, setMesSelecionado] = useState(mesReferencia);
-  const [semanaSelecionada, setSemanaSelecionada] = useState(semanaReferencia);
-  const inicioSemanaSelecionada = inicioDaSemanaISO(semanaSelecionada);
-
   return (
     <div className="fade-in">
       <header className="mb-5">
         <h2 className="font-display text-2xl font-bold text-ink">Fechamentos de Caixa</h2>
-        <p className="mt-1 text-sm text-ink-soft">Escolha o período do relatório ou abra um fechamento diário.</p>
+        <p className="mt-1 text-sm text-ink-soft">Escolha um dia para abrir os detalhes do fechamento.</p>
       </header>
-
-      <section className="mb-5 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5">
-        <h3 className="font-display text-lg font-bold text-ink">Gerar relatório por período</h3>
-        <p className="mt-1 text-xs text-ink-soft">Selecione exatamente o mês ou a semana que deseja analisar.</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-line bg-paper p-3.5">
-            <label htmlFor="semana-relatorio" className="flex items-center gap-2 text-xs font-bold text-ink">
-              <CalendarBlank size={17} className="text-ledger-strong dark:text-ledger" /> Relatório semanal
-            </label>
-            <input
-              id="semana-relatorio"
-              type="week"
-              value={semanaSelecionada}
-              onChange={(event) => setSemanaSelecionada(event.target.value)}
-              className="mt-3 w-full rounded-lg border border-line bg-paper-raised px-3 py-2.5 text-sm text-ink outline-none focus:border-ledger"
-            />
-            <p className="mt-2 min-h-4 text-[10px] text-ink-soft">
-              {inicioSemanaSelecionada && `${formatDate(inicioSemanaSelecionada)} a ${formatDate(somarDias(inicioSemanaSelecionada, 6))}`}
-            </p>
-            <Link
-              to={inicioSemanaSelecionada ? `/fechamentos/semanal/${inicioSemanaSelecionada}` : '#'}
-              aria-disabled={!inicioSemanaSelecionada}
-              className={`mt-3 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-bold transition ${inicioSemanaSelecionada ? 'bg-ledger text-paper hover:bg-ledger-strong' : 'pointer-events-none bg-line text-ink-soft opacity-60'}`}
-            >
-              Gerar relatório semanal <CaretRight size={15} weight="bold" />
-            </Link>
-          </div>
-
-          <div className="rounded-xl border border-line bg-paper p-3.5">
-            <label htmlFor="mes-relatorio" className="flex items-center gap-2 text-xs font-bold text-ink">
-              <ChartBar size={17} className="text-brass" /> Relatório mensal completo
-            </label>
-            <input
-              id="mes-relatorio"
-              type="month"
-              value={mesSelecionado}
-              onChange={(event) => setMesSelecionado(event.target.value)}
-              className="mt-3 w-full rounded-lg border border-line bg-paper-raised px-3 py-2.5 text-sm text-ink outline-none focus:border-ledger"
-            />
-            <p className="mt-2 min-h-4 text-[10px] capitalize text-ink-soft">
-              {mesSelecionado && new Date(`${mesSelecionado}-01T12:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-            </p>
-            <Link
-              to={mesSelecionado ? `/fechamentos/mensal/${mesSelecionado}` : '#'}
-              aria-disabled={!mesSelecionado}
-              className={`mt-3 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-bold transition ${mesSelecionado ? 'bg-ledger text-paper hover:bg-ledger-strong' : 'pointer-events-none bg-line text-ink-soft opacity-60'}`}
-            >
-              Gerar relatório mensal <CaretRight size={15} weight="bold" />
-            </Link>
-          </div>
-        </div>
-      </section>
 
       {dias.length === 0 ? (
         <section className="flex flex-col items-center rounded-2xl border border-line bg-paper-raised px-5 py-14 text-center shadow-sm">
@@ -124,7 +65,7 @@ export default function Fechamentos() {
                   </div>
 
                   <Link
-                    to={`/fechamentos/${dia}`}
+                    to={`/relatorios/diario/${dia}`}
                     className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-ledger px-4 py-2.5 text-sm font-bold text-paper transition hover:bg-ledger-strong"
                   >
                     Abrir relatório <CaretRight size={16} weight="bold" />

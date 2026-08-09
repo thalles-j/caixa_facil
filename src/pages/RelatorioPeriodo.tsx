@@ -118,8 +118,8 @@ export default function RelatorioPeriodo({ tipo }: { tipo: TipoRelatorio }) {
   return (
     <div className="fade-in print-report">
       <div className="no-print">
-        <Link to="/fechamentos" className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-ink-soft hover:text-ink">
-          <ArrowLeft size={14} /> Voltar aos fechamentos
+        <Link to="/relatorios" className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-ink-soft hover:text-ink">
+          <ArrowLeft size={14} /> Voltar aos relatórios
         </Link>
         <h2 className="font-display text-2xl font-bold text-ink">Relatório {tipo}</h2>
         <p className="mb-5 mt-1 text-sm capitalize text-ink-soft">{tituloPeriodo}</p>
@@ -128,7 +128,7 @@ export default function RelatorioPeriodo({ tipo }: { tipo: TipoRelatorio }) {
       <section className="report-sheet rounded-2xl border border-line bg-paper-raised p-5 shadow-sm sm:p-7">
         <header className="mb-6 border-b-2 border-ink pb-4">
           <p className="font-ledger text-[10px] font-bold uppercase tracking-[0.2em] text-ink-soft">
-            Relatório consolidado {tipo}
+            CaixaFacil · Relatório consolidado {tipo}
           </p>
           <h1 className="mt-1 font-display text-2xl font-bold text-ink">{data.config?.nome ?? 'Meu Negócio'}</h1>
           <p className="mt-1 text-sm capitalize text-ink-soft">{tituloPeriodo}</p>
@@ -247,6 +247,9 @@ export default function RelatorioPeriodo({ tipo }: { tipo: TipoRelatorio }) {
                 ))}
               </div>
             </section>
+            <p className="mt-6 border-t border-line pt-3 text-center font-ledger text-[9px] uppercase tracking-widest text-ink-soft">
+              Documento gerado pelo CaixaFacil
+            </p>
           </>
         )}
       </section>

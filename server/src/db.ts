@@ -37,7 +37,7 @@ function createPool(connectionString: string, max: number) {
     idleTimeoutMillis: positiveInteger(process.env.DB_IDLE_TIMEOUT_MS, 30_000),
     connectionTimeoutMillis: positiveInteger(process.env.DB_CONNECT_TIMEOUT_MS, 10_000),
     keepAlive: true,
-    application_name: 'meu-negocio-no-bolso-api',
+    application_name: 'caixafacil-api',
   });
 }
 

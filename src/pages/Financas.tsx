@@ -193,8 +193,8 @@ export default function Financas() {
 
   return (
     <div className="fade-in">
-      <h2 className="mb-4 font-display text-xl font-bold">Financeiro</h2>
-
+      <h2 className="font-display text-2xl font-bold text-ink">Financeiro</h2>
+      <p className="mt-1 text-sm text-ink-soft">Suas principais contas aqui!</p>
       <FinanceNav />
 
       <div className="mb-6 flex rounded-xl bg-line/40 p-1">

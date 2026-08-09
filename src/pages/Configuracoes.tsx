@@ -99,7 +99,7 @@ export default function Configuracoes() {
       try {
         const parsed = JSON.parse(String(leitor.result));
         if (!isValidAppData(parsed)) {
-          setImportErro('Arquivo inválido: não é um backup reconhecível do Meu Negócio no Bolso.');
+          setImportErro('Arquivo inválido: não é um backup reconhecível do CaixaFacil.');
           return;
         }
         setImportErro(null);

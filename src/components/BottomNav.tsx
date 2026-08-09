@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { House, Calculator, Package, CurrencyDollar, List, Receipt } from '@phosphor-icons/react';
+import { House, Calculator, Package, CurrencyDollar, List, Receipt, ChartBar } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 
 const items = [
@@ -8,6 +8,7 @@ const items = [
   { to: '/catalogo', label: 'Catálogo', Icon: Package },
   { to: '/financas', label: 'Finanças', Icon: CurrencyDollar },
   { to: '/fechamentos', label: 'Fechamentos', Icon: Receipt },
+  { to: '/relatorios', label: 'Relatórios', Icon: ChartBar },
 ];
 
 export default function BottomNav({ informacoesVisiveis }: { informacoesVisiveis: boolean }) {
@@ -49,7 +50,7 @@ export default function BottomNav({ informacoesVisiveis }: { informacoesVisiveis
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ledger text-paper">
             <List size={22} weight="bold" aria-label="Menu" />
           </div>
-          <span className="hidden font-display text-lg font-semibold lg:inline">Caderneta</span>
+          <span className="hidden font-display text-lg font-semibold lg:inline">CaixaFacil</span>
         </div>
         <div className="flex w-full flex-col gap-1">
           {itensVisiveis.map(({ to, label, Icon }) => (

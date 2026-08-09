@@ -19,7 +19,7 @@ const pool = new Pool({
   connectionString: normalizedDatabaseUrl.toString(),
   max: 1,
   connectionTimeoutMillis: 10_000,
-  application_name: 'meu-negocio-no-bolso-seed',
+  application_name: 'caixafacil-seed',
 });
 
 const DEMO_PASSWORD = '123456';

@@ -16,6 +16,7 @@ import Movimentacoes from './pages/Movimentacoes';
 import RecuperarConta from './pages/RecuperarConta';
 import RelatoriosCaixa from './pages/RelatoriosCaixa';
 import RelatorioPeriodo from './pages/RelatorioPeriodo';
+import Relatorios from './pages/Relatorios';
 import Fechamentos from './pages/Fechamentos';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -71,7 +72,10 @@ export default function App() {
         <Route path="/fechamentos/semanal/:periodo" element={<RelatorioPeriodo tipo="semanal" />} />
         <Route path="/fechamentos/mensal/:periodo" element={<RelatorioPeriodo tipo="mensal" />} />
         <Route path="/fechamentos/:dataRelatorio" element={<RelatoriosCaixa />} />
-        <Route path="/relatorios" element={<Navigate to="/fechamentos" replace />} />
+        <Route path="/relatorios" element={<Relatorios />} />
+        <Route path="/relatorios/diario/:dataRelatorio" element={<RelatoriosCaixa />} />
+        <Route path="/relatorios/semanal/:periodo" element={<RelatorioPeriodo tipo="semanal" />} />
+        <Route path="/relatorios/mensal/:periodo" element={<RelatorioPeriodo tipo="mensal" />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

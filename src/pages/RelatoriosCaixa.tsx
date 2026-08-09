@@ -247,8 +247,8 @@ export default function RelatoriosCaixa() {
   return (
     <div className="fade-in print-report">
       <div className="no-print">
-        <Link to="/fechamentos" className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-ink-soft hover:text-ink">
-          <ArrowLeft size={14} /> Voltar aos fechamentos
+        <Link to="/relatorios" className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-ink-soft hover:text-ink">
+          <ArrowLeft size={14} /> Voltar aos relatórios
         </Link>
         <h2 className="font-display text-2xl font-bold text-ink">Relatório do fechamento</h2>
         <p className="mb-5 mt-1 text-sm capitalize text-ink-soft">Fechamento do dia {dataTitulo}</p>
@@ -256,7 +256,7 @@ export default function RelatoriosCaixa() {
 
       <section className="report-sheet rounded-2xl border border-line bg-paper-raised p-5 shadow-sm sm:p-7">
         <header className="mb-6 border-b-2 border-ink pb-4">
-          <p className="font-ledger text-[10px] font-bold uppercase tracking-[0.2em] text-ink-soft">Relatório de fechamento</p>
+          <p className="font-ledger text-[10px] font-bold uppercase tracking-[0.2em] text-ink-soft">CaixaFacil · Relatório de fechamento</p>
           <h1 className="mt-1 font-display text-2xl font-bold text-ink">{data.config?.nome ?? 'Meu Negócio'}</h1>
           <p className="mt-1 text-sm capitalize text-ink-soft">{dataTitulo}</p>
         </header>
@@ -449,6 +449,9 @@ export default function RelatoriosCaixa() {
               <span className="text-sm font-bold text-ink">Resultado consolidado</span>
               <ResultadoDiferenca valor={totais.diferenca} />
             </footer>
+            <p className="mt-5 border-t border-line pt-3 text-center font-ledger text-[9px] uppercase tracking-widest text-ink-soft">
+              Documento gerado pelo CaixaFacil
+            </p>
           </>
         )}
       </section>
@@ -460,7 +463,7 @@ export default function RelatoriosCaixa() {
           disabled={fechamentos.length === 0}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-ledger px-4 py-3 font-bold text-paper shadow-sm transition hover:bg-ledger-strong disabled:cursor-not-allowed disabled:opacity-45"
         >
-          <Printer size={19} /> Gerar Relatório
+          <Printer size={19} /> Imprimir ou salvar em PDF
         </button>
         <p className="mt-2 text-center text-xs text-ink-soft">Na janela de impressão, escolha “Salvar como PDF” para fazer o download.</p>
       </div>

@@ -84,10 +84,8 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
 
   return (
     <div className="fade-in">
-      <div className="mb-4">
-        <h2 className="font-display text-2xl font-bold text-ink">{texto.titulo}</h2>
-        <p className="mt-1 text-sm text-ink-soft">{texto.subtitulo}</p>
-      </div>
+      <h2 className="font-display text-2xl font-bold text-ink">{texto.titulo}</h2>
+      <p className="mt-1 text-sm text-ink-soft">{texto.subtitulo}</p>
 
       <FinanceNav />
 
