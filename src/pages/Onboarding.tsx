@@ -138,7 +138,7 @@ export default function Onboarding() {
         <Storefront size={38} weight="fill" className="text-ledger-strong" />
       </div>
       <h1 className="mb-1 text-center font-display text-2xl font-bold leading-tight tracking-tight">
-        CaixaFacil
+        CaixaFácil
       </h1>
       <p className="mb-6 text-center font-ledger text-xs font-medium text-[#f7f1e4]/60">
         Passo {step + 1} de {TOTAL_STEPS}

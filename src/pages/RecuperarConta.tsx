@@ -56,7 +56,7 @@ export default function RecuperarConta() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-ledger text-paper">
             {concluido ? <CheckCircle size={25} weight="fill" /> : token ? <Key size={24} weight="fill" /> : <EnvelopeSimple size={24} weight="fill" />}
           </div>
-          <p className="mb-1 font-ledger text-[10px] font-bold uppercase tracking-[0.18em] text-ledger-strong dark:text-ledger">CaixaFacil</p>
+          <p className="mb-1 font-ledger text-[10px] font-bold uppercase tracking-[0.18em] text-ledger-strong dark:text-ledger">CaixaFácil</p>
           <h1 className="font-display text-2xl font-bold">
             {concluido ? 'Senha alterada' : token ? 'Crie uma nova senha' : 'Recuperar conta'}
           </h1>

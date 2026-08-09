@@ -50,7 +50,7 @@ export default function BottomNav({ informacoesVisiveis }: { informacoesVisiveis
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ledger text-paper">
             <List size={22} weight="bold" aria-label="Menu" />
           </div>
-          <span className="hidden font-display text-lg font-semibold lg:inline">CaixaFacil</span>
+          <span className="hidden font-display text-lg font-semibold lg:inline">CaixaFácil</span>
         </div>
         <div className="flex w-full flex-col gap-1">
           {itensVisiveis.map(({ to, label, Icon }) => (

@@ -15,7 +15,7 @@ const services = [
     port: 5173,
     args: ['run', 'dev:web'],
     url: 'http://localhost:5173',
-    matches: async (response) => response.ok && (await response.text()).includes('<title>CaixaFacil</title>'),
+    matches: async (response) => response.ok && (await response.text()).includes('<title>CaixaFácil</title>'),
   },
 ];
 const children = [];
@@ -90,7 +90,7 @@ for (const service of services) {
 }
 
 console.log(`
-CaixaFacil — ambiente de desenvolvimento
+CaixaFácil — ambiente de desenvolvimento
   Front-end: http://localhost:5173
   API:       http://localhost:3000
   Health:    http://localhost:3000/api/health

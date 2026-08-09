@@ -92,7 +92,7 @@ export default function Landing() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-ledger text-paper">
               <Storefront size={16} weight="fill" />
             </div>
-            <span className="font-display text-base font-semibold">CaixaFacil</span>
+            <span className="font-display text-base font-semibold">CaixaFácil</span>
           </div>
           <nav className="flex items-center gap-2 sm:gap-4">
             <a
@@ -305,7 +305,7 @@ export default function Landing() {
 
       <footer className="border-t border-line py-6">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 px-5 text-center text-xs text-ink-soft sm:flex-row sm:justify-between sm:text-left">
-          <span>CaixaFacil — protótipo 1.0</span>
+          <span>CaixaFácil — protótipo 1.0</span>
           <Link to="/login" className="font-medium text-ink-soft hover:text-ink">
             Entrar
           </Link>

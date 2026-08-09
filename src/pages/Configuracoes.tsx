@@ -118,7 +118,7 @@ export default function Configuracoes() {
       try {
         const parsed = JSON.parse(String(leitor.result));
         if (!isValidAppData(parsed)) {
-          setImportErro('Arquivo inválido: não é um backup reconhecível do CaixaFacil.');
+          setImportErro('Arquivo inválido: não é um backup reconhecível do CaixaFácil.');
           return;
         }
         setImportErro(null);
@@ -198,7 +198,7 @@ export default function Configuracoes() {
     <div className="fade-in space-y-6 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
       <header className="lg:col-span-2">
         <h2 className="font-display text-2xl font-bold text-ink">Configurações</h2>
-        <p className="mt-1 text-sm text-ink-soft">Organize sua conta, seu negócio e as preferências do CaixaFacil.</p>
+        <p className="mt-1 text-sm text-ink-soft">Organize sua conta, seu negócio e as preferências do CaixaFácil.</p>
       </header>
 
       <section className="min-w-0 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5 lg:col-span-2">
@@ -225,11 +225,11 @@ export default function Configuracoes() {
                 className="w-full rounded-lg border border-line bg-paper py-2.5 pl-10 pr-3 text-sm text-ink outline-none"
               />
             </div>
-            <p className="mt-2 text-xs text-ink-soft">Este é o e-mail usado para entrar no CaixaFacil.</p>
+            <p className="mt-2 text-xs text-ink-soft">Este é o e-mail usado para entrar no CaixaFácil.</p>
             <button
               type="button"
               onClick={() => setAcaoPendente('logout')}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-paper px-4 py-2.5 text-sm font-bold text-ink transition hover:bg-line/30 sm:w-auto"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-stamp/30 bg-stamp/5 px-4 py-2.5 text-sm font-bold text-stamp transition hover:bg-stamp/10 sm:w-auto"
             >
               <SignOut size={18} /> Sair da conta
             </button>
@@ -561,11 +561,7 @@ export default function Configuracoes() {
         title={acaoPendente === 'reset' ? 'Zerar dados do app?' : 'Sair da conta?'}
       >
         <div className="space-y-4">
-          <div
-            className={`flex h-12 w-12 items-center justify-center rounded-full ${
-              acaoPendente === 'reset' ? 'bg-stamp/10 text-stamp' : 'bg-brass/10 text-brass'
-            }`}
-          >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-stamp/10 text-stamp">
             {acaoPendente === 'reset' ? <Warning size={24} weight="fill" /> : <SignOut size={24} />}
           </div>
           <p className="text-sm text-ink-soft">
@@ -590,9 +586,7 @@ export default function Configuracoes() {
               type="button"
               onClick={() => void confirmarAcaoPendente()}
               disabled={resetando}
-              className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold text-paper transition disabled:opacity-60 ${
-                acaoPendente === 'reset' ? 'bg-stamp hover:bg-stamp/90' : 'bg-ledger hover:bg-ledger-strong'
-              }`}
+              className="flex-1 rounded-lg bg-stamp px-4 py-2.5 text-sm font-bold text-paper transition hover:bg-stamp/90 disabled:opacity-60"
             >
               {resetando ? 'Zerando...' : acaoPendente === 'reset' ? 'Sim, zerar dados' : 'Sim, sair'}
             </button>
