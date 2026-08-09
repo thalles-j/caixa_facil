@@ -52,6 +52,11 @@ export interface Produto {
   duracao?: string; // só para serviços
 }
 
+export interface CategoriaProduto {
+  id: string;
+  nome: string;
+}
+
 export interface Cliente {
   id: string;
   nome: string;
@@ -85,6 +90,7 @@ export interface AppData {
   config: CompanyConfig | null;
   vendas: Venda[];
   produtos: Produto[];
+  categorias: CategoriaProduto[];
   contas: Conta[];
   lancamentosManuais: LancamentoManual[];
   clientes: Cliente[];

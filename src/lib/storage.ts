@@ -1,4 +1,4 @@
-import type { AppData } from '../types';
+import type { AppData, CategoriaProduto, Produto } from '../types';
 
 export const STORAGE_KEY = 'mnb-data-v1';
 export const APP_DATA_CHANGED_EVENT = 'mnb-app-data-changed';
@@ -11,6 +11,7 @@ export const emptyData: AppData = {
   config: null,
   vendas: [],
   produtos: [],
+  categorias: [],
   contas: [],
   lancamentosManuais: [],
   clientes: [],
@@ -27,7 +28,7 @@ export function loadData(userId?: string | null): AppData {
     if (!raw) return emptyData;
     const parsed = JSON.parse(raw);
 
-    const produtos = Array.isArray(parsed.produtos)
+    const produtos: Produto[] = Array.isArray(parsed.produtos)
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalizando JSON bruto de origem externa (localStorage/importação), sem shape garantido
         parsed.produtos.map((p: any) => ({
           ...p,
@@ -37,6 +38,21 @@ export function loadData(userId?: string | null): AppData {
             p.quantidadeMinima !== undefined ? p.quantidadeMinima : p.type === 'service' ? undefined : 0,
         }))
       : [];
+
+    const categorias: CategoriaProduto[] = Array.isArray(parsed.categorias)
+      ? parsed.categorias
+          .map((categoria: unknown) => {
+            const registro = categoria as Record<string, unknown>;
+            return { id: String(registro.id ?? ''), nome: String(registro.nome ?? '').trim() };
+          })
+          .filter((categoria: { id: string; nome: string }) => categoria.id && categoria.nome)
+      : Array.from(
+          new Set(
+            produtos
+              .map((produto) => produto.categoria?.trim())
+              .filter((categoria): categoria is string => Boolean(categoria)),
+          ),
+        ).map((nome, index) => ({ id: `categoria-legada-${index}`, nome }));
 
     const vendas = Array.isArray(parsed.vendas)
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalização do backup/localStorage legado
@@ -64,7 +80,7 @@ export function loadData(userId?: string | null): AppData {
         }))
       : [];
 
-    return { ...emptyData, ...parsed, produtos, vendas, contas, lancamentosManuais };
+    return { ...emptyData, ...parsed, produtos, categorias, vendas, contas, lancamentosManuais };
   } catch {
     return emptyData;
   }

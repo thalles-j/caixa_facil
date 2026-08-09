@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import type {
   AppData,
   Cliente,
+  CategoriaProduto,
   CompanyConfig,
   Conta,
   LancamentoManual,
@@ -46,6 +47,9 @@ interface AppDataContextValue {
   addProduto: (produto: Omit<Produto, 'id'>) => void;
   atualizarProduto: (id: string, patch: Partial<Omit<Produto, 'id'>>) => void;
   removerProduto: (id: string) => void;
+  addCategoria: (nome: string) => boolean;
+  editarCategoria: (id: string, nome: string) => boolean;
+  removerCategoria: (id: string) => void;
   addConta: (conta: Omit<Conta, 'id' | 'quitado'>) => void;
   editarConta: (id: string, patch: Partial<Omit<Conta, 'id'>>) => void;
   removerConta: (id: string) => void;
@@ -312,6 +316,57 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const addCategoria = (nome: string): boolean => {
+    const nomeNormalizado = nome.trim();
+    if (!nomeNormalizado) return false;
+    const categorias = data.categorias ?? [];
+    if (categorias.some((categoria) => categoria.nome.toLocaleLowerCase('pt-BR') === nomeNormalizado.toLocaleLowerCase('pt-BR'))) {
+      return false;
+    }
+    const novaCategoria: CategoriaProduto = { id: uid(), nome: nomeNormalizado };
+    setData((prev) => ({ ...prev, categorias: [...(prev.categorias ?? []), novaCategoria] }));
+    return true;
+  };
+
+  const editarCategoria = (id: string, nome: string): boolean => {
+    const nomeNormalizado = nome.trim();
+    const categorias = data.categorias ?? [];
+    const categoriaAtual = categorias.find((categoria) => categoria.id === id);
+    if (!categoriaAtual || !nomeNormalizado) return false;
+    if (
+      categorias.some(
+        (categoria) =>
+          categoria.id !== id &&
+          categoria.nome.toLocaleLowerCase('pt-BR') === nomeNormalizado.toLocaleLowerCase('pt-BR'),
+      )
+    ) {
+      return false;
+    }
+
+    setData((prev) => ({
+      ...prev,
+      categorias: (prev.categorias ?? []).map((categoria) =>
+        categoria.id === id ? { ...categoria, nome: nomeNormalizado } : categoria,
+      ),
+      produtos: prev.produtos.map((produto) =>
+        produto.categoria === categoriaAtual.nome ? { ...produto, categoria: nomeNormalizado } : produto,
+      ),
+    }));
+    return true;
+  };
+
+  const removerCategoria = (id: string) => {
+    const categoriaAtual = (data.categorias ?? []).find((categoria) => categoria.id === id);
+    if (!categoriaAtual) return;
+    setData((prev) => ({
+      ...prev,
+      categorias: (prev.categorias ?? []).filter((categoria) => categoria.id !== id),
+      produtos: prev.produtos.map((produto) =>
+        produto.categoria === categoriaAtual.nome ? { ...produto, categoria: undefined } : produto,
+      ),
+    }));
+  };
+
   const addConta = (conta: Omit<Conta, 'id' | 'quitado'>) => {
     setData((prev) => ({
       ...prev,
@@ -387,7 +442,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const resetData = () => {
-    setData({ config: null, vendas: [], produtos: [], contas: [], lancamentosManuais: [], clientes: [] });
+    setData({ config: null, vendas: [], produtos: [], categorias: [], contas: [], lancamentosManuais: [], clientes: [] });
   };
 
   const hoje = todayISO();
@@ -548,6 +603,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     addProduto,
     atualizarProduto,
     removerProduto,
+    addCategoria,
+    editarCategoria,
+    removerCategoria,
     addConta,
     editarConta,
     removerConta,

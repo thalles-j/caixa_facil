@@ -13,7 +13,7 @@ function isoDate(value: Date | string | null): string | undefined {
 
 export async function loadBootstrapData(user: UserIdentity) {
   return withTenantTransaction(user.id, async (client) => {
-    const [productsResult, salesResult, customersResult, creditsResult, expensesResult, manualResult] =
+    const [productsResult, categoriesResult, salesResult, customersResult, creditsResult, expensesResult, manualResult] =
       await Promise.all([
         client.query(`
           SELECT p.id, p.kind, p.name, p.sale_price, p.cost_price,
@@ -23,6 +23,12 @@ export async function loadBootstrapData(user: UserIdentity) {
           LEFT JOIN categories c ON c.user_id = p.user_id AND c.id = p.category_id
           WHERE p.user_id = $1 AND p.active
           ORDER BY p.created_at, p.name
+        `, [user.id]),
+        client.query(`
+          SELECT id, name
+          FROM categories
+          WHERE user_id = $1
+          ORDER BY created_at, name
         `, [user.id]),
         client.query(`
           SELECT si.id, si.product_id, si.product_name, si.quantity, si.unit_price,
@@ -69,7 +75,7 @@ export async function loadBootstrapData(user: UserIdentity) {
       ]);
 
     const hasBusinessData =
-      productsResult.rowCount || salesResult.rowCount || expensesResult.rowCount || creditsResult.rowCount;
+      productsResult.rowCount || categoriesResult.rowCount || salesResult.rowCount || expensesResult.rowCount || creditsResult.rowCount;
     if (!hasBusinessData) return null;
 
     const fixedExpenses = expensesResult.rows.map((expense) => ({
@@ -101,6 +107,10 @@ export async function loadBootstrapData(user: UserIdentity) {
         quantidade: product.kind === 'product' ? Number(product.stock_quantity ?? 0) : undefined,
         quantidadeMinima: product.kind === 'product' ? Number(product.minimum_quantity ?? 0) : undefined,
         duracao: product.kind === 'service' ? product.service_duration ?? undefined : undefined,
+      })),
+      categorias: categoriesResult.rows.map((category) => ({
+        id: category.id,
+        nome: category.name,
       })),
       vendas: salesResult.rows.map((sale) => ({
         id: sale.id,

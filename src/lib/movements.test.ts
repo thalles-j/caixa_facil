@@ -5,6 +5,7 @@ import type { AppData } from '../types';
 const dados: AppData = {
   config: null,
   produtos: [],
+  categorias: [],
   clientes: [{ id: 'cliente-1', nome: 'Ana' }],
   vendas: [
     {
