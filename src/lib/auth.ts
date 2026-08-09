@@ -157,3 +157,20 @@ export async function resetAccountDataRequest(token: string): Promise<void> {
     throw new Error(body?.error ?? 'Não foi possível zerar os dados da conta.');
   }
 }
+
+export async function changePasswordRequest(
+  token: string,
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string,
+): Promise<{ message: string }> {
+  const res = await fetch(`${API_URL}/account/password`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+  });
+  return parseJsonOrThrow(res);
+}

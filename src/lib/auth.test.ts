@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { decodeToken, ensureStoredAccessToken, isTokenValid, TOKEN_KEY } from './auth';
+import { changePasswordRequest, decodeToken, ensureStoredAccessToken, isTokenValid, TOKEN_KEY } from './auth';
 
 function fakeToken(payload: Record<string, unknown>): string {
   const base64url = (obj: object) =>
@@ -67,6 +67,29 @@ describe('isTokenValid', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/auth/refresh', {
       method: 'POST',
       credentials: 'include',
+    });
+  });
+});
+
+describe('changePasswordRequest', () => {
+  it('envia as senhas ao endpoint autenticado da conta', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ message: 'Senha alterada com sucesso.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(changePasswordRequest('token-seguro', 'atual123', 'nova123', 'nova123')).resolves.toEqual({
+      message: 'Senha alterada com sucesso.',
+    });
+    expect(fetchMock).toHaveBeenCalledWith('/api/account/password', {
+      method: 'PATCH',
+      headers: {
+        Authorization: 'Bearer token-seguro',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ currentPassword: 'atual123', newPassword: 'nova123', confirmPassword: 'nova123' }),
     });
   });
 });

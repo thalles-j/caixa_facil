@@ -13,6 +13,7 @@ import {
   sessionRequest,
   setStoredToken,
   TOKEN_KEY,
+  changePasswordRequest,
 } from '../lib/auth';
 import { APP_DATA_CHANGED_EVENT } from '../lib/storage';
 
@@ -28,6 +29,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, confirmPassword: string) => Promise<void>;
   resetAccountData: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<string>;
   logout: () => Promise<void>;
 }
 
@@ -143,6 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await resetAccountDataRequest(token);
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string, confirmPassword: string) => {
+    const token = await ensureStoredAccessToken();
+    const response = await changePasswordRequest(token, currentPassword, newPassword, confirmPassword);
+    return response.message;
+  };
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: user !== null,
@@ -150,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     resetAccountData,
+    changePassword,
     logout,
   };
 

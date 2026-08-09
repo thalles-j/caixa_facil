@@ -156,7 +156,7 @@ export default function FecharCaixa() {
   };
 
   return (
-    <div className="fade-in space-y-5">
+    <div className="fade-in space-y-4 sm:space-y-5">
       <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <Link to="/caixa" className="mb-2 inline-flex items-center gap-1 text-xs font-semibold text-ink-soft hover:text-ink">
@@ -165,15 +165,15 @@ export default function FecharCaixa() {
           <h2 className="font-display text-2xl font-bold text-ink">Fechamento de Caixa</h2>
           <p className="mt-1 text-sm text-ink-soft">Revise o movimento do dia, resolva pendências e confira o dinheiro físico.</p>
         </div>
-        <div className="rounded-xl border border-ledger/20 bg-ledger/5 px-4 py-2 text-sm">
+        <div className="w-full rounded-xl border border-ledger/20 bg-ledger/5 px-4 py-2 text-sm sm:w-auto">
           <p className="font-semibold text-ledger-strong dark:text-ledger">Caixa aberto</p>
           <p className="font-ledger text-xs text-ink-soft">Inicial: {formatCurrency(caixa.valorInicial)}</p>
         </div>
       </header>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
-        <div className="flex flex-col gap-5">
-          <section className="order-2 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5">
+      <div className="grid items-start gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
+        <div className="contents lg:flex lg:flex-col lg:gap-5">
+          <section className="order-1 min-w-0 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h3 className="font-display text-lg font-bold text-ink">Pendências do caixa</h3>
@@ -195,13 +195,13 @@ export default function FecharCaixa() {
             )}
           </section>
 
-          <section className="order-1 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5">
+          <section className="order-2 min-w-0 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5">
             <div className="mb-4">
               <h3 className="font-display text-lg font-bold text-ink">Mini caixa</h3>
               <p className="mt-1 text-xs text-ink-soft">Adicione uma entrada ou despesa esquecida antes de concluir.</p>
             </div>
 
-            <form className="space-y-4" onSubmit={salvarLancamento}>
+            <form className="min-w-0 space-y-4" onSubmit={salvarLancamento}>
               <div className="grid grid-cols-2 rounded-xl bg-line/40 p-1">
                 {(['entrada', 'saida'] as const).map((tipo) => (
                   <button
@@ -316,7 +316,7 @@ export default function FecharCaixa() {
             </form>
           </section>
 
-          <section className="order-3 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5">
+          <section className="order-4 min-w-0 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5 lg:order-3">
             <div className="mb-4 flex items-center gap-2">
               <Receipt size={20} className="text-ink-soft" />
               <h3 className="font-display text-lg font-bold text-ink">Conferência final</h3>
@@ -375,7 +375,7 @@ export default function FecharCaixa() {
                     <p className="mt-1 text-xs text-ink-soft">Você pode voltar para resolver ou fechar e identificar depois na página de Fechamentos.</p>
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-col gap-2 min-[400px]:flex-row">
                   <button type="button" onClick={() => setEtapa('conferencia')} className="flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-xs font-semibold text-ink">Revisar</button>
                   <button type="button" onClick={() => setEtapa('confirmacao')} className="flex-1 rounded-lg bg-brass px-3 py-2 text-xs font-bold text-paper">Fechar mesmo assim</button>
                 </div>
@@ -391,7 +391,7 @@ export default function FecharCaixa() {
                     <p className="mt-1 text-xs text-ink-soft">Depois disso, novas vendas e movimentações não poderão ser registradas neste caixa.</p>
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-col gap-2 min-[400px]:flex-row">
                   <button type="button" onClick={() => setEtapa(temPendencias ? 'pendencias' : 'conferencia')} className="flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-xs font-semibold text-ink">Voltar</button>
                   <button type="button" onClick={() => void confirmarFechamento()} disabled={fechando} className="flex-1 rounded-lg bg-stamp px-3 py-2 text-xs font-bold text-paper disabled:opacity-50">
                     {fechando ? 'Fechando…' : 'Confirmar fechamento'}
@@ -428,7 +428,7 @@ function MovimentosDoDia({
   totais: { entradas: number; saidas: number; fiado: number };
 }) {
   return (
-    <aside className="rounded-2xl border border-line bg-paper-raised shadow-sm lg:sticky lg:top-20">
+    <aside className="order-3 min-w-0 rounded-2xl border border-line bg-paper-raised shadow-sm lg:order-none lg:sticky lg:top-20">
       <div className="border-b border-line p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -450,7 +450,7 @@ function MovimentosDoDia({
           <p className="text-sm font-medium text-ink">Nenhuma movimentação hoje.</p>
         </div>
       ) : (
-        <ul className="max-h-[calc(100vh-18rem)] divide-y divide-line overflow-y-auto">
+        <ul className="divide-y divide-line lg:max-h-[calc(100vh-18rem)] lg:overflow-y-auto">
           {movimentacoes.map((movimento, index) => {
             const fiado = movimento.formaPagamento === 'fiado';
             const entrada = movimento.tipo === 'entrada';
@@ -492,9 +492,9 @@ function TotalDia({ label, valor, classe }: { label: string; valor: number; clas
 
 function ResumoLinha({ label, valor, destaque = false, recuo = false }: { label: string; valor: number; destaque?: boolean; recuo?: boolean }) {
   return (
-    <div className={`flex items-center justify-between gap-3 ${destaque ? 'font-bold text-ink' : 'text-ink-soft'}`}>
-      <span className={recuo ? 'pl-3' : ''}>{label}</span>
-      <span className="font-ledger tabular-nums text-ink">{formatCurrency(valor)}</span>
+    <div className={`flex items-start justify-between gap-3 ${destaque ? 'font-bold text-ink' : 'text-ink-soft'}`}>
+      <span className={`min-w-0 text-sm leading-snug ${recuo ? 'pl-3' : ''}`}>{label}</span>
+      <span className="shrink-0 font-ledger text-sm tabular-nums text-ink">{formatCurrency(valor)}</span>
     </div>
   );
 }

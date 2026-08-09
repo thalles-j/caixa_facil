@@ -1,5 +1,18 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Plus, Trash, PaperPlaneTilt, Moon, Sun, DownloadSimple, UploadSimple, SignOut, Warning } from '@phosphor-icons/react';
+import {
+  DownloadSimple,
+  EnvelopeSimple,
+  Key,
+  Moon,
+  PaperPlaneTilt,
+  Plus,
+  ShieldCheck,
+  SignOut,
+  Sun,
+  Trash,
+  UploadSimple,
+  Warning,
+} from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency, parseMoney, sanitizeMoneyInput, todayISO } from '../lib/format';
@@ -12,7 +25,7 @@ import Modal from '../components/Modal';
 export default function Configuracoes() {
   const { data, setConfig, resetData, cadastrarDespesaFixaNoBanco, removerDespesaFixaNoBanco } = useAppData();
   const config = data.config;
-  const { user, logout, resetAccountData } = useAuth();
+  const { user, logout, resetAccountData, changePassword } = useAuth();
 
   const [novaDespesaNome, setNovaDespesaNome] = useState('');
   const [novaDespesaValor, setNovaDespesaValor] = useState('');
@@ -25,6 +38,12 @@ export default function Configuracoes() {
   const [acaoPendente, setAcaoPendente] = useState<'logout' | 'reset' | null>(null);
   const [despesaFixaSalvando, setDespesaFixaSalvando] = useState(false);
   const [despesaFixaErro, setDespesaFixaErro] = useState<string | null>(null);
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmarNovaSenha, setConfirmarNovaSenha] = useState('');
+  const [senhaSalvando, setSenhaSalvando] = useState(false);
+  const [senhaErro, setSenhaErro] = useState<string | null>(null);
+  const [senhaSucesso, setSenhaSucesso] = useState<string | null>(null);
   const arquivoInputRef = useRef<HTMLInputElement>(null);
 
   if (!config) return null;
@@ -76,7 +95,7 @@ export default function Configuracoes() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `backup-mnb-${todayISO()}.json`;
+    link.download = `backup-caixafacil-${todayISO()}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -145,12 +164,131 @@ export default function Configuracoes() {
     if (acaoPendente === 'reset') void zerarDadosDaConta();
   };
 
+  const alterarSenha = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSenhaErro(null);
+    setSenhaSucesso(null);
+    if (novaSenha.length < 6) {
+      setSenhaErro('A nova senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (novaSenha !== confirmarNovaSenha) {
+      setSenhaErro('A confirmação da nova senha não confere.');
+      return;
+    }
+
+    setSenhaSalvando(true);
+    try {
+      const message = await changePassword(senhaAtual, novaSenha, confirmarNovaSenha);
+      setSenhaAtual('');
+      setNovaSenha('');
+      setConfirmarNovaSenha('');
+      setSenhaSucesso(message);
+    } catch (error) {
+      setSenhaErro(error instanceof Error ? error.message : 'Não foi possível alterar a senha.');
+    } finally {
+      setSenhaSalvando(false);
+    }
+  };
+
   const inputClasses =
     'w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30';
 
   return (
     <div className="fade-in space-y-6 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
-      <h2 className="font-display text-xl font-bold lg:col-span-2">Configurações</h2>
+      <header className="lg:col-span-2">
+        <h2 className="font-display text-2xl font-bold text-ink">Configurações</h2>
+        <p className="mt-1 text-sm text-ink-soft">Organize sua conta, seu negócio e as preferências do CaixaFacil.</p>
+      </header>
+
+      <section className="min-w-0 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5 lg:col-span-2">
+        <div className="mb-4 flex items-start gap-3 border-b border-line pb-4">
+          <span className="rounded-xl bg-ledger/10 p-2.5 text-ledger-strong dark:text-ledger">
+            <ShieldCheck size={21} weight="duotone" />
+          </span>
+          <div>
+            <h3 className="font-display text-lg font-bold text-ink">Conta e segurança</h3>
+            <p className="mt-1 text-xs text-ink-soft">Consulte seu acesso e altere sua senha com segurança.</p>
+          </div>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-7">
+          <div className="min-w-0">
+            <label htmlFor="email-conta" className="mb-1 block text-xs font-medium text-ink-soft">E-mail da conta</label>
+            <div className="relative">
+              <EnvelopeSimple size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
+              <input
+                id="email-conta"
+                type="email"
+                value={user?.email ?? ''}
+                readOnly
+                className="w-full rounded-lg border border-line bg-paper py-2.5 pl-10 pr-3 text-sm text-ink outline-none"
+              />
+            </div>
+            <p className="mt-2 text-xs text-ink-soft">Este é o e-mail usado para entrar no CaixaFacil.</p>
+            <button
+              type="button"
+              onClick={() => setAcaoPendente('logout')}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-paper px-4 py-2.5 text-sm font-bold text-ink transition hover:bg-line/30 sm:w-auto"
+            >
+              <SignOut size={18} /> Sair da conta
+            </button>
+          </div>
+
+          <form onSubmit={alterarSenha} className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <label className="sm:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-ink-soft">Senha atual</span>
+              <div className="relative">
+                <Key size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={senhaAtual}
+                  onChange={(event) => setSenhaAtual(event.target.value)}
+                  placeholder="Digite sua senha atual"
+                  required
+                  className="w-full rounded-lg border border-line bg-paper py-2.5 pl-10 pr-3 text-sm text-ink outline-none focus:ring-2 focus:ring-ledger/30"
+                />
+              </div>
+            </label>
+            <label>
+              <span className="mb-1 block text-xs font-medium text-ink-soft">Nova senha</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                minLength={6}
+                value={novaSenha}
+                onChange={(event) => setNovaSenha(event.target.value)}
+                placeholder="Mínimo de 6 caracteres"
+                required
+                className={inputClasses}
+              />
+            </label>
+            <label>
+              <span className="mb-1 block text-xs font-medium text-ink-soft">Confirmar nova senha</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                minLength={6}
+                value={confirmarNovaSenha}
+                onChange={(event) => setConfirmarNovaSenha(event.target.value)}
+                placeholder="Digite novamente"
+                required
+                className={inputClasses}
+              />
+            </label>
+            {senhaErro && <p className="text-xs font-medium text-stamp sm:col-span-2">{senhaErro}</p>}
+            {senhaSucesso && <p className="text-xs font-semibold text-ledger-strong dark:text-ledger sm:col-span-2">{senhaSucesso}</p>}
+            <button
+              type="submit"
+              disabled={senhaSalvando}
+              className="flex items-center justify-center gap-2 rounded-lg bg-ledger px-4 py-2.5 text-sm font-bold text-paper transition hover:bg-ledger-strong disabled:opacity-50 sm:col-span-2 sm:justify-self-end"
+            >
+              <Key size={17} /> {senhaSalvando ? 'Alterando…' : 'Alterar senha'}
+            </button>
+          </form>
+        </div>
+      </section>
 
       <section className="min-w-0 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm">
         <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-soft">Negócio</h3>
@@ -374,13 +512,6 @@ export default function Configuracoes() {
           </div>
           {importErro && <p className="mt-2 text-xs font-medium text-stamp">{importErro}</p>}
         </section>
-
-        <button
-          onClick={() => setAcaoPendente('logout')}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-paper-raised py-2.5 text-sm font-bold text-ink transition hover:bg-line/30"
-        >
-          <SignOut size={18} /> Sair
-        </button>
 
         <div className="rounded-2xl border border-stamp/20 p-4">
           <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-stamp">Zona de risco</h3>
