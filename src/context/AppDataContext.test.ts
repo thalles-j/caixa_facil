@@ -17,7 +17,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppDataProvider, useAppData } from './AppDataContext';
-import { STORAGE_KEY } from '../lib/storage';
+import { APP_DATA_CHANGED_EVENT, STORAGE_KEY } from '../lib/storage';
 import type { CompanyConfig } from '../types';
 
 /**
@@ -433,6 +433,29 @@ describe('AppDataContext', () => {
       expect(result.current.data.categorias).toHaveLength(0);
       expect(result.current.data.produtos).toHaveLength(1);
       expect(result.current.data.produtos[0].categoria).toBeUndefined();
+    });
+  });
+
+  describe('hidratação autenticada', () => {
+    it('prioriza o onboarding concluído vindo do banco sobre um cache local antigo', () => {
+      const { result } = renderAppData();
+
+      act(() => {
+        result.current.setConfig(configPadrao({ onboardingConcluido: false }));
+      });
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent(APP_DATA_CHANGED_EVENT, {
+            detail: {
+              ...result.current.data,
+              config: configPadrao({ onboardingConcluido: true }),
+            },
+          }),
+        );
+      });
+
+      expect(result.current.data.config?.onboardingConcluido).toBe(true);
     });
   });
 

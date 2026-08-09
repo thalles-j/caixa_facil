@@ -29,3 +29,16 @@ export function todayISO(): string {
 export function parseMoney(raw: string): number {
   return Number(raw.trim().replace(/\./g, '').replace(',', '.'));
 }
+
+/** Mantém somente dígitos e uma vírgula com até duas casas decimais. */
+export function sanitizeMoneyInput(raw: string): string {
+  const sanitized = raw.replace(/\./g, '').replace(/[^\d,]/g, '');
+  const [integer, ...decimalParts] = sanitized.split(',');
+  if (decimalParts.length === 0) return integer;
+  return `${integer},${decimalParts.join('').slice(0, 2)}`;
+}
+
+/** Mantém somente dígitos em campos de quantidade inteira. */
+export function sanitizeIntegerInput(raw: string): string {
+  return raw.replace(/\D/g, '');
+}

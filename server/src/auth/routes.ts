@@ -3,12 +3,40 @@ import crypto from 'node:crypto';
 import { pool } from '../db.js';
 import { loadBootstrapData } from '../business/bootstrap.js';
 import { hashPassword, comparePassword } from './password.js';
-import { signToken, verifyToken } from './jwt.js';
+import { signRefreshToken, signToken, verifyRefreshToken, verifyToken } from './jwt.js';
 
 export const authRouter = Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REFRESH_COOKIE = 'mnb_refresh_token';
+const REFRESH_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
+
+function refreshCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/api/auth',
+  };
+}
+
+function setRefreshCookie(res: Response, user: { id: string; email: string }) {
+  res.cookie(REFRESH_COOKIE, signRefreshToken({ sub: user.id, email: user.email }), {
+    ...refreshCookieOptions(),
+    maxAge: REFRESH_MAX_AGE_MS,
+  });
+}
+
+function readCookie(req: Request, name: string): string | null {
+  const header = req.headers.cookie;
+  if (!header) return null;
+  for (const item of header.split(';')) {
+    const [rawName, ...rawValue] = item.trim().split('=');
+    if (rawName === name) return decodeURIComponent(rawValue.join('='));
+  }
+  return null;
+}
 
 function asyncRoute(handler: AsyncRoute) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -64,6 +92,7 @@ authRouter.post('/register', asyncRoute(async (req, res) => {
   }
 
   const token = signToken({ sub: id, email: normalizedEmail });
+  setRefreshCookie(res, { id, email: normalizedEmail });
   res.status(201).json({ token, user: { id, email: normalizedEmail } });
 }));
 
@@ -176,8 +205,39 @@ authRouter.post('/login', asyncRoute(async (req, res) => {
 
   const data = await loadBootstrapData({ id: user.id, email: user.email, name: user.name });
   const token = signToken({ sub: user.id, email: user.email });
+  setRefreshCookie(res, { id: user.id, email: user.email });
   res.json({ token, user: { id: user.id, email: user.email }, data });
 }));
+
+authRouter.post('/refresh', asyncRoute(async (req, res) => {
+  const refreshToken = readCookie(req, REFRESH_COOKIE);
+  if (!refreshToken) return res.status(401).json({ error: 'Sessão persistente ausente.' });
+
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    res.clearCookie(REFRESH_COOKIE, refreshCookieOptions());
+    return res.status(401).json({ error: 'Sessão persistente inválida ou expirada.' });
+  }
+
+  const result = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [payload.sub]);
+  const user = result.rows[0];
+  if (!user) {
+    res.clearCookie(REFRESH_COOKIE, refreshCookieOptions());
+    return res.status(401).json({ error: 'Usuário da sessão não existe mais.' });
+  }
+
+  const data = await loadBootstrapData({ id: user.id, email: user.email, name: user.name });
+  const token = signToken({ sub: user.id, email: user.email });
+  setRefreshCookie(res, { id: user.id, email: user.email });
+  return res.json({ token, user: { id: user.id, email: user.email }, data });
+}));
+
+authRouter.post('/logout', (_req, res) => {
+  res.clearCookie(REFRESH_COOKIE, refreshCookieOptions());
+  return res.status(204).send();
+});
 
 authRouter.get('/me', asyncRoute(async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -197,5 +257,8 @@ authRouter.get('/me', asyncRoute(async (req, res) => {
   if (!user) return res.status(401).json({ error: 'Usuário da sessão não existe mais.' });
 
   const data = await loadBootstrapData({ id: user.id, email: user.email, name: user.name });
+  // Faz upgrade transparente de sessões antigas: um access token ainda válido
+  // passa a receber o cookie persistente sem exigir novo login.
+  setRefreshCookie(res, { id: user.id, email: user.email });
   return res.json({ user: { id: user.id, email: user.email }, data });
 }));

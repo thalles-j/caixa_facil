@@ -42,6 +42,7 @@ export default function Cadastro() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-ledger text-paper">
             <Storefront size={24} weight="fill" />
           </div>
+          <p className="mb-1 font-ledger text-[10px] font-bold uppercase tracking-[0.18em] text-ledger-strong dark:text-ledger">CaixaFácil</p>
           <h1 className="font-display text-2xl font-bold">Criar sua conta</h1>
           <p className="mt-1 text-sm text-ink-soft">Leva menos de um minuto.</p>
         </div>

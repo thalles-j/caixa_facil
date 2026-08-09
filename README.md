@@ -53,6 +53,17 @@ A seed e nao destrutiva: cria e popula somente contas ausentes. Se um dos
 e-mails ja existir, seus dados e sua senha sao preservados. A senha curta existe
 apenas para demonstracao e deve ser trocada fora do ambiente de desenvolvimento.
 
+Para reiniciar integralmente o banco configurado e recriar os dados de
+demonstracao com o schema atual, use o modo explicito `--reset`:
+
+```bash
+cd server
+npm run seed -- --reset
+```
+
+Esse comando remove todas as contas e dados de negocio do banco apontado por
+`DATABASE_URL`; use apenas em desenvolvimento.
+
 Toda rota autenticada que consulta dados de negocio deve usar
 `withTenantTransaction(userId, callback)` de `server/src/db.ts`. O helper define
 `app.current_user_id` somente durante a transacao, requisito para que as policies

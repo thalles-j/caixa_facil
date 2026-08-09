@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { withTenantTransaction } from '../db.js';
+import { pool, withTenantTransaction } from '../db.js';
 import { verifyToken } from '../auth/jwt.js';
+import { comparePassword, hashPassword } from '../auth/password.js';
 
 export const accountRouter = Router();
 
@@ -48,4 +49,45 @@ accountRouter.delete('/data', asyncRoute(async (req, res) => {
   });
 
   return res.status(204).send();
+}));
+
+accountRouter.patch('/password', asyncRoute(async (req, res) => {
+  const userId = authenticatedUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token inválido ou expirado.' });
+
+  const { currentPassword, newPassword, confirmPassword } = req.body ?? {};
+  if (typeof currentPassword !== 'string' || !currentPassword) {
+    return res.status(400).json({ error: 'Informe sua senha atual.' });
+  }
+  if (typeof newPassword !== 'string' || newPassword.length < 6) {
+    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+  }
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'A confirmação da nova senha não confere.' });
+  }
+
+  const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+  const account = result.rows[0];
+  if (!account || !(await comparePassword(currentPassword, account.password_hash))) {
+    return res.status(400).json({ error: 'A senha atual está incorreta.' });
+  }
+  if (await comparePassword(newPassword, account.password_hash)) {
+    return res.status(400).json({ error: 'A nova senha precisa ser diferente da senha atual.' });
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2', [passwordHash, userId]);
+    await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return res.json({ message: 'Senha alterada com sucesso.' });
 }));

@@ -20,6 +20,8 @@
 
 :root {
   color-scheme: light;
+  --color-scrollbar: #e9dfce;
+  --color-scrollbar-hover: #ddd0bb;
 }
 
 .dark {
@@ -33,6 +35,8 @@
   --color-ledger-strong: #2c7e5c;
   --color-stamp: #e2665a;
   --color-brass: #d9a94f;
+  --color-scrollbar: #2a241c;
+  --color-scrollbar-hover: #393126;
 }
 
 body {
@@ -40,6 +44,37 @@ body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Rolagem discreta e coerente com os fundos claro e escuro. */
+* {
+  scrollbar-color: var(--color-scrollbar) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--color-scrollbar);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-scrollbar-hover);
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
@@ -101,6 +136,27 @@ body {
   background-position: -4px 0;
 }
 
+/* Chama atenção discretamente para o controle de privacidade da demonstração. */
+@keyframes privacy-nudge {
+  0%, 6%, 12%, 18%, 100% {
+    transform: translateY(0);
+  }
+  3%, 9%, 15% {
+    transform: translateY(-5px);
+  }
+}
+
+.privacy-nudge {
+  animation: privacy-nudge 15s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .privacy-nudge {
+    animation: none;
+  }
+}
+
 .modal-overlay {
   display: none;
   position: fixed;
@@ -158,4 +214,56 @@ body {
 
 .modal-overlay.active .modal-content {
   transform: scale(1);
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body:has(.print-report) {
+    background: white;
+  }
+
+  .print-report {
+    color-scheme: light;
+    --color-paper: #f7f1e4;
+    --color-paper-raised: #fffcf5;
+    --color-ink: #241a12;
+    --color-ink-soft: #6b5d4c;
+    --color-line: #e4d8c3;
+    --color-ledger: #1f6f4a;
+    --color-ledger-strong: #145033;
+    --color-stamp: #b23a2e;
+    --color-brass: #9c6b22;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body:has(.print-report) nav,
+  body:has(.print-report) aside,
+  body:has(.print-report) header.sticky,
+  body:has(.print-report) button.fixed,
+  .print-report .no-print {
+    display: none !important;
+  }
+
+  body:has(.print-report) main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .print-report .report-sheet {
+    border: 0;
+    border-radius: 0;
+    background: white;
+    box-shadow: none;
+    color: #241a12;
+    padding: 0;
+  }
+
+  .print-report .break-inside-avoid {
+    break-inside: avoid;
+  }
 }

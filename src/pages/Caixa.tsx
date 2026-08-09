@@ -12,9 +12,11 @@ import {
   Trash,
   UserCirclePlus,
   Check,
+  LockKey,
+  WarningCircle,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
-import { formatCurrency, parseMoney, todayISO } from '../lib/format';
+import { formatCurrency, parseMoney, sanitizeIntegerInput, sanitizeMoneyInput } from '../lib/format';
 import type { Cliente, FormaPagamento } from '../types';
 import Modal from '../components/Modal';
 
@@ -42,8 +44,14 @@ const FORMAS: { forma: FormaPagamento; label: string; Icon: typeof Money; classe
 
 export default function Caixa() {
   const navigate = useNavigate();
-  const { data, addVenda, addCliente } = useAppData();
+  const {
+    data,
+    registrarVendaNoBanco,
+    cadastrarClienteNoBanco,
+    abrirCaixa,
+  } = useAppData();
   const [busca, setBusca] = useState('');
+  const [quantidadeProduto, setQuantidadeProduto] = useState('1');
   const [valorAvulso, setValorAvulso] = useState('');
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [formaSelecionada, setFormaSelecionada] = useState<FormaPagamento | null>(null);
@@ -54,6 +62,10 @@ export default function Caixa() {
   const [novoClienteTelefone, setNovoClienteTelefone] = useState('');
   const [cadastrandoCliente, setCadastrandoCliente] = useState(false);
   const [confirmacaoCobranca, setConfirmacaoCobranca] = useState<ConfirmacaoCobranca | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [erroOperacao, setErroOperacao] = useState<string | null>(null);
+  const [modalAbertura, setModalAbertura] = useState(false);
+  const [valorInicial, setValorInicial] = useState('');
 
   const resultados = useMemo(() => {
     if (!busca.trim()) return [];
@@ -68,13 +80,18 @@ export default function Caixa() {
   }, [buscaCliente, data.clientes]);
 
   const total = carrinho.reduce((sum, item) => sum + item.quantidade * item.valorUnitario, 0);
+  const valorAvulsoValido = parseMoney(valorAvulso) > 0;
+  const quantidadeProdutoSelecionada = Math.max(1, Number(quantidadeProduto) || 1);
 
   const adicionarProduto = (produtoId: string) => {
     const produto = data.produtos.find((p) => p.id === produtoId);
     if (!produto) return;
 
     const jaNoCarrinho = carrinho.find((i) => i.produtoId === produtoId)?.quantidade ?? 0;
-    if (produto.type === 'product' && jaNoCarrinho + 1 > (produto.quantidade ?? 0)) {
+    if (
+      produto.type === 'product' &&
+      jaNoCarrinho + quantidadeProdutoSelecionada > (produto.quantidade ?? 0)
+    ) {
       alert(`Estoque insuficiente: só há ${produto.quantidade ?? 0} unidade(s) de "${produto.nome}" disponível.`);
       return;
     }
@@ -82,7 +99,11 @@ export default function Caixa() {
     setCarrinho((prev) => {
       const existente = prev.find((i) => i.produtoId === produtoId);
       if (existente) {
-        return prev.map((i) => (i.produtoId === produtoId ? { ...i, quantidade: i.quantidade + 1 } : i));
+        return prev.map((i) =>
+          i.produtoId === produtoId
+            ? { ...i, quantidade: i.quantidade + quantidadeProdutoSelecionada }
+            : i,
+        );
       }
       return [
         ...prev,
@@ -90,12 +111,13 @@ export default function Caixa() {
           key: produto.id,
           produtoId: produto.id,
           descricao: produto.nome,
-          quantidade: 1,
+          quantidade: quantidadeProdutoSelecionada,
           valorUnitario: produto.precoVenda,
         },
       ];
     });
     setBusca('');
+    setQuantidadeProduto('1');
   };
 
   const adicionarAvulso = () => {
@@ -125,19 +147,27 @@ export default function Caixa() {
     }
   };
 
-  const cadastrarCliente = () => {
+  const cadastrarCliente = async () => {
     if (!novoClienteNome.trim()) return;
-    const cliente = addCliente({
-      nome: novoClienteNome.trim(),
-      telefone: novoClienteTelefone.trim() || undefined,
-    });
-    setClienteSelecionado(cliente);
-    setCadastrandoCliente(false);
-    setNovoClienteNome('');
-    setNovoClienteTelefone('');
+    setSalvando(true);
+    setErroOperacao(null);
+    try {
+      const cliente = await cadastrarClienteNoBanco({
+        nome: novoClienteNome.trim(),
+        telefone: novoClienteTelefone.trim() || undefined,
+      });
+      setClienteSelecionado(cliente);
+      setCadastrandoCliente(false);
+      setNovoClienteNome('');
+      setNovoClienteTelefone('');
+    } catch (error) {
+      setErroOperacao(error instanceof Error ? error.message : 'Não foi possível cadastrar o cliente.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
-  const finalizarVenda = () => {
+  const finalizarVenda = async () => {
     if (!podeFinalizar) return;
 
     // reconfere contra o estoque atual — protege contra edições no Estoque
@@ -162,7 +192,6 @@ export default function Caixa() {
       }
     }
 
-    const hoje = todayISO();
     const formaCobranca = formaSelecionada!;
     const confirmacao: ConfirmacaoCobranca = {
       total,
@@ -170,79 +199,201 @@ export default function Caixa() {
       quantidadeItens: carrinho.reduce((quantidade, item) => quantidade + item.quantidade, 0),
       cliente: clienteSelecionado?.nome,
     };
-    carrinho.forEach((item) => {
-      addVenda(
-        {
-          data: hoje,
-          descricao: item.descricao,
-          quantidade: item.quantidade,
-          valorUnitario: item.valorUnitario,
-          formaPagamento: formaCobranca,
-          produtoId: item.produtoId,
-        },
-        formaCobranca === 'fiado' && clienteSelecionado ? { clienteId: clienteSelecionado.id } : undefined,
+    setSalvando(true);
+    setErroOperacao(null);
+    try {
+      await registrarVendaNoBanco(
+        carrinho.map((item) => ({
+          productId: item.produtoId,
+          description: item.descricao,
+          quantity: item.quantidade,
+          unitPrice: item.valorUnitario,
+        })),
+        formaCobranca,
+        formaCobranca === 'fiado' ? clienteSelecionado?.id : undefined,
       );
-    });
-    setCarrinho([]);
-    setFormaSelecionada(null);
-    setClienteSelecionado(null);
-    setConfirmacaoCobranca(confirmacao);
+      setCarrinho([]);
+      setFormaSelecionada(null);
+      setClienteSelecionado(null);
+      setConfirmacaoCobranca(confirmacao);
+    } catch (error) {
+      setErroOperacao(error instanceof Error ? error.message : 'Não foi possível registrar a venda.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const abrirNovoCaixa = async () => {
+    const inicial = valorInicial.trim() ? parseMoney(valorInicial) : 0;
+    if (!Number.isFinite(inicial) || inicial < 0) return;
+    setSalvando(true);
+    setErroOperacao(null);
+    try {
+      await abrirCaixa(inicial);
+      setModalAbertura(false);
+      setValorInicial('');
+    } catch (error) {
+      setErroOperacao(error instanceof Error ? error.message : 'Não foi possível abrir o caixa.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const precisaCliente = formaSelecionada === 'fiado';
   const podeFinalizar =
-    carrinho.length > 0 && formaSelecionada !== null && (!precisaCliente || clienteSelecionado !== null);
+    data.caixaAtual !== null && !salvando && carrinho.length > 0 && formaSelecionada !== null && (!precisaCliente || clienteSelecionado !== null);
+  const caixa = data.caixaAtual;
 
   return (
     <div className="fade-in">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="font-display text-xl font-bold">Frente de Caixa</h2>
-        <button onClick={lerCodigo} className="flex items-center gap-1 text-sm font-medium text-ledger-strong dark:text-ledger">
-          <Camera size={18} /> Ler Código
-        </button>
+        <div className="flex items-center gap-3">
+          {caixa ? (
+            <button
+              onClick={() => navigate('/caixa/fechamento')}
+              className="flex items-center gap-1 text-sm font-semibold text-stamp"
+            >
+              <LockKey size={18} /> Fechar Caixa
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setErroOperacao(null);
+                setModalAbertura(true);
+              }}
+              className="flex items-center gap-1 text-sm font-semibold text-ledger-strong dark:text-ledger"
+            >
+              <Money size={18} /> Abrir Caixa
+            </button>
+          )}
+          <button
+            onClick={lerCodigo}
+            disabled={!caixa}
+            className="hidden items-center gap-1 text-sm font-medium text-ledger-strong disabled:opacity-40 dark:text-ledger sm:flex"
+          >
+            <Camera size={18} /> Ler Código
+          </button>
+        </div>
       </div>
 
-      <div className="receipt-edge flex h-[60vh] flex-col rounded-2xl border border-line bg-paper-raised p-4 pb-6 shadow-sm lg:h-[65vh]">
+      {caixa ? (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-ledger/20 bg-ledger/5 px-3 py-2 text-xs">
+          <span className="font-semibold text-ledger-strong dark:text-ledger">Caixa aberto</span>
+          <span className="font-ledger text-ink-soft">Inicial: {formatCurrency(caixa.valorInicial)}</span>
+        </div>
+      ) : (
+        <div className="mb-3 rounded-xl border border-brass/30 bg-brass/10 p-3 text-sm text-ink">
+          <p className="font-semibold text-brass">O caixa está fechado.</p>
+          <p className="mt-1 text-xs text-ink-soft">Abra um novo caixa para registrar vendas e movimentações.</p>
+        </div>
+      )}
+
+      {erroOperacao && !modalAbertura && (
+        <div className="mb-3 flex items-start gap-2 rounded-xl bg-stamp/10 p-3 text-sm text-stamp">
+          <WarningCircle size={18} className="mt-0.5 shrink-0" /> {erroOperacao}
+        </div>
+      )}
+
+      <div className={`receipt-edge flex h-[60vh] flex-col rounded-2xl border border-line bg-paper-raised p-4 pb-6 shadow-sm lg:h-[65vh] ${!caixa ? 'pointer-events-none opacity-45' : ''}`}>
         <div className="relative mb-2">
-          <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
-          <input
-            type="text"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar produto cadastrado..."
-            className="w-full rounded-xl border border-line bg-paper py-3 pl-10 pr-4 text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
-          />
+          <div className="grid grid-cols-[minmax(0,1fr)_68px] gap-2">
+            <div className="relative min-w-0">
+              <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
+              <input
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar produto..."
+                className="w-full rounded-xl border border-line bg-paper py-3 pl-10 pr-3 text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
+              />
+            </div>
+            <label className="relative">
+              <span className="sr-only">Quantidade de unidades</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={quantidadeProduto}
+                onChange={(e) => setQuantidadeProduto(sanitizeIntegerInput(e.target.value))}
+                onBlur={() => {
+                  if (!quantidadeProduto || Number(quantidadeProduto) < 1) setQuantidadeProduto('1');
+                }}
+                aria-label="Quantidade de unidades"
+                className="w-full rounded-xl border border-line bg-paper py-3 pl-2 pr-7 text-center font-ledger text-sm font-bold tabular-nums text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
+              />
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold uppercase text-ink-soft">
+                un.
+              </span>
+            </label>
+          </div>
           {resultados.length > 0 && (
             <div className="absolute z-10 mt-1 w-full rounded-xl border border-line bg-paper-raised shadow-lg">
-              {resultados.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => adicionarProduto(p.id)}
-                  className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-sm hover:bg-line/30"
-                >
-                  <span className="min-w-0 truncate text-ink">{p.nome}</span>
-                  <span className="shrink-0 font-ledger text-ink-soft">{formatCurrency(p.precoVenda)}</span>
-                </button>
-              ))}
+              {resultados.map((p) => {
+                const jaNoCarrinho = carrinho.find((item) => item.produtoId === p.id)?.quantidade ?? 0;
+                const estoque = p.quantidade ?? 0;
+                const estoqueInsuficiente =
+                  p.type === 'product' && jaNoCarrinho + quantidadeProdutoSelecionada > estoque;
+
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => adicionarProduto(p.id)}
+                    disabled={estoqueInsuficiente}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm transition hover:bg-line/30 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className="min-w-0 truncate text-ink">
+                      {p.nome}{' '}
+                      <span className="font-ledger text-xs font-bold text-ink-soft">
+                        {p.type === 'product' ? `× ${estoque} un.` : '· Serviço'}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block font-ledger text-ink-soft">{formatCurrency(p.precoVenda)}</span>
+                      {estoqueInsuficiente && (
+                        <span className="block text-[9px] font-semibold text-stamp">Estoque insuficiente</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
-        <div className="mb-2 flex gap-2">
-          <input
-            type="text"
-            inputMode="decimal"
-            value={valorAvulso}
-            onChange={(e) => setValorAvulso(e.target.value)}
-            placeholder="Ou digite um valor avulso (ex: 12,50)"
-            className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-sm text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
-          />
-          <button
-            onClick={adicionarAvulso}
-            className="whitespace-nowrap rounded-xl bg-ledger/10 px-3 text-sm font-medium text-ledger-strong dark:text-ledger"
-          >
-            Adicionar
-          </button>
+        <div className="mb-3 rounded-xl border border-line bg-paper p-2.5">
+          <div className="mb-2 flex items-center justify-between gap-3 px-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-ink-soft">Venda avulsa</span>
+            <span className="text-[10px] text-ink-soft">Item sem cadastro</span>
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+            <label className="relative min-w-0">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 border-r border-line pr-2 font-ledger text-sm font-bold text-ledger-strong dark:text-ledger">
+                R$
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={valorAvulso}
+                onChange={(e) => setValorAvulso(sanitizeMoneyInput(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') adicionarAvulso();
+                }}
+                placeholder="0,00"
+                aria-label="Valor da venda avulsa"
+                className="w-full rounded-xl border border-line bg-paper-raised py-2.5 pl-14 pr-3 font-ledger text-base font-bold tabular-nums text-ink placeholder:font-normal placeholder:text-ink-soft/70 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={adicionarAvulso}
+              disabled={!valorAvulsoValido}
+              className="whitespace-nowrap rounded-xl bg-ledger px-4 text-sm font-bold text-paper shadow-sm transition hover:bg-ledger-strong disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-soft disabled:shadow-none"
+            >
+              Adicionar
+            </button>
+          </div>
         </div>
 
         <div className="mb-2 flex-1 overflow-y-auto border-b border-line pb-2">
@@ -261,7 +412,7 @@ export default function Caixa() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{item.descricao}</p>
                     <p className="font-ledger text-xs text-ink-soft">
-                      {item.quantidade} x {formatCurrency(item.valorUnitario)}
+                      {item.quantidade} un. × {formatCurrency(item.valorUnitario)}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
@@ -340,7 +491,8 @@ export default function Caixa() {
                       Cancelar
                     </button>
                     <button
-                      onClick={cadastrarCliente}
+                      onClick={() => void cadastrarCliente()}
+                      disabled={salvando}
                       className="flex-1 rounded-lg bg-brass py-2 text-xs font-bold text-paper"
                     >
                       Cadastrar
@@ -383,13 +535,13 @@ export default function Caixa() {
           )}
 
           <button
-            onClick={finalizarVenda}
+            onClick={() => void finalizarVenda()}
             disabled={!podeFinalizar}
             className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold text-paper shadow-md transition active:scale-[0.98] ${
               podeFinalizar ? 'bg-ledger hover:bg-ledger-strong' : 'cursor-not-allowed bg-ledger opacity-50'
             }`}
           >
-            <CheckCircle size={20} /> Cobrar
+            <CheckCircle size={20} /> {salvando ? 'Salvando…' : 'Cobrar'}
           </button>
         </div>
       </div>
@@ -468,6 +620,48 @@ export default function Caixa() {
           </div>
         )}
       </Modal>
+
+      <Modal open={modalAbertura} onClose={() => setModalAbertura(false)} title="Abrir novo caixa">
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void abrirNovoCaixa();
+          }}
+        >
+          <p className="text-sm text-ink-soft">Informe quanto há em dinheiro físico no início desta sessão.</p>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-soft">Valor inicial</label>
+            <input
+              autoFocus
+              value={valorInicial}
+              onChange={(event) => setValorInicial(sanitizeMoneyInput(event.target.value))}
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
+              className="w-full rounded-xl border border-line bg-paper px-4 py-3 font-ledger text-xl text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+            />
+          </div>
+          {erroOperacao && <p className="text-sm font-medium text-stamp">{erroOperacao}</p>}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setModalAbertura(false)}
+              className="flex-1 rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-ink"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="flex-1 rounded-lg bg-ledger px-4 py-2.5 text-sm font-bold text-paper disabled:opacity-60"
+            >
+              {salvando ? 'Abrindo…' : 'Abrir Caixa'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
     </div>
   );
 }

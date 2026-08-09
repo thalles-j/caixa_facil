@@ -1,11 +1,25 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Check, Plus, Trash, Storefront } from '@phosphor-icons/react';
+import {
+  ArrowRight,
+  ArrowLeft,
+  Buildings,
+  Calculator,
+  Check,
+  Drop,
+  GasPump,
+  Lightning,
+  Plus,
+  Storefront,
+  Trash,
+  UsersThree,
+  WifiHigh,
+} from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { RAMOS_ATUACAO } from '../types';
 import type { DespesaFixa, Oferta, Recorrencia, ViewPeriod } from '../types';
 import { getCategoryTheme } from '../lib/categoryThemes';
-import { formatCurrency, parseMoney } from '../lib/format';
+import { formatCurrency, parseMoney, sanitizeMoneyInput } from '../lib/format';
 import { uid } from '../lib/storage';
 
 const TOTAL_STEPS = 4;
@@ -16,8 +30,18 @@ const OFERTAS: { valor: Oferta; label: string }[] = [
   { valor: 'servicos', label: 'Apenas Serviços' },
 ];
 
+const DESPESAS_SUGERIDAS = [
+  { nome: 'Aluguel', Icon: Buildings },
+  { nome: 'Energia', Icon: Lightning },
+  { nome: 'Água', Icon: Drop },
+  { nome: 'Internet', Icon: WifiHigh },
+  { nome: 'Funcionários', Icon: UsersThree },
+  { nome: 'Combustível', Icon: GasPump },
+  { nome: 'Contabilidade', Icon: Calculator },
+];
+
 export default function Onboarding() {
-  const { setConfig } = useAppData();
+  const { setConfig, cadastrarDespesaFixaNoBanco } = useAppData();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(0);
@@ -25,7 +49,6 @@ export default function Onboarding() {
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState<string>(RAMOS_ATUACAO[0]);
   const [oferta, setOferta] = useState<Oferta>('ambos');
-  const [controlaEstoque, setControlaEstoque] = useState(true);
   const [despesasFixas, setDespesasFixas] = useState<DespesaFixa[]>([]);
   const [novaDespesaNome, setNovaDespesaNome] = useState('');
   const [novaDespesaValor, setNovaDespesaValor] = useState('');
@@ -33,13 +56,15 @@ export default function Onboarding() {
   const [viewPeriod, setViewPeriod] = useState<ViewPeriod>('day');
   const [resumoSemanal, setResumoSemanal] = useState(true);
   const [fechamentoMensal, setFechamentoMensal] = useState(true);
+  const [concluindo, setConcluindo] = useState(false);
+  const [conclusaoErro, setConclusaoErro] = useState<string | null>(null);
 
   const selecionarOferta = (valor: Oferta) => {
     setOferta(valor);
-    setControlaEstoque(valor !== 'servicos');
   };
 
-  const adicionarDespesa = () => {
+  const adicionarDespesa = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     const valor = parseMoney(novaDespesaValor);
     if (!novaDespesaNome.trim() || !valor || valor <= 0) return;
     setDespesasFixas((prev) => [
@@ -54,6 +79,12 @@ export default function Onboarding() {
     setDespesasFixas((prev) => prev.filter((d) => d.id !== id));
   };
 
+  const totalMensalEstimado = despesasFixas.reduce(
+    (total, despesa) => total + despesa.valor * (despesa.recorrencia === 'semanal' ? 4 : 1),
+    0,
+  );
+  const podeAdicionarDespesa = novaDespesaNome.trim().length > 0 && parseMoney(novaDespesaValor) > 0;
+
   const podeAvancar = step !== 0 || nome.trim().length > 0;
 
   const avancar = () => {
@@ -63,7 +94,7 @@ export default function Onboarding() {
 
   const voltar = () => setStep((s) => Math.max(0, s - 1));
 
-  const concluir = () => {
+  const concluir = async () => {
     const frequencia =
       resumoSemanal && fechamentoMensal
         ? 'ambos'
@@ -77,14 +108,28 @@ export default function Onboarding() {
       nome: nome.trim(),
       categoria,
       oferta,
-      controlaEstoque,
+      controlaEstoque: oferta !== 'servicos',
       despesasFixas,
       relatorio: { frequencia, porEmail: false },
       viewPeriod,
       onboardingConcluido: true,
     });
 
-    navigate('/', { replace: true });
+    setConcluindo(true);
+    setConclusaoErro(null);
+    try {
+      for (const despesa of despesasFixas) {
+        await cadastrarDespesaFixaNoBanco({
+          nome: despesa.nome,
+          valor: despesa.valor,
+          recorrencia: despesa.recorrencia,
+        });
+      }
+      navigate('/', { replace: true });
+    } catch (error) {
+      setConclusaoErro(error instanceof Error ? error.message : 'Não foi possível concluir a configuração.');
+      setConcluindo(false);
+    }
   };
 
   return (
@@ -93,7 +138,7 @@ export default function Onboarding() {
         <Storefront size={38} weight="fill" className="text-ledger-strong" />
       </div>
       <h1 className="mb-1 text-center font-display text-2xl font-bold leading-tight tracking-tight">
-        Meu Negócio no Bolso
+        CaixaFácil
       </h1>
       <p className="mb-6 text-center font-ledger text-xs font-medium text-[#f7f1e4]/60">
         Passo {step + 1} de {TOTAL_STEPS}
@@ -174,81 +219,143 @@ export default function Onboarding() {
                   </button>
                 ))}
               </div>
-              <label
-                className={`flex items-center justify-between gap-3 rounded-xl bg-paper p-3 transition ${
-                  oferta === 'servicos' ? 'opacity-50' : ''
-                }`}
-              >
-                <div>
-                  <span className="block text-sm font-medium text-ink">Gerenciar Estoque?</span>
-                  {oferta === 'servicos' && (
-                    <span className="block text-xs text-ink-soft">Não disponível para "Apenas Serviços"</span>
-                  )}
-                </div>
-                <input
-                  type="checkbox"
-                  checked={controlaEstoque}
-                  disabled={oferta === 'servicos'}
-                  onChange={(e) => setControlaEstoque(e.target.checked)}
-                  className="h-5 w-5 accent-ledger"
-                />
-              </label>
             </div>
           )}
 
           {step === 2 && (
-            <div className="fade-in space-y-4">
-              <h2 className="font-display text-lg font-bold text-ink">Despesas Fixas</h2>
-              <p className="text-xs text-ink-soft">Opcional — você pode adicionar depois em Configurações.</p>
-              <ul className="space-y-2">
-                {despesasFixas.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between gap-2 rounded-lg bg-paper p-2 text-sm">
-                    <span className="min-w-0 truncate text-ink">
-                      {d.nome} <span className="text-ink-soft">({d.recorrencia})</span>
-                    </span>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="font-ledger font-medium tabular-nums text-ink">{formatCurrency(d.valor)}</span>
-                      <button type="button" onClick={() => removerDespesa(d.id)} className="text-ink-soft hover:text-stamp">
-                        <Trash size={16} />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={novaDespesaNome}
-                  onChange={(e) => setNovaDespesaNome(e.target.value)}
-                  placeholder="Nome (ex: Aluguel)"
-                  className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={novaDespesaValor}
-                    onChange={(e) => setNovaDespesaValor(e.target.value)}
-                    placeholder="Ex: 900,00"
-                    className="w-28 min-w-0 rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-                  />
-                  <select
-                    value={novaDespesaRecorrencia}
-                    onChange={(e) => setNovaDespesaRecorrencia(e.target.value as Recorrencia)}
-                    className="min-w-0 flex-1 rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-                  >
-                    <option value="mensal">Mensal</option>
-                    <option value="semanal">Semanal</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={adicionarDespesa}
-                    className="flex shrink-0 items-center gap-1 rounded-lg bg-ledger/10 px-3 text-sm font-medium text-ledger-strong"
-                  >
-                    <Plus size={16} /> Add
-                  </button>
+            <div className="fade-in space-y-5">
+              <div>
+                <h2 className="font-display text-lg font-bold text-ink">Despesas que se repetem</h2>
+                <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                  Cadastre aluguel, contas e outros gastos recorrentes para lembrar de dar baixa quando pagar. Esta etapa é opcional.
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-ink-soft">Escolha uma sugestão</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {DESPESAS_SUGERIDAS.map(({ nome: sugestao, Icon }) => (
+                    <button
+                      key={sugestao}
+                      type="button"
+                      onClick={() => setNovaDespesaNome(sugestao)}
+                      title={`Usar ${sugestao}`}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition ${
+                        novaDespesaNome === sugestao
+                          ? 'border-ledger bg-ledger/10 text-ledger-strong'
+                          : 'border-line bg-paper text-ink-soft hover:border-ledger/40 hover:text-ink'
+                      }`}
+                    >
+                      <Icon size={17} className="shrink-0" /> {sugestao}
+                    </button>
+                  ))}
                 </div>
               </div>
+
+              <form onSubmit={adicionarDespesa} className="space-y-4 rounded-2xl border border-line bg-paper p-4">
+                <h3 className="font-display text-sm font-bold text-ink">Adicionar despesa fixa</h3>
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-soft">Nome da despesa</span>
+                  <input
+                    type="text"
+                    value={novaDespesaNome}
+                    onChange={(e) => setNovaDespesaNome(e.target.value)}
+                    placeholder="Ex: Aluguel do ponto"
+                    className="w-full rounded-xl border border-line bg-paper-raised px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-soft">Valor de cada pagamento</span>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-ledger text-sm font-bold text-ink-soft">R$</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={novaDespesaValor}
+                      onChange={(e) => setNovaDespesaValor(sanitizeMoneyInput(e.target.value))}
+                      placeholder="0,00"
+                      className="w-full rounded-xl border border-line bg-paper-raised py-2.5 pl-10 pr-3 font-ledger text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                    />
+                  </div>
+                </label>
+
+                <fieldset>
+                  <legend className="mb-2 text-[10px] font-bold uppercase tracking-wide text-ink-soft">Com que frequência?</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      ['mensal', 'Todo mês'],
+                      ['semanal', 'Toda semana'],
+                    ] as const).map(([recorrencia, label]) => (
+                      <button
+                        key={recorrencia}
+                        type="button"
+                        aria-pressed={novaDespesaRecorrencia === recorrencia}
+                        onClick={() => setNovaDespesaRecorrencia(recorrencia)}
+                        className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                          novaDespesaRecorrencia === recorrencia
+                            ? 'border-ledger bg-ledger/10 text-ledger-strong'
+                            : 'border-line bg-paper-raised text-ink-soft'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <button
+                  type="submit"
+                  disabled={!podeAdicionarDespesa}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-ledger px-4 py-3 text-sm font-bold text-paper transition hover:bg-ledger-strong disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus size={17} weight="bold" /> Adicionar despesa
+                </button>
+              </form>
+
+              {despesasFixas.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-line px-4 py-5 text-center">
+                  <p className="text-sm font-medium text-ink">Nenhuma despesa adicionada</p>
+                  <p className="mt-1 text-xs text-ink-soft">Você pode continuar e cadastrar depois nas Configurações.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-ink-soft">Despesas adicionadas</p>
+                      <p className="text-xs text-ink-soft">Semanais são estimadas em quatro pagamentos.</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-ink-soft">Estimativa mensal</p>
+                      <p className="font-ledger text-sm font-bold text-stamp">{formatCurrency(totalMensalEstimado)}</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2">
+                    {despesasFixas.map((despesa) => (
+                      <li key={despesa.id} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-paper p-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-ink">{despesa.nome}</p>
+                          <p className="mt-0.5 text-[10px] font-medium text-ink-soft">
+                            {despesa.recorrencia === 'mensal' ? 'Pagamento mensal' : 'Pagamento semanal'}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="font-ledger text-sm font-bold tabular-nums text-ink">{formatCurrency(despesa.valor)}</span>
+                          <button
+                            type="button"
+                            onClick={() => removerDespesa(despesa.id)}
+                            aria-label={`Remover ${despesa.nome}`}
+                            title={`Remover ${despesa.nome}`}
+                            className="rounded-lg p-2 text-ink-soft transition hover:bg-stamp/10 hover:text-stamp"
+                          >
+                            <Trash size={16} />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
@@ -327,6 +434,7 @@ export default function Onboarding() {
           )}
         </div>
 
+        {conclusaoErro && <p className="px-4 pt-3 text-center text-xs font-medium text-stamp">{conclusaoErro}</p>}
         <div className="flex items-center gap-3 border-t border-line p-4">
           {step > 0 && (
             <button
@@ -351,16 +459,17 @@ export default function Onboarding() {
           ) : (
             <button
               type="button"
-              onClick={concluir}
+              onClick={() => void concluir()}
+              disabled={concluindo}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-ledger py-3 font-bold text-paper shadow-md transition-all hover:bg-ledger-strong active:scale-95"
             >
-              Concluir <Check size={18} weight="bold" />
+              {concluindo ? 'Salvando…' : 'Concluir'} <Check size={18} weight="bold" />
             </button>
           )}
         </div>
       </div>
 
-      <p className="mt-6 text-xs text-[#f7f1e4]/50">Protótipo 1.0 • Salvo no seu dispositivo</p>
+      <p className="mt-6 text-xs text-[#f7f1e4]/50">Seus dados financeiros ficam salvos com segurança na sua conta.</p>
     </div>
   );
 }

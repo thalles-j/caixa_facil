@@ -14,27 +14,38 @@ import {
   ArrowsClockwise,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
-import { formatCurrency, formatDate, parseMoney, todayISO } from '../lib/format';
+import { formatCurrency, formatDate, parseMoney, sanitizeMoneyInput, todayISO } from '../lib/format';
 import Modal from '../components/Modal';
-import type { Cliente, Conta, LancamentoManual, TipoConta } from '../types';
+import type { Cliente, Conta, FormaPagamento, LancamentoManual, TipoConta } from '../types';
 import FinanceNav from '../components/FinanceNav';
 
 type ItemParaExcluir = { tipo: 'conta' | 'lancamento'; id: string; label: string };
+type BaixaPendente = { tipo: 'fiado' | 'fixa'; id: string; nome: string; valor: number };
 
 export default function Financas() {
-  const { data, addConta, editarConta, removerConta, marcarContaQuitada, addLancamentoManual, editarLancamentoManual, removerLancamentoManual, editarCliente } =
-    useAppData();
+  const {
+    data,
+    addConta,
+    editarConta,
+    removerConta,
+    marcarContaQuitada,
+    editarLancamentoManual,
+    removerLancamentoManual,
+    editarCliente,
+    baixarFiado,
+    baixarDespesaFixa,
+  } = useAppData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const aba: TipoConta = searchParams.get('tab') === 'receber' ? 'receber' : 'pagar';
   const [modalAberto, setModalAberto] = useState(false);
-  const [entradaModalAberto, setEntradaModalAberto] = useState(false);
-  const [entradaDescricao, setEntradaDescricao] = useState('');
-  const [entradaValor, setEntradaValor] = useState('');
-  const [entradaData, setEntradaData] = useState(todayISO());
   const [contaEditando, setContaEditando] = useState<Conta | null>(null);
   const [lancamentoEditando, setLancamentoEditando] = useState<LancamentoManual | null>(null);
   const [itemParaExcluir, setItemParaExcluir] = useState<ItemParaExcluir | null>(null);
+  const [baixaPendente, setBaixaPendente] = useState<BaixaPendente | null>(null);
+  const [formaBaixa, setFormaBaixa] = useState<Exclude<FormaPagamento, 'fiado'>>('dinheiro');
+  const [baixando, setBaixando] = useState(false);
+  const [baixaErro, setBaixaErro] = useState<string | null>(null);
 
   const mesAtual = todayISO().slice(0, 7);
   const gastosFixos = useMemo(() => data.config?.despesasFixas ?? [], [data.config?.despesasFixas]);
@@ -58,7 +69,7 @@ export default function Financas() {
   const lancamentosDaAba = useMemo(
     () =>
       data.lancamentosManuais
-        .filter((l) => (aba === 'pagar' ? l.tipo === 'saida' : l.tipo === 'entrada'))
+        .filter((l) => aba === 'pagar' && l.tipo === 'saida')
         .sort((a, b) => b.data.localeCompare(a.data)),
     [data.lancamentosManuais, aba],
   );
@@ -107,24 +118,6 @@ export default function Financas() {
     setModalAberto(false);
   };
 
-  const handleEntradaSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const valor = parseMoney(entradaValor);
-
-    if (!entradaDescricao.trim() || valor <= 0) return;
-
-    addLancamentoManual({
-      tipo: 'entrada',
-      descricao: entradaDescricao.trim(),
-      valor,
-      data: entradaData,
-    });
-    setEntradaModalAberto(false);
-    setEntradaDescricao('');
-    setEntradaValor('');
-    setEntradaData(todayISO());
-  };
-
   const handleEditarContaSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!contaEditando) return;
@@ -171,13 +164,37 @@ export default function Financas() {
     setItemParaExcluir(null);
   };
 
+  const abrirConfirmacaoBaixa = (baixa: BaixaPendente) => {
+    setBaixaPendente(baixa);
+    setFormaBaixa('dinheiro');
+    setBaixaErro(null);
+  };
+
+  const confirmarBaixa = async () => {
+    if (!baixaPendente) return;
+    setBaixando(true);
+    setBaixaErro(null);
+    try {
+      if (baixaPendente.tipo === 'fiado') {
+        await baixarFiado(baixaPendente.id, formaBaixa);
+      } else {
+        await baixarDespesaFixa(baixaPendente.id, formaBaixa);
+      }
+      setBaixaPendente(null);
+    } catch (error) {
+      setBaixaErro(error instanceof Error ? error.message : 'Não foi possível dar baixa.');
+    } finally {
+      setBaixando(false);
+    }
+  };
+
   const hoje = todayISO();
   const mostrarPainelClientes = aba === 'receber' && saldoPorCliente.length > 0;
 
   return (
     <div className="fade-in">
-      <h2 className="mb-4 font-display text-xl font-bold">Financeiro</h2>
-
+      <h2 className="font-display text-2xl font-bold text-ink">Financeiro</h2>
+      <p className="mt-1 text-sm text-ink-soft">Suas principais contas aqui!</p>
       <FinanceNav />
 
       <div className="mb-6 flex rounded-xl bg-line/40 p-1">
@@ -215,14 +232,7 @@ export default function Financas() {
           >
             <Plus size={16} /> Despesa
           </button>
-        ) : (
-          <button
-            onClick={() => setEntradaModalAberto(true)}
-            className="flex shrink-0 items-center gap-1 text-sm font-medium text-ledger-strong dark:text-ledger"
-          >
-            <Plus size={16} /> Entrada
-          </button>
-        )}
+        ) : null}
       </div>
 
       <div className={mostrarPainelClientes ? 'lg:grid lg:grid-cols-3 lg:items-start lg:gap-6' : ''}>
@@ -261,15 +271,17 @@ export default function Financas() {
                 <p className="mb-4 text-xs text-ink-soft">
                   {aba === 'pagar'
                     ? 'Cadastre uma despesa para acompanhar seus pagamentos.'
-                    : 'Registre entradas manuais ou use o Caixa para vendas fiado.'}
+                    : 'As vendas fiado registradas no Caixa aparecem aqui.'}
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-                  <button
-                    onClick={() => (aba === 'pagar' ? setModalAberto(true) : setEntradaModalAberto(true))}
-                    className="flex items-center justify-center gap-1 rounded-lg bg-ledger px-4 py-2 text-sm font-medium text-paper"
-                  >
-                    <Plus size={16} /> {aba === 'pagar' ? 'Nova Despesa' : 'Nova Entrada'}
-                  </button>
+                  {aba === 'pagar' && (
+                    <button
+                      onClick={() => setModalAberto(true)}
+                      className="flex items-center justify-center gap-1 rounded-lg bg-ledger px-4 py-2 text-sm font-medium text-paper"
+                    >
+                      <Plus size={16} /> Nova Despesa
+                    </button>
+                  )}
                   {aba === 'receber' && (
                     <button
                       onClick={() => navigate('/caixa')}
@@ -298,7 +310,16 @@ export default function Financas() {
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="font-ledger font-bold tabular-nums text-ink">{formatCurrency(gasto.valor)}</p>
-                        <p className="text-[10px] text-ink-soft">por {gasto.recorrencia === 'semanal' ? 'semana' : 'mês'}</p>
+                        {gasto.quitado ? (
+                          <span className="stamp mt-1 text-ledger-strong dark:text-ledger">Pago</span>
+                        ) : (
+                          <button
+                            onClick={() => abrirConfirmacaoBaixa({ tipo: 'fixa', id: gasto.id, nome: gasto.nome, valor: gasto.valor })}
+                            className="mt-1 rounded bg-ledger/10 px-2 py-1 text-xs font-medium text-ledger-strong dark:text-ledger"
+                          >
+                            Dar Baixa
+                          </button>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -365,7 +386,18 @@ export default function Financas() {
                         <div className="flex items-center gap-1">
                           {!conta.quitado && (
                             <button
-                              onClick={() => marcarContaQuitada(conta.id)}
+                              onClick={() => {
+                                if (conta.tipo === 'receber') {
+                                  abrirConfirmacaoBaixa({
+                                    tipo: 'fiado',
+                                    id: conta.id,
+                                    nome: cliente?.nome ?? conta.descricao,
+                                    valor: conta.valor,
+                                  });
+                                } else {
+                                  marcarContaQuitada(conta.id);
+                                }
+                              }}
                               className="rounded bg-ledger/10 px-2 py-1 text-xs font-medium text-ledger-strong dark:text-ledger"
                             >
                               Dar Baixa
@@ -471,6 +503,9 @@ export default function Financas() {
               name="valor"
               type="text"
               inputMode="decimal"
+              onInput={(e) => {
+                e.currentTarget.value = sanitizeMoneyInput(e.currentTarget.value);
+              }}
               required
               placeholder="Ex: 130,00"
               className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
@@ -488,47 +523,6 @@ export default function Financas() {
           </div>
           <button type="submit" className="mt-2 w-full rounded-lg bg-ledger py-2.5 font-bold text-paper transition hover:bg-ledger-strong">
             Salvar Despesa
-          </button>
-        </form>
-      </Modal>
-
-      <Modal open={entradaModalAberto} onClose={() => setEntradaModalAberto(false)} title="Nova Entrada">
-        <form className="space-y-4" onSubmit={handleEntradaSubmit}>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-ink-soft">Descrição</label>
-            <input
-              value={entradaDescricao}
-              onChange={(e) => setEntradaDescricao(e.target.value)}
-              type="text"
-              required
-              placeholder="Ex: Venda avulsa"
-              className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-ink-soft">Valor</label>
-            <input
-              value={entradaValor}
-              onChange={(e) => setEntradaValor(e.target.value)}
-              type="text"
-              inputMode="decimal"
-              required
-              placeholder="Ex: 130,00"
-              className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-ink-soft">Data</label>
-            <input
-              value={entradaData}
-              onChange={(e) => setEntradaData(e.target.value)}
-              type="date"
-              required
-              className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-            />
-          </div>
-          <button type="submit" className="mt-2 w-full rounded-lg bg-ledger py-2.5 font-bold text-paper transition hover:bg-ledger-strong">
-            Salvar Entrada
           </button>
         </form>
       </Modal>
@@ -584,6 +578,9 @@ export default function Financas() {
                 name="valor"
                 type="text"
                 inputMode="decimal"
+                onInput={(e) => {
+                  e.currentTarget.value = sanitizeMoneyInput(e.currentTarget.value);
+                }}
                 required
                 defaultValue={contaEditando.valor.toString().replace('.', ',')}
                 className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
@@ -625,6 +622,9 @@ export default function Financas() {
                 name="valor"
                 type="text"
                 inputMode="decimal"
+                onInput={(e) => {
+                  e.currentTarget.value = sanitizeMoneyInput(e.currentTarget.value);
+                }}
                 required
                 defaultValue={lancamentoEditando.valor.toString().replace('.', ',')}
                 className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
@@ -644,6 +644,67 @@ export default function Financas() {
               Salvar Alterações
             </button>
           </form>
+        )}
+      </Modal>
+
+      <Modal
+        open={baixaPendente !== null}
+        onClose={() => setBaixaPendente(null)}
+        title={baixaPendente?.tipo === 'fiado' ? 'Confirmar baixa do fiado' : 'Confirmar pagamento da conta fixa'}
+      >
+        {baixaPendente && (
+          <div className="space-y-5">
+            <div className="rounded-xl border border-line bg-paper p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                {baixaPendente.tipo === 'fiado' ? 'Cliente' : 'Conta fixa'}
+              </p>
+              <p className="mt-1 font-semibold text-ink">{baixaPendente.nome}</p>
+              <p className="mt-3 font-ledger text-2xl font-bold tabular-nums text-ledger-strong dark:text-ledger">
+                {formatCurrency(baixaPendente.valor)}
+              </p>
+            </div>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-ink-soft">
+                {baixaPendente.tipo === 'fiado' ? 'Forma de recebimento' : 'Forma de pagamento'}
+              </span>
+              <select
+                value={formaBaixa}
+                onChange={(event) => setFormaBaixa(event.target.value as Exclude<FormaPagamento, 'fiado'>)}
+                className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink"
+              >
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">Pix</option>
+                <option value="cartao_credito">Cartão de crédito</option>
+                <option value="cartao_debito">Cartão de débito</option>
+              </select>
+            </label>
+
+            {baixaPendente.tipo === 'fixa' && formaBaixa !== 'dinheiro' && (
+              <p className="rounded-lg bg-ledger/10 px-3 py-2 text-xs text-ledger-strong dark:text-ledger">
+                O pagamento será registrado nos relatórios, mas não reduzirá o dinheiro físico esperado.
+              </p>
+            )}
+            {baixaErro && <p className="text-sm font-medium text-stamp">{baixaErro}</p>}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setBaixaPendente(null)}
+                className="flex-1 rounded-lg border border-line bg-paper px-4 py-2.5 text-sm font-medium text-ink"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmarBaixa()}
+                disabled={baixando}
+                className="flex-1 rounded-lg bg-ledger px-4 py-2.5 text-sm font-bold text-paper disabled:opacity-60"
+              >
+                {baixando ? 'Salvando…' : 'Confirmar baixa'}
+              </button>
+            </div>
+          </div>
         )}
       </Modal>
 

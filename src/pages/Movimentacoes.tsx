@@ -40,6 +40,7 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
   const [dataFinal, setDataFinal] = useState('');
   const [formaPagamento, setFormaPagamento] = useState<'todas' | FormaPagamento>('todas');
   const [tipoItem, setTipoItem] = useState<'geral' | 'product' | 'service'>('geral');
+  const [filtrosMobileAbertos, setFiltrosMobileAbertos] = useState(false);
   const texto = configuracao[modo];
 
   const movimentacoes = useMemo(() => {
@@ -78,13 +79,13 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
   const filtrosAtivos = Boolean(
     busca || dataInicial || dataFinal || formaPagamento !== 'todas' || tipoItem !== 'geral',
   );
+  const quantidadeFiltrosAvancados =
+    Number(Boolean(dataInicial)) + Number(Boolean(dataFinal)) + Number(formaPagamento !== 'todas');
 
   return (
     <div className="fade-in">
-      <div className="mb-4">
-        <h2 className="font-display text-2xl font-bold text-ink">{texto.titulo}</h2>
-        <p className="mt-1 text-sm text-ink-soft">{texto.subtitulo}</p>
-      </div>
+      <h2 className="font-display text-2xl font-bold text-ink">{texto.titulo}</h2>
+      <p className="mt-1 text-sm text-ink-soft">{texto.subtitulo}</p>
 
       <FinanceNav />
 
@@ -109,24 +110,55 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
         </div>
       )}
 
-      <section className="mb-4 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 text-ink-soft">
-          <FunnelSimple size={17} />
-          <h3 className="text-xs font-bold uppercase tracking-wide">Pesquisar e filtrar</h3>
+      <section className="mb-4 rounded-2xl border border-line bg-paper-raised p-3 shadow-sm md:p-4">
+        <div className="mb-3 flex items-center justify-between gap-3 text-ink-soft">
+          <div className="flex items-center gap-2">
+            <MagnifyingGlass size={17} />
+            <h3 className="text-xs font-bold uppercase tracking-wide">Pesquisar</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFiltrosMobileAbertos((aberto) => !aberto)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold md:hidden ${
+              filtrosMobileAbertos || quantidadeFiltrosAvancados > 0
+                ? 'bg-ledger/10 text-ledger-strong dark:text-ledger'
+                : 'bg-line/40 text-ink-soft'
+            }`}
+            aria-expanded={filtrosMobileAbertos}
+          >
+            <FunnelSimple size={15} /> Filtros
+            {quantidadeFiltrosAvancados > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-ledger px-1 text-[9px] font-bold text-paper">
+                {quantidadeFiltrosAvancados}
+              </span>
+            )}
+          </button>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <label className="relative block lg:col-span-2">
-            <MagnifyingGlass size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
-            <input
-              type="search"
-              value={busca}
-              onChange={(event) => setBusca(event.target.value)}
-              placeholder="Pesquisar por nome ou descrição"
-              className="w-full rounded-xl border border-line bg-paper py-2.5 pl-10 pr-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
-            />
+        <div
+          className={`grid gap-3 ${
+            modo === 'vendas'
+              ? 'md:grid-cols-2 lg:grid-cols-[minmax(240px,2fr)_minmax(140px,1fr)_minmax(140px,1fr)_minmax(180px,1fr)]'
+              : 'md:grid-cols-[minmax(260px,2fr)_minmax(160px,1fr)_minmax(160px,1fr)]'
+          }`}
+        >
+          <label className="block min-w-0">
+            <span className="mb-1 hidden text-[10px] font-bold uppercase tracking-wide text-ink-soft md:block">
+              Nome ou descrição
+            </span>
+            <span className="relative block">
+              <MagnifyingGlass size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
+              <input
+                type="search"
+                value={busca}
+                onChange={(event) => setBusca(event.target.value)}
+                aria-label="Pesquisar por nome ou descrição"
+                placeholder="Pesquisar por nome ou descrição"
+                className="w-full rounded-xl border border-line bg-paper py-2.5 pl-10 pr-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              />
+            </span>
           </label>
-          <label className="block">
-            <span className="sr-only">Data inicial</span>
+          <label className={`${filtrosMobileAbertos ? 'block' : 'hidden'} md:block`}>
+            <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-soft">De</span>
             <input
               type="date"
               value={dataInicial}
@@ -135,8 +167,8 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
               className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
             />
           </label>
-          <label className="block">
-            <span className="sr-only">Data final</span>
+          <label className={`${filtrosMobileAbertos ? 'block' : 'hidden'} md:block`}>
+            <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-soft">Até</span>
             <input
               type="date"
               value={dataFinal}
@@ -146,19 +178,21 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
             />
           </label>
           {modo === 'vendas' && (
-            <select
-              value={formaPagamento}
-              onChange={(event) => setFormaPagamento(event.target.value as 'todas' | FormaPagamento)}
-              aria-label="Forma de pagamento"
-              className="rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30 md:col-span-2 lg:col-span-1"
-            >
-              <option value="todas">Todas as formas</option>
-              <option value="dinheiro">Dinheiro</option>
-              <option value="pix">Pix</option>
-              <option value="cartao_credito">Cartão de crédito</option>
-              <option value="cartao_debito">Cartão de débito</option>
-              <option value="fiado">Fiado</option>
-            </select>
+            <label className={`${filtrosMobileAbertos ? 'block' : 'hidden'} md:block`}>
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-ink-soft">Pagamento</span>
+              <select
+                value={formaPagamento}
+                onChange={(event) => setFormaPagamento(event.target.value as 'todas' | FormaPagamento)}
+                className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+              >
+                <option value="todas">Todas as formas</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">Pix</option>
+                <option value="cartao_credito">Cartão de crédito</option>
+                <option value="cartao_debito">Cartão de débito</option>
+                <option value="fiado">Fiado</option>
+              </select>
+            </label>
           )}
         </div>
         {filtrosAtivos && (

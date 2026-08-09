@@ -9,7 +9,24 @@ import type {
   Produto,
   Venda,
   ViewPeriod,
+  FormaPagamento,
+  TipoEntrada,
+  TipoDespesa,
+  TipoMovimentoCaixa,
 } from '../types';
+import {
+  closeCashSessionRequest,
+  deleteFixedExpenseRequest,
+  openCashSessionRequest,
+  payCreditRequest,
+  payFixedExpenseRequest,
+  registerCustomerRequest,
+  registerFixedExpenseRequest,
+  registerSaleRequest,
+  registerTransactionRequest,
+  resolveTransactionIdentificationRequest,
+  type SaleItemInput,
+} from '../lib/business';
 import { decodeToken, getStoredToken, TOKEN_KEY } from '../lib/auth';
 import {
   APP_DATA_CHANGED_EVENT,
@@ -28,6 +45,7 @@ interface ResumoPeriodo {
 
 interface AppDataContextValue {
   data: AppData;
+  loadedUserId: string | null;
   setConfig: (config: CompanyConfig) => void;
   addVenda: (venda: Omit<Venda, 'id'>, opts?: { clienteId?: string }) => void;
   /**
@@ -59,6 +77,28 @@ interface AppDataContextValue {
   removerLancamentoManual: (id: string) => void;
   addCliente: (cliente: Omit<Cliente, 'id'>) => Cliente;
   editarCliente: (id: string, patch: Partial<Omit<Cliente, 'id'>>) => void;
+  registrarVendaNoBanco: (items: SaleItemInput[], forma: FormaPagamento, clienteId?: string) => Promise<void>;
+  registrarLancamentoNoBanco: (input: {
+    tipo: 'entrada' | 'saida';
+    descricao: string;
+    valor: number;
+    formaPagamento: Exclude<FormaPagamento, 'fiado'>;
+    tipoEntrada?: TipoEntrada;
+    tipoDespesa?: TipoDespesa;
+    movimentoCaixa?: TipoMovimentoCaixa;
+  }) => Promise<void>;
+  resolverPendenciaNoBanco: (id: string, classificacao: TipoEntrada | TipoDespesa) => Promise<void>;
+  cadastrarClienteNoBanco: (cliente: Omit<Cliente, 'id'>) => Promise<Cliente>;
+  baixarFiado: (id: string, forma: Exclude<FormaPagamento, 'fiado'>) => Promise<void>;
+  baixarDespesaFixa: (id: string, forma: Exclude<FormaPagamento, 'fiado'>) => Promise<void>;
+  cadastrarDespesaFixaNoBanco: (input: {
+    nome: string;
+    valor: number;
+    recorrencia: 'semanal' | 'mensal';
+  }) => Promise<void>;
+  removerDespesaFixaNoBanco: (id: string) => Promise<void>;
+  abrirCaixa: (valorInicial: number, responsavel?: string) => Promise<void>;
+  fecharCaixa: (dinheiroContado: number, permitirPendencias?: boolean) => Promise<void>;
   resetData: () => void;
   saldoCaixa: number;
   vendasHoje: number;
@@ -94,6 +134,31 @@ function diffDias(deIso: string, paraIso: string): number {
   return Math.round((para.getTime() - de.getTime()) / 86_400_000);
 }
 
+function dataLocalISO(instante?: string): string | undefined {
+  if (!instante) return undefined;
+  const data = new Date(instante);
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+function mesclarDadosDoBanco(prev: AppData, serverData: AppData): AppData {
+  const configLocal = prev.config;
+  const configServidor = serverData.config;
+  return {
+    ...emptyData,
+    ...serverData,
+    config: configLocal
+      ? {
+          ...configLocal,
+          despesasFixas: configServidor?.despesasFixas ?? configLocal.despesasFixas,
+          onboardingConcluido: configServidor?.onboardingConcluido ?? configLocal.onboardingConcluido,
+        }
+      : configServidor,
+  };
+}
+
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const getAuthenticatedUserId = () => {
     const token = getStoredToken();
@@ -102,16 +167,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const initialUserId = getAuthenticatedUserId();
   const activeUserIdRef = useRef<string | null>(initialUserId);
   const [data, setData] = useState<AppData>(() => loadData(initialUserId));
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(initialUserId);
 
   useEffect(() => {
     saveData(data, activeUserIdRef.current);
   }, [data]);
 
   useEffect(() => {
-    const reloadAuthenticatedData = () => {
+    const reloadAuthenticatedData = (event: Event) => {
       const userId = getAuthenticatedUserId();
       activeUserIdRef.current = userId;
-      setData(userId ? loadData(userId) : emptyData);
+      setLoadedUserId(userId);
+      const serverData = (event as CustomEvent<AppData | null>).detail;
+      setData((prev) => {
+        if (!serverData) return userId ? loadData(userId) : emptyData;
+        const configPersistida = userId ? loadData(userId).config : null;
+        return mesclarDadosDoBanco(configPersistida ? { ...prev, config: configPersistida } : prev, serverData);
+      });
     };
 
     window.addEventListener(APP_DATA_CHANGED_EVENT, reloadAuthenticatedData);
@@ -158,6 +230,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const userId = getAuthenticatedUserId();
       if (event.key === TOKEN_KEY) {
         activeUserIdRef.current = userId;
+        setLoadedUserId(userId);
         setData(userId ? loadData(userId) : emptyData);
         return;
       }
@@ -441,8 +514,76 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const aplicarDadosDoBanco = (serverData: AppData) => {
+    setData((prev) => mesclarDadosDoBanco(prev, serverData));
+  };
+
+  const registrarVendaNoBanco = async (items: SaleItemInput[], forma: FormaPagamento, clienteId?: string) => {
+    const response = await registerSaleRequest(items, forma, clienteId);
+    aplicarDadosDoBanco(response.data);
+  };
+
+  const registrarLancamentoNoBanco: AppDataContextValue['registrarLancamentoNoBanco'] = async (input) => {
+    const response = await registerTransactionRequest({
+      type: input.tipo,
+      description: input.descricao,
+      amount: input.valor,
+      paymentMethod: input.formaPagamento,
+      entryKind: input.tipoEntrada,
+      expenseKind: input.tipoDespesa,
+      movementKind: input.movimentoCaixa,
+    });
+    aplicarDadosDoBanco(response.data);
+  };
+
+  const resolverPendenciaNoBanco: AppDataContextValue['resolverPendenciaNoBanco'] = async (id, classificacao) => {
+    const response = await resolveTransactionIdentificationRequest(id, classificacao);
+    aplicarDadosDoBanco(response.data);
+  };
+
+  const cadastrarClienteNoBanco = async (cliente: Omit<Cliente, 'id'>): Promise<Cliente> => {
+    const response = await registerCustomerRequest(cliente.nome, cliente.telefone);
+    aplicarDadosDoBanco(response.data);
+    return response.customer;
+  };
+
+  const baixarFiado = async (id: string, forma: Exclude<FormaPagamento, 'fiado'>) => {
+    const response = await payCreditRequest(id, forma);
+    aplicarDadosDoBanco(response.data);
+  };
+
+  const baixarDespesaFixa = async (id: string, forma: Exclude<FormaPagamento, 'fiado'>) => {
+    const response = await payFixedExpenseRequest(id, forma);
+    aplicarDadosDoBanco(response.data);
+  };
+
+  const cadastrarDespesaFixaNoBanco: AppDataContextValue['cadastrarDespesaFixaNoBanco'] = async (input) => {
+    const response = await registerFixedExpenseRequest(
+      input.nome,
+      input.valor,
+      input.recorrencia === 'semanal' ? 'weekly' : 'monthly',
+    );
+    aplicarDadosDoBanco(response.data);
+  };
+
+  const removerDespesaFixaNoBanco = async (id: string) => {
+    const response = await deleteFixedExpenseRequest(id);
+    aplicarDadosDoBanco(response.data);
+  };
+
+  const abrirCaixa = async (valorInicial: number, responsavel?: string) => {
+    const response = await openCashSessionRequest(valorInicial, responsavel);
+    aplicarDadosDoBanco(response.data);
+  };
+
+  const fecharCaixa = async (dinheiroContado: number, permitirPendencias = false) => {
+    if (!data.caixaAtual) throw new Error('Nenhum caixa aberto.');
+    const response = await closeCashSessionRequest(data.caixaAtual.id, dinheiroContado, permitirPendencias);
+    aplicarDadosDoBanco(response.data);
+  };
+
   const resetData = () => {
-    setData({ config: null, vendas: [], produtos: [], categorias: [], contas: [], lancamentosManuais: [], clientes: [] });
+    setData({ ...emptyData });
   };
 
   const hoje = todayISO();
@@ -473,8 +614,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const lancamentosSaida = data.lancamentosManuais
       .filter((l) => l.tipo === 'saida' && l.data === hoje)
       .reduce((sum, l) => sum + l.valor, 0);
-    return contasPagas + lancamentosSaida;
-  }, [contasQuitadasHoje, data.lancamentosManuais, hoje]);
+    const despesasFixasPagas = (data.config?.despesasFixas ?? [])
+      .filter((despesa) => despesa.quitado && dataLocalISO(despesa.pagoEm) === hoje)
+      .reduce((sum, despesa) => sum + despesa.valor, 0);
+    return contasPagas + lancamentosSaida + despesasFixasPagas;
+  }, [contasQuitadasHoje, data.config?.despesasFixas, data.lancamentosManuais, hoje]);
 
   const lucroEstimadoHoje = useMemo(() => {
     const vendasFiadoRecebidasHoje = new Set(
@@ -513,9 +657,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const lancamentosSaida = data.lancamentosManuais
       .filter((l) => l.tipo === 'saida' && diasSet.has(l.data))
       .reduce((sum, l) => sum + l.valor, 0);
+    const despesasFixasPagas = (data.config?.despesasFixas ?? [])
+      .filter((despesa) => {
+        const diaPagamento = dataLocalISO(despesa.pagoEm);
+        return despesa.quitado && diaPagamento !== undefined && diasSet.has(diaPagamento);
+      })
+      .reduce((sum, despesa) => sum + despesa.valor, 0);
 
-    return { vendas: vendas + recebimentos, despesas: contasPagas + lancamentosSaida };
-  }, [data.vendas, data.contas, data.lancamentosManuais, viewPeriod, hoje]);
+    return { vendas: vendas + recebimentos, despesas: contasPagas + lancamentosSaida + despesasFixasPagas };
+  }, [data.vendas, data.contas, data.config?.despesasFixas, data.lancamentosManuais, viewPeriod, hoje]);
 
   const vendasUltimos7Dias = useMemo(() => {
     const dias = ultimosNDias(hoje, 7);
@@ -546,15 +696,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const saidasManuais = data.lancamentosManuais
       .filter((l) => l.tipo === 'saida')
       .reduce((sum, l) => sum + l.valor, 0);
+    const saidasFixas = (data.config?.despesasFixas ?? [])
+      .filter((despesa) => despesa.quitado)
+      .reduce((sum, despesa) => sum + despesa.valor, 0);
 
     return (
       entradasVendas +
       entradasContasRecebidas +
       entradasManuais -
       saidasContasPagas -
-      saidasManuais
+      saidasManuais -
+      saidasFixas
     );
-  }, [data.vendas, data.contas, data.lancamentosManuais]);
+  }, [data.vendas, data.contas, data.config?.despesasFixas, data.lancamentosManuais]);
 
   const contasAPagarHoje = useMemo(
     () => data.contas.filter((c) => c.tipo === 'pagar' && !c.quitado && c.vencimento === hoje),
@@ -596,6 +750,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const value: AppDataContextValue = {
     data,
+    loadedUserId,
     setConfig,
     addVenda,
     editarVenda,
@@ -615,6 +770,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     removerLancamentoManual,
     addCliente,
     editarCliente,
+    registrarVendaNoBanco,
+    registrarLancamentoNoBanco,
+    resolverPendenciaNoBanco,
+    cadastrarClienteNoBanco,
+    baixarFiado,
+    baixarDespesaFixa,
+    cadastrarDespesaFixaNoBanco,
+    removerDespesaFixaNoBanco,
+    abrirCaixa,
+    fecharCaixa,
     resetData,
     saldoCaixa,
     vendasHoje,

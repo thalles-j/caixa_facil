@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseMoney, todayISO } from './format';
+import { parseMoney, sanitizeIntegerInput, sanitizeMoneyInput, todayISO } from './format';
 
 describe('parseMoney', () => {
   it('remove o separador de milhar e converte a vírgula decimal', () => {
@@ -20,6 +20,16 @@ describe('parseMoney', () => {
 
   it('remove múltiplos separadores de milhar', () => {
     expect(parseMoney('1.234.567,89')).toBe(1234567.89);
+  });
+});
+
+describe('sanitização de campos numéricos', () => {
+  it('remove letras e limita valores monetários a duas casas decimais', () => {
+    expect(sanitizeMoneyInput('R$ 1a.234,567x')).toBe('1234,56');
+  });
+
+  it('mantém somente números em quantidades inteiras', () => {
+    expect(sanitizeIntegerInput('1e2 unidades')).toBe('12');
   });
 });
 

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, Storefront } from '@phosphor-icons/react';
 import { useAuth } from '../context/AuthContext';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ export default function Login() {
     }
   };
 
+  if (enviando) return <LoadingScreen />;
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-paper px-6 py-12 text-ink">
       <Link to="/" className="mb-8 flex items-center gap-1 text-sm font-medium text-ink-soft hover:text-ink">
@@ -36,6 +39,7 @@ export default function Login() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-ledger text-paper">
             <Storefront size={24} weight="fill" />
           </div>
+          <p className="mb-1 font-ledger text-[10px] font-bold uppercase tracking-[0.18em] text-ledger-strong dark:text-ledger">CaixaFácil</p>
           <h1 className="font-display text-2xl font-bold">Bem-vindo de volta</h1>
           <p className="mt-1 text-sm text-ink-soft">Entre para abrir sua caderneta.</p>
         </div>

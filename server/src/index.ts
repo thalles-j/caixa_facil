@@ -4,6 +4,7 @@ import cors from 'cors';
 import { ensureSchema } from './db.js';
 import { authRouter } from './auth/routes.js';
 import { accountRouter } from './account/routes.js';
+import { businessRouter } from './business/routes.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -48,6 +49,7 @@ app.use(express.json());
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRouter);
 app.use('/api/account', accountRouter);
+app.use('/api/business', businessRouter);
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Erro ao processar requisicao:', error);
@@ -56,6 +58,21 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     typeof error === 'object' && error !== null && 'code' in error
       ? String(error.code)
       : undefined;
+  const status =
+    typeof error === 'object' && error !== null && 'status' in error
+      ? Number(error.status)
+      : undefined;
+
+  if (status && status >= 400 && status < 500) {
+    return res.status(status).json({
+      error: error instanceof Error ? error.message : 'Não foi possível completar a solicitação.',
+      code,
+      pendingCount:
+        typeof error === 'object' && error !== null && 'pendingCount' in error
+          ? Number(error.pendingCount)
+          : undefined,
+    });
+  }
 
   if (code === 'CORS_ORIGIN_DENIED') {
     return res.status(403).json({ error: 'Origem não permitida pelo CORS.' });

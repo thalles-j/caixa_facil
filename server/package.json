@@ -1,10 +1,10 @@
 {
-  "name": "mnb-server",
+  "name": "caixafacil-server",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --watch --import tsx src/index.ts",
     "db:schema": "tsx src/scripts/apply-schema.ts",
     "db:schema:prod": "node dist/scripts/apply-schema.js",
     "seed": "node scripts/seed.js",

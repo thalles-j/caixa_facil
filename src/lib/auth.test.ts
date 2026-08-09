@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { decodeToken, isTokenValid } from './auth';
+// @vitest-environment jsdom
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { changePasswordRequest, decodeToken, ensureStoredAccessToken, isTokenValid, TOKEN_KEY } from './auth';
 
 function fakeToken(payload: Record<string, unknown>): string {
   const base64url = (obj: object) =>
@@ -19,6 +21,10 @@ describe('decodeToken', () => {
 });
 
 describe('isTokenValid', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
   it('retorna false para token nulo', () => {
     expect(isTokenValid(null)).toBe(false);
   });
@@ -37,5 +43,53 @@ describe('isTokenValid', () => {
     const passado = Math.floor(Date.now() / 1000) - 3600;
     const token = fakeToken({ sub: 'user-1', email: 'a@b.com', iat: 0, exp: passado });
     expect(isTokenValid(token)).toBe(false);
+  });
+
+  it('renova automaticamente um token expirado usando a sessão persistente', async () => {
+    const expirado = fakeToken({ sub: 'user-1', email: 'a@b.com', iat: 0, exp: 1 });
+    const renovado = fakeToken({
+      sub: 'user-1',
+      email: 'a@b.com',
+      iat: 0,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    localStorage.setItem(TOKEN_KEY, expirado);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        token: renovado,
+        user: { id: 'user-1', email: 'a@b.com' },
+        data: null,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await expect(ensureStoredAccessToken()).resolves.toBe(renovado);
+    expect(localStorage.getItem(TOKEN_KEY)).toBe(renovado);
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    });
+  });
+});
+
+describe('changePasswordRequest', () => {
+  it('envia as senhas ao endpoint autenticado da conta', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ message: 'Senha alterada com sucesso.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(changePasswordRequest('token-seguro', 'atual123', 'nova123', 'nova123')).resolves.toEqual({
+      message: 'Senha alterada com sucesso.',
+    });
+    expect(fetchMock).toHaveBeenCalledWith('/api/account/password', {
+      method: 'PATCH',
+      headers: {
+        Authorization: 'Bearer token-seguro',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ currentPassword: 'atual123', newPassword: 'nova123', confirmPassword: 'nova123' }),
+    });
   });
 });
