@@ -113,9 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    const tempoMinimoDeCarregamento = new Promise<void>((resolve) => window.setTimeout(resolve, 900));
     const { token, user: loggedUser, data } = await loginRequest(email, password);
     setStoredToken(token);
     window.dispatchEvent(new CustomEvent(APP_DATA_CHANGED_EVENT, { detail: data }));
+    await tempoMinimoDeCarregamento;
     setUser(loggedUser);
   };
 

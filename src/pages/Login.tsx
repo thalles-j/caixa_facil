@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, Storefront } from '@phosphor-icons/react';
 import { useAuth } from '../context/AuthContext';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ export default function Login() {
       setEnviando(false);
     }
   };
+
+  if (enviando) return <LoadingScreen />;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-paper px-6 py-12 text-ink">

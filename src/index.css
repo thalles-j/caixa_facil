@@ -20,6 +20,8 @@
 
 :root {
   color-scheme: light;
+  --color-scrollbar: #e9dfce;
+  --color-scrollbar-hover: #ddd0bb;
 }
 
 .dark {
@@ -33,6 +35,8 @@
   --color-ledger-strong: #2c7e5c;
   --color-stamp: #e2665a;
   --color-brass: #d9a94f;
+  --color-scrollbar: #2a241c;
+  --color-scrollbar-hover: #393126;
 }
 
 body {
@@ -40,6 +44,37 @@ body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Rolagem discreta e coerente com os fundos claro e escuro. */
+* {
+  scrollbar-color: var(--color-scrollbar) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--color-scrollbar);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-scrollbar-hover);
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
@@ -189,6 +224,21 @@ body {
 
   body:has(.print-report) {
     background: white;
+  }
+
+  .print-report {
+    color-scheme: light;
+    --color-paper: #f7f1e4;
+    --color-paper-raised: #fffcf5;
+    --color-ink: #241a12;
+    --color-ink-soft: #6b5d4c;
+    --color-line: #e4d8c3;
+    --color-ledger: #1f6f4a;
+    --color-ledger-strong: #145033;
+    --color-stamp: #b23a2e;
+    --color-brass: #9c6b22;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   body:has(.print-report) nav,

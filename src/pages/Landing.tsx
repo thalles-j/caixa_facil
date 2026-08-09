@@ -5,6 +5,8 @@ import {
   ArrowUp,
   Calculator,
   ChartBar,
+  CaretDown,
+  CaretUp,
   ClipboardText,
   Eye,
   EyeSlash,
@@ -60,8 +62,8 @@ const RECURSOS = [
   {
     icon: FilePdf,
     tone: 'ledger' as const,
-    titulo: 'Relatórios por data',
-    descricao: 'Abra cada fechamento pelo dia e imprima ou salve o relatório completo em PDF.',
+    titulo: 'Relatórios completos',
+    descricao: 'Escolha dia, semana ou mês, analise produtos e movimentações e salve o relatório em PDF.',
   },
   {
     icon: ShieldCheck,
@@ -79,6 +81,8 @@ const toneClasses: Record<'ledger' | 'brass' | 'stamp', string> = {
 
 export default function Landing() {
   const [valoresDemonstracaoVisiveis, setValoresDemonstracaoVisiveis] = useState(true);
+  const [recursosExpandidos, setRecursosExpandidos] = useState(false);
+  const [ramosExpandidos, setRamosExpandidos] = useState(false);
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -199,8 +203,11 @@ export default function Landing() {
               Um fluxo completo para trabalhar durante o dia e fechar o caixa sem depender de planilhas.
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {RECURSOS.map(({ icon: Icon, tone, titulo, descricao }) => (
-                <div key={titulo} className="rounded-2xl border border-line bg-paper-raised p-5 shadow-sm">
+              {RECURSOS.map(({ icon: Icon, tone, titulo, descricao }, indice) => (
+                <div
+                  key={titulo}
+                  className={`${!recursosExpandidos && indice >= 3 ? 'hidden sm:block' : ''} rounded-2xl border border-line bg-paper-raised p-5 shadow-sm`}
+                >
                   <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${toneClasses[tone]}`}>
                     <Icon size={20} />
                   </div>
@@ -209,6 +216,15 @@ export default function Landing() {
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={() => setRecursosExpandidos((aberto) => !aberto)}
+              aria-expanded={recursosExpandidos}
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-paper-raised px-4 py-3 text-sm font-bold text-ink shadow-sm sm:hidden"
+            >
+              {recursosExpandidos ? 'Mostrar menos funcionalidades' : `Ver todas as ${RECURSOS.length} funcionalidades`}
+              {recursosExpandidos ? <CaretUp size={16} weight="bold" /> : <CaretDown size={16} weight="bold" />}
+            </button>
           </div>
         </section>
 
@@ -220,13 +236,13 @@ export default function Landing() {
               De lojas e salões a motoristas e prestadores de serviço: o app adapta o visual ao seu ramo.
             </p>
             <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {RAMOS_ATUACAO.map((ramo) => {
+              {RAMOS_ATUACAO.map((ramo, indice) => {
                 const theme = getCategoryTheme(ramo);
                 const Icon = theme.icon;
                 return (
                   <div
                     key={ramo}
-                    className="flex flex-col items-center gap-2 rounded-2xl border border-line bg-paper-raised p-4 text-center shadow-sm"
+                    className={`${!ramosExpandidos && indice >= 6 ? 'hidden sm:flex' : 'flex'} flex-col items-center gap-2 rounded-2xl border border-line bg-paper-raised p-4 text-center shadow-sm`}
                   >
                     <div
                       className="flex h-10 w-10 items-center justify-center rounded-xl text-paper"
@@ -239,6 +255,15 @@ export default function Landing() {
                 );
               })}
             </div>
+            <button
+              type="button"
+              onClick={() => setRamosExpandidos((aberto) => !aberto)}
+              aria-expanded={ramosExpandidos}
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-paper-raised px-4 py-3 text-sm font-bold text-ink shadow-sm sm:hidden"
+            >
+              {ramosExpandidos ? 'Mostrar menos categorias' : `Ver todas as ${RAMOS_ATUACAO.length} categorias`}
+              {ramosExpandidos ? <CaretUp size={16} weight="bold" /> : <CaretDown size={16} weight="bold" />}
+            </button>
           </div>
         </section>
 

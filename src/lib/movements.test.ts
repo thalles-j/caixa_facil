@@ -7,6 +7,7 @@ const dados: AppData = {
   produtos: [],
   categorias: [],
   clientes: [{ id: 'cliente-1', nome: 'Ana' }],
+  transacoes: [],
   vendas: [
     {
       id: 'venda-antiga',

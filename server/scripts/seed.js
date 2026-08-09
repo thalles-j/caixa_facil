@@ -112,6 +112,80 @@ async function insertReturningId(client, sql, values) {
   return result.rows[0].id;
 }
 
+async function seedClosedSession(client, { responsible, daysAgo, openingBalance, sales, expense, difference = 0 }) {
+  const sessionId = await insertReturningId(
+    client,
+    `
+      INSERT INTO cash_sessions (responsible, opened_at, opening_balance, notes)
+      VALUES ($1, $2, $3, 'Fechamento histórico criado pela seed')
+      RETURNING id
+    `,
+    [responsible, daysAgoAt(daysAgo, 8), openingBalance],
+  );
+
+  let expectedCash = openingBalance;
+  for (const [index, sale] of sales.entries()) {
+    const occurredAt = daysAgoAt(daysAgo, 9 + index);
+    const total = Number((sale.quantity * sale.unitPrice).toFixed(2));
+    const saleId = await insertReturningId(
+      client,
+      `
+        INSERT INTO sales
+          (cash_session_id, description, payment_method, total_amount, sold_at)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+      `,
+      [sessionId, `Venda de ${sale.productName}`, sale.paymentMethod, total, occurredAt],
+    );
+    await client.query(
+      `
+        INSERT INTO sale_items
+          (sale_id, product_id, product_name, quantity, unit_price, unit_cost)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `,
+      [saleId, sale.productId, sale.productName, sale.quantity, sale.unitPrice, sale.unitCost],
+    );
+    await client.query(
+      `
+        INSERT INTO transactions
+          (cash_session_id, sale_id, type, source, payment_method, amount, description, occurred_at)
+        VALUES ($1, $2, 'entrada', 'venda', $3, $4, $5, $6)
+      `,
+      [sessionId, saleId, sale.paymentMethod, total, `Recebimento de ${sale.productName}`, occurredAt],
+    );
+    if (sale.paymentMethod === 'dinheiro') expectedCash += total;
+  }
+
+  if (expense) {
+    await client.query(
+      `
+        INSERT INTO transactions
+          (cash_session_id, type, source, payment_method, amount, description,
+           movement_kind, expense_kind, occurred_at)
+        VALUES ($1, 'saida', 'despesa_avulsa', $2, $3, $4,
+                $5, $6, $7)
+      `,
+      [
+        sessionId,
+        expense.paymentMethod,
+        expense.amount,
+        expense.description,
+        expense.paymentMethod === 'dinheiro' ? 'sangria' : 'regular',
+        expense.kind,
+        daysAgoAt(daysAgo, 16),
+      ],
+    );
+    if (expense.paymentMethod === 'dinheiro') expectedCash -= expense.amount;
+  }
+
+  const countedCash = Number((expectedCash + difference).toFixed(2));
+  await client.query('SELECT close_cash_session($1, $2, $3)', [
+    sessionId,
+    countedCash,
+    daysAgoAt(daysAgo, 18),
+  ]);
+}
+
 async function seedTenant(client, user, passwordHash) {
   const f = user.factor;
 
@@ -225,6 +299,57 @@ async function seedTenant(client, user, passwordHash) {
       `,
       [money(120, f), daysFromNow(15)],
     );
+
+    await seedClosedSession(client, {
+      responsible: user.name,
+      daysAgo: 8,
+      openingBalance: money(60, f),
+      sales: [
+        { productId: cafeId, productName: 'Café 500 ml', quantity: 1, unitPrice: cafePrice, unitCost: money(3.2, f), paymentMethod: 'dinheiro' },
+        { productId: aguaId, productName: 'Água mineral', quantity: 2, unitPrice: aguaPrice, unitCost: money(1.5, f), paymentMethod: 'pix' },
+        { productId: entregaId, productName: 'Entrega local', quantity: 1, unitPrice: money(12, f), unitCost: 0, paymentMethod: 'cartao_debito' },
+      ],
+      expense: { amount: money(3, f), description: 'Material de limpeza', paymentMethod: 'dinheiro', kind: 'outros' },
+    });
+
+    await seedClosedSession(client, {
+      responsible: user.name,
+      daysAgo: 6,
+      openingBalance: money(75, f),
+      sales: [
+        { productId: paoId, productName: 'Pão de queijo', quantity: 6, unitPrice: paoPrice, unitCost: money(2.5, f), paymentMethod: 'dinheiro' },
+        { productId: cafeId, productName: 'Café 500 ml', quantity: 2, unitPrice: cafePrice, unitCost: money(3.2, f), paymentMethod: 'cartao_credito' },
+        { productId: aguaId, productName: 'Água mineral', quantity: 5, unitPrice: aguaPrice, unitCost: money(1.5, f), paymentMethod: 'pix' },
+      ],
+      expense: { amount: money(10, f), description: 'Compra de embalagens', paymentMethod: 'dinheiro', kind: 'mercadoria' },
+      difference: money(0.2, f),
+    });
+
+    await seedClosedSession(client, {
+      responsible: user.name,
+      daysAgo: 4,
+      openingBalance: money(50, f),
+      sales: [
+        { productId: aguaId, productName: 'Água mineral', quantity: 8, unitPrice: aguaPrice, unitCost: money(1.5, f), paymentMethod: 'pix' },
+        { productId: entregaId, productName: 'Entrega local', quantity: 3, unitPrice: money(12, f), unitCost: 0, paymentMethod: 'cartao_credito' },
+        { productId: cafeId, productName: 'Café 500 ml', quantity: 4, unitPrice: cafePrice, unitCost: money(3.2, f), paymentMethod: 'dinheiro' },
+      ],
+      expense: { amount: money(4, f), description: 'Tarifa de entrega', paymentMethod: 'pix', kind: 'fornecedor' },
+    });
+
+    await seedClosedSession(client, {
+      responsible: user.name,
+      daysAgo: 2,
+      openingBalance: money(90, f),
+      sales: [
+        { productId: cafeId, productName: 'Café 500 ml', quantity: 10, unitPrice: cafePrice, unitCost: money(3.2, f), paymentMethod: 'dinheiro' },
+        { productId: paoId, productName: 'Pão de queijo', quantity: 2, unitPrice: paoPrice, unitCost: money(2.5, f), paymentMethod: 'pix' },
+        { productId: atendimentoId, productName: 'Atendimento personalizado', quantity: 1, unitPrice: money(75, f), unitCost: 0, paymentMethod: 'cartao_credito' },
+        { productId: aguaId, productName: 'Água mineral', quantity: 4, unitPrice: aguaPrice, unitCost: money(1.5, f), paymentMethod: 'dinheiro' },
+      ],
+      expense: { amount: money(18, f), description: 'Combustível de entrega', paymentMethod: 'dinheiro', kind: 'combustivel' },
+      difference: money(-0.3, f),
+    });
 
     const previousSessionId = await insertReturningId(
       client,
@@ -441,7 +566,8 @@ async function seedTenant(client, user, passwordHash) {
       [pendingSaleId, mariaId, pendingTotal, daysFromNow(7)],
     );
 
-    // Fiado parcial: apenas a parcela recebida aparece como entrada de hoje.
+    // Fiado parcial recebido no fechamento histórico. O relatório usa a
+    // transaction para mostrar quem pagou, mesmo sem a dívida estar quitada.
     const partialTotal = money(40, f);
     const partialSaleId = await insertReturningId(
       client,
@@ -476,10 +602,10 @@ async function seedTenant(client, user, passwordHash) {
           (cash_session_id, credit_sale_id, type, source, payment_method, amount, description, occurred_at)
         VALUES ($1, $2, 'entrada', 'pagamento_fiado', 'pix', $3, 'Pagamento parcial de João', $4)
       `,
-      [openSessionId, partialCreditId, money(15, f), hoursAgo(1.1)],
+      [previousSessionId, partialCreditId, money(15, f), daysAgoAt(1, 18)],
     );
 
-    // Fiado integralmente pago: paid_at e preenchido pelo trigger.
+    // Fiado integralmente pago no mesmo fechamento: paid_at é preenchido pelo trigger.
     const paidTotal = money(25, f);
     const paidSaleId = await insertReturningId(
       client,
@@ -514,7 +640,20 @@ async function seedTenant(client, user, passwordHash) {
           (cash_session_id, credit_sale_id, type, source, payment_method, amount, description, occurred_at)
         VALUES ($1, $2, 'entrada', 'pagamento_fiado', 'dinheiro', $3, 'Quitação de fiado da Maria', $4)
       `,
-      [openSessionId, paidCreditId, paidTotal, hoursAgo(0.7)],
+      [previousSessionId, paidCreditId, paidTotal, daysAgoAt(1, 18, 30)],
+    );
+
+    // Os pagamentos históricos foram inseridos depois da chamada de fechamento
+    // para manter a seed legível. Atualiza o snapshot final para refletir também
+    // os R$ 25 recebidos em dinheiro, preservando a quebra demonstrativa.
+    await client.query(
+      `
+        UPDATE cash_sessions
+           SET expected_balance = $2,
+               closing_balance = $3
+         WHERE id = $1
+      `,
+      [previousSessionId, money(140, f), money(139.5, f)],
     );
 
     await client.query(

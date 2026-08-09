@@ -122,7 +122,7 @@ if (servicesToStart.length === 0) {
   process.exit(0);
 }
 
-for (const service of servicesToStart) {
+function startService(service) {
   const child = spawn(npmCommand, service.args, {
     cwd: process.cwd(),
     env: process.env,
@@ -152,6 +152,32 @@ for (const service of servicesToStart) {
       process.exit();
     }
   });
+
+  return child;
+}
+
+async function waitForService(service, child, timeoutMs = 45_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline && !stopping) {
+    if (await expectedServiceIsRunning(service)) return true;
+    if (child.exitCode !== null || child.signalCode !== null) return false;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
+for (const service of servicesToStart) {
+  const child = startService(service);
+  if (service.name !== 'BACK') continue;
+
+  console.log('[DEV] Aguardando a API preparar o banco de dados...');
+  if (!(await waitForService(service, child))) {
+    console.error('[DEV] A API não ficou disponível a tempo; o frontend não será iniciado sem o backend.');
+    process.exitCode = 1;
+    stopAll('SIGTERM');
+    break;
+  }
+  console.log('[BACK] API pronta para receber requisições.');
 }
 
 process.on('SIGINT', () => {

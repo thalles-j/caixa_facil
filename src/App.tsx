@@ -15,7 +15,9 @@ import Configuracoes from './pages/Configuracoes';
 import Movimentacoes from './pages/Movimentacoes';
 import RecuperarConta from './pages/RecuperarConta';
 import RelatoriosCaixa from './pages/RelatoriosCaixa';
+import RelatorioPeriodo from './pages/RelatorioPeriodo';
 import Fechamentos from './pages/Fechamentos';
+import LoadingScreen from './components/LoadingScreen';
 
 export default function App() {
   const { pathname } = useLocation();
@@ -24,16 +26,8 @@ export default function App() {
   const onboardingConcluido = data.config?.onboardingConcluido ?? false;
 
   if (isInitializing || (user && loadedUserId !== user.id)) {
-    if (pathname !== '/') return null;
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-paper px-6 text-center text-ink">
-        <div>
-          <div className="mx-auto mb-3 h-9 w-9 animate-spin rounded-full border-4 border-line border-t-ledger" />
-          <p className="font-display text-lg font-bold text-ink">Preparando seu painel</p>
-          <p className="mt-1 text-sm font-medium text-ink-soft">Verificando sua sessão e atualizando os dados…</p>
-        </div>
-      </div>
-    );
+    if (pathname !== '/' && pathname !== '/login') return null;
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -74,6 +68,8 @@ export default function App() {
         <Route path="/vendas" element={<Navigate to="/entradas" replace />} />
         <Route path="/despesas" element={<Movimentacoes modo="saidas" />} />
         <Route path="/fechamentos" element={<Fechamentos />} />
+        <Route path="/fechamentos/semanal/:periodo" element={<RelatorioPeriodo tipo="semanal" />} />
+        <Route path="/fechamentos/mensal/:periodo" element={<RelatorioPeriodo tipo="mensal" />} />
         <Route path="/fechamentos/:dataRelatorio" element={<RelatoriosCaixa />} />
         <Route path="/relatorios" element={<Navigate to="/fechamentos" replace />} />
         <Route path="/configuracoes" element={<Configuracoes />} />

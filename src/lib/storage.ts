@@ -15,6 +15,7 @@ export const emptyData: AppData = {
   contas: [],
   lancamentosManuais: [],
   clientes: [],
+  transacoes: [],
   caixaAtual: null,
   fechamentosCaixa: [],
 };

@@ -33,9 +33,10 @@ export async function loadBootstrapData(user: UserIdentity) {
         `, [user.id]);
     const salesResult = await client.query(`
           SELECT si.id, si.product_id, si.product_name, si.quantity, si.unit_price,
-                 s.sold_at, s.payment_method
+                 s.cash_session_id, s.sold_at, s.payment_method, p.kind AS product_kind
           FROM sale_items si
           JOIN sales s ON s.user_id = si.user_id AND s.id = si.sale_id
+          LEFT JOIN products p ON p.user_id = si.user_id AND p.id = si.product_id
           WHERE si.user_id = $1 AND s.status = 'completed'
           ORDER BY s.sold_at, si.created_at
         `, [user.id]);
@@ -90,6 +91,18 @@ export async function loadBootstrapData(user: UserIdentity) {
           WHERE user_id = $1 AND source IN ('ajuste', 'despesa_avulsa')
           ORDER BY occurred_at
         `, [user.id]);
+    const transactionsResult = await client.query(`
+          SELECT t.id, t.cash_session_id, t.type, t.source, t.description,
+                 t.payment_method, t.amount, t.occurred_at,
+                 cs.customer_id, c.name AS customer_name
+          FROM transactions t
+          LEFT JOIN credit_sales cs
+            ON cs.user_id = t.user_id AND cs.id = t.credit_sale_id
+          LEFT JOIN customers c
+            ON c.user_id = cs.user_id AND c.id = cs.customer_id
+          WHERE t.user_id = $1
+          ORDER BY t.occurred_at, t.created_at
+        `, [user.id]);
     const cashResult = await client.query(`
           SELECT cs.id, cs.responsible, cs.opened_at, cs.closed_at, cs.status,
                  cs.opening_balance, cs.closing_balance, cs.expected_balance, cs.difference,
@@ -128,7 +141,7 @@ export async function loadBootstrapData(user: UserIdentity) {
 
     const hasBusinessData =
       productsResult.rowCount || categoriesResult.rowCount || salesResult.rowCount || expensesResult.rowCount ||
-      creditsResult.rowCount || manualResult.rowCount || cashResult.rowCount;
+      creditsResult.rowCount || manualResult.rowCount || transactionsResult.rowCount || cashResult.rowCount;
     if (!hasBusinessData) return null;
 
     const fixedExpenses = expensesResult.rows.map((expense) => ({
@@ -193,6 +206,7 @@ export async function loadBootstrapData(user: UserIdentity) {
       })),
       vendas: salesResult.rows.map((sale) => ({
         id: sale.id,
+        caixaSessaoId: sale.cash_session_id ?? undefined,
         data: isoDate(sale.sold_at),
         createdAt: new Date(sale.sold_at).toISOString(),
         descricao: sale.product_name,
@@ -200,6 +214,7 @@ export async function loadBootstrapData(user: UserIdentity) {
         valorUnitario: Number(sale.unit_price),
         formaPagamento: sale.payment_method,
         produtoId: sale.product_id ?? undefined,
+        tipoItem: sale.product_kind ?? undefined,
       })),
       clientes: customersResult.rows.map((customer) => ({
         id: customer.id,
@@ -231,6 +246,18 @@ export async function loadBootstrapData(user: UserIdentity) {
         movimentoCaixa: entry.movement_kind,
         identificacaoPendente: entry.identification_pending,
         caixaSessaoId: entry.cash_session_id ?? undefined,
+      })),
+      transacoes: transactionsResult.rows.map((transaction) => ({
+        id: transaction.id,
+        caixaSessaoId: transaction.cash_session_id ?? undefined,
+        tipo: transaction.type,
+        origem: transaction.source,
+        descricao: transaction.description ?? 'Movimentação financeira',
+        valor: Number(transaction.amount),
+        formaPagamento: transaction.payment_method,
+        ocorridoEm: new Date(transaction.occurred_at).toISOString(),
+        clienteId: transaction.customer_id ?? undefined,
+        clienteNome: transaction.customer_name ?? undefined,
       })),
       caixaAtual: cashSessions.find((session) => session.status === 'open') ?? null,
       fechamentosCaixa: cashSessions.filter((session) => session.status === 'closed'),

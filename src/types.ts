@@ -47,6 +47,7 @@ export interface CompanyConfig {
 
 export interface Venda {
   id: string;
+  caixaSessaoId?: string;
   data: string; // ISO date
   createdAt?: string; // instante ISO usado para ordenar vendas do mesmo dia
   descricao: string;
@@ -54,6 +55,22 @@ export interface Venda {
   valorUnitario: number;
   formaPagamento: FormaPagamento; // 'fiado' também cria uma Conta a receber automaticamente
   produtoId?: string;
+  tipoItem?: 'product' | 'service';
+}
+
+export type OrigemTransacao = 'venda' | 'despesa_fixa' | 'despesa_avulsa' | 'ajuste' | 'pagamento_fiado';
+
+export interface TransacaoFinanceira {
+  id: string;
+  caixaSessaoId?: string;
+  tipo: TipoLancamento;
+  origem: OrigemTransacao;
+  descricao: string;
+  valor: number;
+  formaPagamento: Exclude<FormaPagamento, 'fiado'> | 'outro';
+  ocorridoEm: string;
+  clienteId?: string;
+  clienteNome?: string;
 }
 
 export interface Produto {
@@ -135,6 +152,7 @@ export interface AppData {
   contas: Conta[];
   lancamentosManuais: LancamentoManual[];
   clientes: Cliente[];
+  transacoes: TransacaoFinanceira[];
   caixaAtual: SessaoCaixa | null;
   fechamentosCaixa: SessaoCaixa[];
 }
