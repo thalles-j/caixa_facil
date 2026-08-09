@@ -23,6 +23,7 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
           onClick={onClose}
           className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-full bg-line/50 text-ink-soft transition hover:bg-line hover:text-ink"
           aria-label="Fechar"
+          title="Fechar"
           type="button"
         >
           <X size={18} />

@@ -454,6 +454,9 @@ function MovimentosDoDia({
           {movimentacoes.map((movimento, index) => {
             const fiado = movimento.formaPagamento === 'fiado';
             const entrada = movimento.tipo === 'entrada';
+            const detalhe = movimento.origem === 'conta' && !entrada
+              ? `Despesa paga hoje${movimento.formaPagamento ? ` · ${movimento.detalhe.split(' · ').at(-1)}` : ''}`
+              : movimento.detalhe;
             const Icon = entrada ? ArrowUp : ArrowDown;
             return (
               <li key={`${movimento.origem}-${movimento.id}-${index}`} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
@@ -463,7 +466,7 @@ function MovimentosDoDia({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink">{movimento.descricao}</p>
                   <p className="mt-0.5 truncate text-xs text-ink-soft">
-                    {horario.format(new Date(movimento.ocorridoEm))} · {movimento.detalhe}
+                    {horario.format(new Date(movimento.ocorridoEm))} · {detalhe}
                   </p>
                 </div>
                 <span className={`shrink-0 font-ledger text-sm font-bold ${fiado ? 'text-brass' : entrada ? 'text-ledger-strong dark:text-ledger' : 'text-stamp'}`}>

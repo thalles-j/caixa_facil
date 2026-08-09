@@ -10,19 +10,22 @@ const items = [
   { to: '/fechamentos', label: 'Fechamentos', Icon: Receipt },
 ];
 
-export default function BottomNav() {
+export default function BottomNav({ informacoesVisiveis }: { informacoesVisiveis: boolean }) {
   useAppData();
+  const itensVisiveis = informacoesVisiveis ? items : items.filter(({ to }) => to === '/' || to === '/caixa');
 
   return (
     <>
       {/* Barra inferior — telas estreitas (celular) */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-paper-raised shadow-[0_-2px_10px_rgba(36,26,18,0.08)] md:hidden">
         <div className="mx-auto flex max-w-md items-center justify-between px-2 py-2">
-          {items.map(({ to, label, Icon }) => (
+          {itensVisiveis.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
+              title={label}
+              aria-label={label}
               className={({ isActive }) =>
                 `flex min-w-0 flex-1 flex-col items-center gap-1 p-2 transition ${
                   isActive ? 'text-ledger' : 'text-ink-soft hover:text-ledger'
@@ -49,11 +52,13 @@ export default function BottomNav() {
           <span className="hidden font-display text-lg font-semibold lg:inline">Caderneta</span>
         </div>
         <div className="flex w-full flex-col gap-1">
-          {items.map(({ to, label, Icon }) => (
+          {itensVisiveis.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
+              title={label}
+              aria-label={label}
               className={({ isActive }) =>
                 `flex items-center justify-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition lg:justify-start ${
                   isActive ? 'bg-ledger/10 text-ledger' : 'text-ink-soft hover:bg-line/40 hover:text-ink'

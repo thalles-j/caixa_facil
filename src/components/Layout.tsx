@@ -15,10 +15,20 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   month: 'short',
 });
 
+const PRIVACY_STORAGE_KEY = 'facilites-hide-sensitive-information';
+
+export type LayoutOutletContext = {
+  informacoesVisiveis: boolean;
+  alternarInformacoes: () => void;
+};
+
 export default function Layout() {
   const { data, totalNotificacoes, contasVencidas, contasVencendoEmBreve } = useAppData();
   const navigate = useNavigate();
   const [dark, setDark] = useDarkMode();
+  const [informacoesVisiveis, setInformacoesVisiveis] = useState(
+    () => window.localStorage.getItem(PRIVACY_STORAGE_KEY) !== 'true',
+  );
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const notificacoesRef = useRef<HTMLDivElement>(null);
   const hoje = dateFormatter.format(new Date()).replace('-feira', '');
@@ -37,6 +47,15 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', handleClickFora);
   }, [notificacoesAbertas]);
 
+  useEffect(() => {
+    window.localStorage.setItem(PRIVACY_STORAGE_KEY, String(!informacoesVisiveis));
+  }, [informacoesVisiveis]);
+
+  const alternarInformacoes = () => {
+    if (informacoesVisiveis) setNotificacoesAbertas(false);
+    setInformacoesVisiveis((visiveis) => !visiveis);
+  };
+
   const itensNotificacao: { conta: Conta; atrasada: boolean }[] = [
     ...contasVencidas.map((conta) => ({ conta, atrasada: true })),
     ...contasVencendoEmBreve.map((conta) => ({ conta, atrasada: false })),
@@ -49,7 +68,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-paper font-body text-ink md:flex">
-      <BottomNav />
+      <BottomNav informacoesVisiveis={informacoesVisiveis} />
 
       <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">
         <header className="sticky top-0 z-40 border-b border-line bg-paper-raised/95 px-4 py-3 backdrop-blur-sm">
@@ -73,6 +92,7 @@ export default function Layout() {
                 onClick={() => setDark(!dark)}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition hover:bg-line/50 hover:text-ink"
                 aria-label={dark ? 'Ativar modo claro' : 'Ativar modo escuro'}
+                title={dark ? 'Ativar modo claro' : 'Ativar modo escuro'}
               >
                 {dark ? <Sun size={20} /> : <Moon size={20} />}
               </button>
@@ -80,15 +100,17 @@ export default function Layout() {
                 onClick={() => navigate('/configuracoes')}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition hover:bg-line/50 hover:text-ink"
                 aria-label="Configurações"
+                title="Abrir configurações"
               >
                 <GearSix size={20} />
               </button>
-              <div className="relative" ref={notificacoesRef}>
+              {informacoesVisiveis && <div className="relative" ref={notificacoesRef}>
                 <button
                   onClick={() => setNotificacoesAbertas((v) => !v)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition hover:bg-line/50 hover:text-ink"
                   aria-label="Notificações"
                   aria-expanded={notificacoesAbertas}
+                  title="Abrir notificações"
                 >
                   <span className="relative inline-flex">
                     <Bell size={20} weight={notificacoesAbertas ? 'fill' : 'regular'} />
@@ -139,13 +161,18 @@ export default function Layout() {
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
         </header>
 
         <main className="relative mx-auto w-full max-w-md flex-1 p-4 sm:max-w-xl lg:max-w-5xl">
-          <Outlet />
+          <Outlet
+            context={{
+              informacoesVisiveis,
+              alternarInformacoes,
+            } satisfies LayoutOutletContext}
+          />
         </main>
       </div>
 
