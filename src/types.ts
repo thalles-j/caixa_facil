@@ -141,8 +141,17 @@ export interface AppData {
 
 export const RAMOS_ATUACAO = [
   'Alimentação (Mercado, Padaria...)',
+  'Bar, Restaurante e Lanchonete',
   'Vestuário e Acessórios',
   'Beleza e Cosméticos',
+  'Motorista de Aplicativo',
+  'Entregas e Motofrete',
+  'Manutenção e Reparos',
+  'Saúde e Bem-estar',
+  'Casa e Construção',
+  'Tecnologia e Eletrônicos',
+  'Educação e Aulas',
+  'Artesanato e Presentes',
   'Serviços',
   'Outros',
 ] as const;

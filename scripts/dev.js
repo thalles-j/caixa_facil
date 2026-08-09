@@ -7,14 +7,14 @@ const services = [
     name: 'BACK',
     port: 3000,
     args: ['run', 'dev:api'],
-    url: 'http://127.0.0.1:3000/api/health',
+    url: 'http://localhost:3000/api/health',
     matches: async (response) => response.ok && (await response.json()).ok === true,
   },
   {
     name: 'FRONT',
     port: 5173,
     args: ['run', 'dev:web'],
-    url: 'http://127.0.0.1:5173',
+    url: 'http://localhost:5173',
     matches: async (response) => response.ok && (await response.text()).includes('<title>Meu Negócio no Bolso</title>'),
   },
 ];
@@ -29,7 +29,8 @@ function portIsAvailable(port) {
       if (error.code === 'EADDRINUSE') return resolve(false);
       return reject(error);
     });
-    tester.listen(port, '127.0.0.1', () => tester.close(() => resolve(true)));
+    // Sem fixar IPv4: detecta também serviços ligados apenas em localhost/IPv6.
+    tester.listen(port, () => tester.close(() => resolve(true)));
   });
 }
 

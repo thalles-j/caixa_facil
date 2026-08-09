@@ -1,5 +1,20 @@
-import { Hamburger, TShirt, Scissors, Wrench, Storefront, type Icon } from '@phosphor-icons/react';
-import { RAMOS_ATUACAO } from '../types';
+import {
+  Car,
+  ForkKnife,
+  Gift,
+  GraduationCap,
+  Hamburger,
+  Heartbeat,
+  HouseLine,
+  Laptop,
+  Motorcycle,
+  PaintBrush,
+  Scissors,
+  Storefront,
+  TShirt,
+  Wrench,
+  type Icon,
+} from '@phosphor-icons/react';
 
 export interface CategoryTheme {
   icon: Icon;
@@ -13,23 +28,20 @@ const DEFAULT_THEME: CategoryTheme = {
 };
 
 export const categoryThemes: Record<string, CategoryTheme> = {
-  [RAMOS_ATUACAO[0]]: {
-    icon: Hamburger,
-    accent: '#C1602E',
-  },
-  [RAMOS_ATUACAO[1]]: {
-    icon: TShirt,
-    accent: '#7A3B6B',
-  },
-  [RAMOS_ATUACAO[2]]: {
-    icon: Scissors,
-    accent: '#B4476B',
-  },
-  [RAMOS_ATUACAO[3]]: {
-    icon: Wrench,
-    accent: '#2B6E77',
-  },
-  [RAMOS_ATUACAO[4]]: DEFAULT_THEME,
+  'Alimentação (Mercado, Padaria...)': { icon: Hamburger, accent: '#C1602E' },
+  'Bar, Restaurante e Lanchonete': { icon: ForkKnife, accent: '#A64B32' },
+  'Vestuário e Acessórios': { icon: TShirt, accent: '#7A3B6B' },
+  'Beleza e Cosméticos': { icon: Scissors, accent: '#B4476B' },
+  'Motorista de Aplicativo': { icon: Car, accent: '#306A61' },
+  'Entregas e Motofrete': { icon: Motorcycle, accent: '#9A681F' },
+  'Manutenção e Reparos': { icon: Wrench, accent: '#2B6E77' },
+  'Saúde e Bem-estar': { icon: Heartbeat, accent: '#3E7A65' },
+  'Casa e Construção': { icon: HouseLine, accent: '#9A633B' },
+  'Tecnologia e Eletrônicos': { icon: Laptop, accent: '#416A91' },
+  'Educação e Aulas': { icon: GraduationCap, accent: '#5B5E9A' },
+  'Artesanato e Presentes': { icon: Gift, accent: '#A05273' },
+  Serviços: { icon: Wrench, accent: '#2B6E77' },
+  Outros: { icon: PaintBrush, accent: DEFAULT_THEME.accent },
 };
 
 export function getCategoryTheme(categoria: string | undefined): CategoryTheme {

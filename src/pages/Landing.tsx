@@ -1,13 +1,18 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   ArrowUp,
   Calculator,
   ChartBar,
+  ClipboardText,
   Eye,
+  EyeSlash,
+  FilePdf,
   HandCoins,
-  Lock,
   Package,
+  Receipt,
+  ShieldCheck,
   Sparkle,
   Storefront,
   TrendUp,
@@ -19,26 +24,50 @@ const RECURSOS = [
   {
     icon: Calculator,
     tone: 'ledger' as const,
-    titulo: 'Caixa rápido',
-    descricao: 'Cobre em dinheiro, Pix, cartão ou fiado em poucos toques, sem precisar digitar tudo na mão.',
+    titulo: 'Frente de caixa',
+    descricao: 'Registre produtos e serviços em dinheiro, Pix, cartão ou fiado com poucos toques.',
   },
   {
     icon: Package,
     tone: 'brass' as const,
-    titulo: 'Catálogo',
-    descricao: 'Cadastre produtos e serviços com preço e estoque, e saiba na hora o que está acabando.',
+    titulo: 'Catálogo completo',
+    descricao: 'Cadastre produtos e serviços com preço, categorias e controle do que está acabando.',
   },
   {
     icon: HandCoins,
     tone: 'stamp' as const,
-    titulo: 'Financeiro',
-    descricao: 'Acompanhe contas a pagar, o que falta receber e quem ainda está te devendo.',
+    titulo: 'Contas e fiado',
+    descricao: 'Acompanhe despesas fixas, dê baixa nos pagamentos e saiba quem ainda está devendo.',
   },
   {
     icon: ChartBar,
     tone: 'ledger' as const,
     titulo: 'Painel do dia',
-    descricao: 'Veja saldo, vendas e o que precisa de atenção assim que abre o app — sem planilha.',
+    descricao: 'Veja saldo, entradas, despesas, metas e alertas importantes assim que abrir o app.',
+  },
+  {
+    icon: ClipboardText,
+    tone: 'brass' as const,
+    titulo: 'Pendências organizadas',
+    descricao: 'Revise entradas e despesas sem identificação antes de concluir a conferência do caixa.',
+  },
+  {
+    icon: Receipt,
+    tone: 'stamp' as const,
+    titulo: 'Fechamento diário',
+    descricao: 'Confira todas as entradas e saídas, resolva pendências e conte o dinheiro em uma página própria.',
+  },
+  {
+    icon: FilePdf,
+    tone: 'ledger' as const,
+    titulo: 'Relatórios por data',
+    descricao: 'Abra cada fechamento pelo dia e imprima ou salve o relatório completo em PDF.',
+  },
+  {
+    icon: ShieldCheck,
+    tone: 'brass' as const,
+    titulo: 'Modo privacidade',
+    descricao: 'Oculte valores, alertas, movimentações e atalhos sensíveis quando houver alguém por perto.',
   },
 ];
 
@@ -49,6 +78,8 @@ const toneClasses: Record<'ledger' | 'brass' | 'stamp', string> = {
 };
 
 export default function Landing() {
+  const [valoresDemonstracaoVisiveis, setValoresDemonstracaoVisiveis] = useState(true);
+
   return (
     <div className="min-h-screen bg-paper text-ink">
       <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm">
@@ -60,7 +91,14 @@ export default function Landing() {
             <span className="font-display text-base font-semibold">Meu Negócio no Bolso</span>
           </div>
           <nav className="flex items-center gap-2 sm:gap-4">
-            <a href="#recursos" className="hidden text-sm font-medium text-ink-soft hover:text-ink sm:inline">
+            <a
+              href="#recursos"
+              onClick={(event) => {
+                event.preventDefault();
+                document.getElementById('recursos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="hidden text-sm font-medium text-ink-soft hover:text-ink sm:inline"
+            >
               Recursos
             </a>
             <Link to="/login" className="text-sm font-medium text-ink-soft hover:text-ink">
@@ -87,8 +125,8 @@ export default function Landing() {
               Seu negócio inteiro, numa página só.
             </h1>
             <p className="mt-5 max-w-lg text-base leading-relaxed text-ink-soft sm:text-lg">
-              Caixa, estoque, contas a pagar e receber e quem está te devendo — tudo num só app, simples como uma
-              caderneta, sem mensalidade e sem curso para aprender a usar.
+              Venda, controle o fiado, acompanhe despesas e feche o caixa com relatório — tudo num só app, simples
+              como uma caderneta e sem curso para aprender a usar.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
@@ -104,7 +142,7 @@ export default function Landing() {
                 Já uso, entrar
               </Link>
             </div>
-            <p className="mt-4 text-xs text-ink-soft">Grátis no protótipo · seus dados ficam só no seu aparelho.</p>
+            <p className="mt-4 text-xs text-ink-soft">Grátis no protótipo · seus dados ficam protegidos na sua conta.</p>
           </div>
 
           {/* Mock do painel — a mesma "recibo" que aparece dentro do app */}
@@ -115,11 +153,19 @@ export default function Landing() {
                   <p className="mb-1 font-ledger text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f7f1e4]/70">
                     Caixa Disponível
                   </p>
-                  <h2 className="font-display text-3xl font-semibold tracking-tight">R$ 1.284,90</h2>
+                  <h2 className="font-display text-3xl font-semibold tracking-tight">
+                    {valoresDemonstracaoVisiveis ? 'R$ 1.284,90' : 'R$ ••••••'}
+                  </h2>
                 </div>
-                <div className="rounded-xl bg-[#f7f1e4]/10 p-2">
-                  <Eye size={18} />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setValoresDemonstracaoVisiveis((visiveis) => !visiveis)}
+                  aria-label={valoresDemonstracaoVisiveis ? 'Ocultar valores da demonstração' : 'Mostrar valores da demonstração'}
+                  title={valoresDemonstracaoVisiveis ? 'Ocultar informações' : 'Mostrar informações'}
+                  className="privacy-nudge flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f7f1e4]/10 transition hover:bg-[#f7f1e4]/20"
+                >
+                  {valoresDemonstracaoVisiveis ? <EyeSlash size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               <div className="flex gap-3">
                 <div className="flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3">
@@ -127,11 +173,15 @@ export default function Landing() {
                     <p className="font-ledger text-[11px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">Vendas Hoje</p>
                     <TrendUp size={14} weight="fill" className="text-[#7fd9ab]" />
                   </div>
-                  <p className="font-ledger text-base font-semibold tabular-nums">R$ 342,00</p>
+                  <p className="font-ledger text-base font-semibold tabular-nums">
+                    {valoresDemonstracaoVisiveis ? 'R$ 342,00' : 'R$ ••••••'}
+                  </p>
                 </div>
                 <div className="flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3">
                   <p className="mb-1 font-ledger text-[11px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">Despesas Hoje</p>
-                  <p className="font-ledger text-base font-semibold tabular-nums">R$ 96,50</p>
+                  <p className="font-ledger text-base font-semibold tabular-nums">
+                    {valoresDemonstracaoVisiveis ? 'R$ 96,50' : 'R$ ••••••'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -142,11 +192,11 @@ export default function Landing() {
         </section>
 
         {/* Recursos */}
-        <section id="recursos" className="border-t border-line bg-paper-raised/50 py-16">
+        <section id="recursos" className="scroll-mt-16 border-t border-line bg-paper-raised/50 py-16">
           <div className="mx-auto max-w-6xl px-5">
             <h2 className="font-display text-2xl font-semibold sm:text-3xl">O que ele resolve</h2>
             <p className="mt-2 max-w-xl text-sm text-ink-soft">
-              Quatro telas para o que realmente importa no balcão — nada de planilha nem relatório complicado.
+              Um fluxo completo para trabalhar durante o dia e fechar o caixa sem depender de planilhas.
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {RECURSOS.map(({ icon: Icon, tone, titulo, descricao }) => (
@@ -165,11 +215,11 @@ export default function Landing() {
         {/* Para quem é */}
         <section className="py-16">
           <div className="mx-auto max-w-6xl px-5">
-            <h2 className="font-display text-2xl font-semibold sm:text-3xl">Feito para o comércio de bairro</h2>
+            <h2 className="font-display text-2xl font-semibold sm:text-3xl">Feito para quem trabalha por conta</h2>
             <p className="mt-2 max-w-xl text-sm text-ink-soft">
-              O painel e as cores do app se adaptam ao seu ramo assim que você escolhe na configuração inicial.
+              De lojas e salões a motoristas e prestadores de serviço: o app adapta o visual ao seu ramo.
             </p>
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {RAMOS_ATUACAO.map((ramo) => {
                 const theme = getCategoryTheme(ramo);
                 const Icon = theme.icon;
@@ -195,8 +245,8 @@ export default function Landing() {
         {/* Confiança */}
         <section className="border-y border-line bg-paper-raised/50 py-14">
           <div className="mx-auto grid max-w-6xl gap-8 px-5 sm:grid-cols-3">
-            <TrustPoint icon={Storefront} titulo="Feito para o balcão" descricao="Pensado para padaria, salão, oficina, loja — não para grandes redes." />
-            <TrustPoint icon={Lock} titulo="Dados no seu aparelho" descricao="Tudo fica salvo localmente, no seu navegador — nada é enviado para fora." />
+            <TrustPoint icon={Storefront} titulo="Feito para o dia a dia" descricao="Pensado para loja, salão, oficina, motorista e prestador de serviço independente." />
+            <TrustPoint icon={ShieldCheck} titulo="Dados protegidos" descricao="Seu negócio fica vinculado à sua conta e sua sessão continua ativa com segurança." />
             <TrustPoint icon={Sparkle} titulo="Sem mensalidade no protótipo" descricao="Experimente sem cadastrar cartão. É um protótipo em evolução." />
           </div>
         </section>

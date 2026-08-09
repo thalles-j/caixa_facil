@@ -101,6 +101,27 @@ body {
   background-position: -4px 0;
 }
 
+/* Chama atenção discretamente para o controle de privacidade da demonstração. */
+@keyframes privacy-nudge {
+  0%, 6%, 12%, 18%, 100% {
+    transform: translateY(0);
+  }
+  3%, 9%, 15% {
+    transform: translateY(-5px);
+  }
+}
+
+.privacy-nudge {
+  animation: privacy-nudge 15s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .privacy-nudge {
+    animation: none;
+  }
+}
+
 .modal-overlay {
   display: none;
   position: fixed;
