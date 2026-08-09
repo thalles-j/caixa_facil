@@ -3,8 +3,20 @@ import { createServer } from 'node:net';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const services = [
-  { name: 'BACK', args: ['run', 'dev:api'] },
-  { name: 'FRONT', args: ['run', 'dev:web'] },
+  {
+    name: 'BACK',
+    port: 3000,
+    args: ['run', 'dev:api'],
+    url: 'http://127.0.0.1:3000/api/health',
+    matches: async (response) => response.ok && (await response.json()).ok === true,
+  },
+  {
+    name: 'FRONT',
+    port: 5173,
+    args: ['run', 'dev:web'],
+    url: 'http://127.0.0.1:5173',
+    matches: async (response) => response.ok && (await response.text()).includes('<title>Meu Negócio no Bolso</title>'),
+  },
 ];
 const children = [];
 let stopping = false;
@@ -17,8 +29,17 @@ function portIsAvailable(port) {
       if (error.code === 'EADDRINUSE') return resolve(false);
       return reject(error);
     });
-    tester.listen(port, () => tester.close(() => resolve(true)));
+    tester.listen(port, '127.0.0.1', () => tester.close(() => resolve(true)));
   });
+}
+
+async function expectedServiceIsRunning(service) {
+  try {
+    const response = await fetch(service.url, { signal: AbortSignal.timeout(1500) });
+    return await service.matches(response);
+  } catch {
+    return false;
+  }
 }
 
 function prefixStream(stream, label, destination) {
@@ -37,22 +58,34 @@ function prefixStream(stream, label, destination) {
   });
 }
 
-const requiredPorts = [
-  { label: 'BACK', port: 3000 },
-  { label: 'FRONT', port: 5173 },
-];
 const portStatus = await Promise.all(
-  requiredPorts.map(async (service) => ({ ...service, available: await portIsAvailable(service.port) })),
+  services.map(async (service) => ({
+    service,
+    available: await portIsAvailable(service.port),
+  })),
 );
-const occupiedPorts = portStatus.filter((service) => !service.available);
+const occupiedPorts = portStatus.filter(({ available }) => !available);
+const reusableServices = new Set();
+const conflictingServices = [];
 
-if (occupiedPorts.length) {
+for (const { service } of occupiedPorts) {
+  if (await expectedServiceIsRunning(service)) reusableServices.add(service.name);
+  else conflictingServices.push(service);
+}
+
+if (conflictingServices.length) {
   console.error('[DEV] Ambiente não iniciado porque existem portas ocupadas:');
-  for (const service of occupiedPorts) {
-    console.error(`[${service.label}] Porta ${service.port} já está em uso.`);
+  for (const service of conflictingServices) {
+    console.error(`[${service.name}] Porta ${service.port} pertence a outro processo.`);
   }
-  console.error('[DEV] Encerre a execução anterior com Ctrl+C e tente novamente.');
+  console.error('[DEV] Encerre o processo indicado e tente novamente.');
   process.exit(1);
+}
+
+for (const service of services) {
+  if (reusableServices.has(service.name)) {
+    console.log(`[${service.name}] Já está em execução na porta ${service.port}; reutilizando.`);
+  }
 }
 
 console.log(`
@@ -61,22 +94,39 @@ Meu Negócio no Bolso — ambiente de desenvolvimento
   API:       http://localhost:3000
   Health:    http://localhost:3000/api/health
 
-Pressione Ctrl+C para encerrar os dois serviços.
+${reusableServices.size > 0
+    ? 'Pressione Ctrl+C para encerrar os serviços iniciados neste terminal; os já ativos serão mantidos.'
+    : 'Pressione Ctrl+C para encerrar os dois serviços.'}
 `);
 
 function stopAll(signal) {
   if (stopping) return;
   stopping = true;
   for (const child of children) {
-    if (child.exitCode === null && child.signalCode === null) child.kill(signal);
+    if (child.exitCode !== null || child.signalCode !== null) continue;
+
+    try {
+      if (process.platform === 'win32') child.kill(signal);
+      else process.kill(-child.pid, signal);
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+    }
   }
 }
 
-for (const service of services) {
+const servicesToStart = services.filter((service) => !reusableServices.has(service.name));
+
+if (servicesToStart.length === 0) {
+  console.log('[DEV] Front-end e API já estavam ativos. Nenhum processo duplicado foi criado.');
+  process.exit(0);
+}
+
+for (const service of servicesToStart) {
   const child = spawn(npmCommand, service.args, {
     cwd: process.cwd(),
     env: process.env,
     stdio: ['inherit', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
   });
   children.push(child);
   prefixStream(child.stdout, service.name, process.stdout);

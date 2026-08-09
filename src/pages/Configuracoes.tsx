@@ -2,15 +2,15 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Plus, Trash, PaperPlaneTilt, Moon, Sun, DownloadSimple, UploadSimple, SignOut, Warning } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
-import { formatCurrency, parseMoney, todayISO } from '../lib/format';
-import { isValidAppData, loadData, saveData, uid } from '../lib/storage';
+import { formatCurrency, parseMoney, sanitizeMoneyInput, todayISO } from '../lib/format';
+import { isValidAppData, loadData, saveData } from '../lib/storage';
 import { useDarkMode } from '../lib/theme';
 import { RAMOS_ATUACAO } from '../types';
-import type { AppData, DespesaFixa, FrequenciaRelatorio, Oferta, Recorrencia, ViewPeriod } from '../types';
+import type { AppData, FrequenciaRelatorio, Oferta, Recorrencia, ViewPeriod } from '../types';
 import Modal from '../components/Modal';
 
 export default function Configuracoes() {
-  const { data, setConfig, resetData } = useAppData();
+  const { data, setConfig, resetData, cadastrarDespesaFixaNoBanco, removerDespesaFixaNoBanco } = useAppData();
   const config = data.config;
   const { user, logout, resetAccountData } = useAuth();
 
@@ -23,6 +23,8 @@ export default function Configuracoes() {
   const [resetando, setResetando] = useState(false);
   const [resetErro, setResetErro] = useState<string | null>(null);
   const [acaoPendente, setAcaoPendente] = useState<'logout' | 'reset' | null>(null);
+  const [despesaFixaSalvando, setDespesaFixaSalvando] = useState(false);
+  const [despesaFixaErro, setDespesaFixaErro] = useState<string | null>(null);
   const arquivoInputRef = useRef<HTMLInputElement>(null);
 
   if (!config) return null;
@@ -31,24 +33,35 @@ export default function Configuracoes() {
     setConfig({ ...config, ...patch });
   };
 
-  const adicionarDespesaFixa = (e: FormEvent) => {
+  const adicionarDespesaFixa = async (e: FormEvent) => {
     e.preventDefault();
     const valor = parseMoney(novaDespesaValor);
     if (!novaDespesaNome.trim() || !valor || valor <= 0) return;
 
-    const despesa: DespesaFixa = {
-      id: uid(),
-      nome: novaDespesaNome.trim(),
-      valor,
-      recorrencia: novaDespesaRecorrencia,
-    };
-    salvarCampo({ despesasFixas: [...config.despesasFixas, despesa] });
-    setNovaDespesaNome('');
-    setNovaDespesaValor('');
+    setDespesaFixaSalvando(true);
+    setDespesaFixaErro(null);
+    try {
+      await cadastrarDespesaFixaNoBanco({
+        nome: novaDespesaNome.trim(),
+        valor,
+        recorrencia: novaDespesaRecorrencia,
+      });
+      setNovaDespesaNome('');
+      setNovaDespesaValor('');
+    } catch (error) {
+      setDespesaFixaErro(error instanceof Error ? error.message : 'Não foi possível salvar a conta fixa.');
+    } finally {
+      setDespesaFixaSalvando(false);
+    }
   };
 
-  const removerDespesaFixa = (id: string) => {
-    salvarCampo({ despesasFixas: config.despesasFixas.filter((d) => d.id !== id) });
+  const removerDespesaFixa = async (id: string) => {
+    setDespesaFixaErro(null);
+    try {
+      await removerDespesaFixaNoBanco(id);
+    } catch (error) {
+      setDespesaFixaErro(error instanceof Error ? error.message : 'Não foi possível remover a conta fixa.');
+    }
   };
 
   const enviarRelatorioAgora = () => {
@@ -112,17 +125,21 @@ export default function Configuracoes() {
       await resetAccountData();
       resetData();
       setAcaoPendente(null);
-      logout();
+      await logout();
     } catch (error) {
       setResetErro(error instanceof Error ? error.message : 'Não foi possível zerar os dados da conta.');
       setResetando(false);
     }
   };
 
-  const confirmarAcaoPendente = () => {
+  const confirmarAcaoPendente = async () => {
     if (acaoPendente === 'logout') {
       setAcaoPendente(null);
-      logout();
+      try {
+        await logout();
+      } catch (error) {
+        setResetErro(error instanceof Error ? error.message : 'Não foi possível sair da conta.');
+      }
       return;
     }
     if (acaoPendente === 'reset') void zerarDadosDaConta();
@@ -165,7 +182,10 @@ export default function Configuracoes() {
             <label className="mb-1 block text-xs font-medium text-ink-soft">O que você oferece?</label>
             <select
               value={config.oferta}
-              onChange={(e) => salvarCampo({ oferta: e.target.value as Oferta })}
+              onChange={(e) => {
+                const oferta = e.target.value as Oferta;
+                salvarCampo({ oferta, controlaEstoque: oferta !== 'servicos' });
+              }}
               className={inputClasses}
             >
               <option value="produtos">Produtos</option>
@@ -173,21 +193,15 @@ export default function Configuracoes() {
               <option value="ambos">Ambos</option>
             </select>
           </div>
-          <label className="flex items-center justify-between gap-3">
-            <span className="text-xs font-medium text-ink-soft">Controla estoque?</span>
-            <input
-              type="checkbox"
-              checked={config.controlaEstoque}
-              onChange={(e) => salvarCampo({ controlaEstoque: e.target.checked })}
-              className="h-5 w-5 accent-ledger"
-            />
-          </label>
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-soft">Meta Diária de Vendas</label>
             <input
               type="text"
               inputMode="decimal"
               defaultValue={config.metaDiariaVendas ?? ''}
+              onInput={(e) => {
+                e.currentTarget.value = sanitizeMoneyInput(e.currentTarget.value);
+              }}
               onBlur={(e) =>
                 salvarCampo({ metaDiariaVendas: e.target.value ? parseMoney(e.target.value) : undefined })
               }
@@ -238,7 +252,7 @@ export default function Configuracoes() {
                 </span>
                 <div className="flex shrink-0 items-center gap-3">
                   <span className="font-ledger font-medium tabular-nums text-ink">{formatCurrency(d.valor)}</span>
-                  <button onClick={() => removerDespesaFixa(d.id)} className="text-ink-soft hover:text-stamp">
+                  <button onClick={() => void removerDespesaFixa(d.id)} className="text-ink-soft hover:text-stamp">
                     <Trash size={16} />
                   </button>
                 </div>
@@ -258,7 +272,7 @@ export default function Configuracoes() {
                 type="text"
                 inputMode="decimal"
                 value={novaDespesaValor}
-                onChange={(e) => setNovaDespesaValor(e.target.value)}
+                onChange={(e) => setNovaDespesaValor(sanitizeMoneyInput(e.target.value))}
                 placeholder="Ex: 900,00"
                 className="w-28 min-w-0 rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
               />
@@ -272,11 +286,13 @@ export default function Configuracoes() {
               </select>
               <button
                 type="submit"
+                disabled={despesaFixaSalvando}
                 className="flex shrink-0 items-center gap-1 rounded-lg bg-ledger/10 px-3 text-sm font-medium text-ledger-strong dark:text-ledger"
               >
-                <Plus size={16} /> Add
+                <Plus size={16} /> {despesaFixaSalvando ? 'Salvando…' : 'Add'}
               </button>
             </div>
+            {despesaFixaErro && <p className="text-xs font-medium text-stamp">{despesaFixaErro}</p>}
           </form>
         </section>
 
@@ -441,7 +457,7 @@ export default function Configuracoes() {
             </button>
             <button
               type="button"
-              onClick={confirmarAcaoPendente}
+              onClick={() => void confirmarAcaoPendente()}
               disabled={resetando}
               className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold text-paper transition disabled:opacity-60 ${
                 acaoPendente === 'reset' ? 'bg-stamp hover:bg-stamp/90' : 'bg-ledger hover:bg-ledger-strong'

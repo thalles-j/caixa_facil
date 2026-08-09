@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { House, Calculator, Package, CurrencyDollar, List } from '@phosphor-icons/react';
+import { House, Calculator, Package, CurrencyDollar, List, Receipt } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 
 const items = [
@@ -7,6 +7,7 @@ const items = [
   { to: '/caixa', label: 'Caixa', Icon: Calculator },
   { to: '/catalogo', label: 'Catálogo', Icon: Package },
   { to: '/financas', label: 'Finanças', Icon: CurrencyDollar },
+  { to: '/fechamentos', label: 'Fechamentos', Icon: Receipt },
 ];
 
 export default function BottomNav() {
@@ -16,14 +17,14 @@ export default function BottomNav() {
     <>
       {/* Barra inferior — telas estreitas (celular) */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-paper-raised shadow-[0_-2px_10px_rgba(36,26,18,0.08)] md:hidden">
-        <div className="mx-auto flex max-w-md items-center justify-between px-6 py-2">
+        <div className="mx-auto flex max-w-md items-center justify-between px-2 py-2">
           {items.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 p-2 transition ${
+                `flex min-w-0 flex-1 flex-col items-center gap-1 p-2 transition ${
                   isActive ? 'text-ledger' : 'text-ink-soft hover:text-ledger'
                 }`
               }
@@ -31,7 +32,7 @@ export default function BottomNav() {
               {({ isActive }) => (
                 <>
                   <Icon size={24} weight={isActive ? 'fill' : 'regular'} />
-                  <span className="text-[10px] font-medium">{label}</span>
+                  <span className="max-w-full truncate text-[10px] font-medium">{label}</span>
                 </>
               )}
             </NavLink>

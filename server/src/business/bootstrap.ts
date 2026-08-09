@@ -13,9 +13,10 @@ function isoDate(value: Date | string | null): string | undefined {
 
 export async function loadBootstrapData(user: UserIdentity) {
   return withTenantTransaction(user.id, async (client) => {
-    const [productsResult, categoriesResult, salesResult, customersResult, creditsResult, expensesResult, manualResult] =
-      await Promise.all([
-        client.query(`
+    // Um PoolClient do pg processa uma consulta por vez. Manter a sequência
+    // explícita evita sobrepor client.query(), comportamento depreciado no pg 8
+    // e que será rejeitado no pg 9.
+    const productsResult = await client.query(`
           SELECT p.id, p.kind, p.name, p.sale_price, p.cost_price,
                  p.stock_quantity, p.minimum_quantity, p.service_duration::text,
                  c.name AS category_name
@@ -23,28 +24,28 @@ export async function loadBootstrapData(user: UserIdentity) {
           LEFT JOIN categories c ON c.user_id = p.user_id AND c.id = p.category_id
           WHERE p.user_id = $1 AND p.active
           ORDER BY p.created_at, p.name
-        `, [user.id]),
-        client.query(`
+        `, [user.id]);
+    const categoriesResult = await client.query(`
           SELECT id, name
           FROM categories
           WHERE user_id = $1
           ORDER BY created_at, name
-        `, [user.id]),
-        client.query(`
+        `, [user.id]);
+    const salesResult = await client.query(`
           SELECT si.id, si.product_id, si.product_name, si.quantity, si.unit_price,
                  s.sold_at, s.payment_method
           FROM sale_items si
           JOIN sales s ON s.user_id = si.user_id AND s.id = si.sale_id
           WHERE si.user_id = $1 AND s.status = 'completed'
           ORDER BY s.sold_at, si.created_at
-        `, [user.id]),
-        client.query(`
+        `, [user.id]);
+    const customersResult = await client.query(`
           SELECT id, name, phone
           FROM customers
           WHERE user_id = $1
           ORDER BY created_at, name
-        `, [user.id]),
-        client.query(`
+        `, [user.id]);
+    const creditsResult = await client.query(`
           SELECT cs.id, cs.sale_id, cs.customer_id, cs.amount, cs.status,
                  cs.due_date, cs.paid_at, cs.created_at,
                  (
@@ -59,23 +60,75 @@ export async function loadBootstrapData(user: UserIdentity) {
           JOIN sales s ON s.user_id = cs.user_id AND s.id = cs.sale_id
           WHERE cs.user_id = $1
           ORDER BY cs.created_at
-        `, [user.id]),
-        client.query(`
-          SELECT id, description, amount, recurrence
-          FROM fixed_expenses
-          WHERE user_id = $1 AND active AND recurrence IN ('weekly', 'monthly')
-          ORDER BY created_at, description
-        `, [user.id]),
-        client.query(`
-          SELECT id, occurred_at, type, description, amount, payment_method
+        `, [user.id]);
+    const expensesResult = await client.query(`
+          SELECT fe.id, fe.description, fe.amount, fe.recurrence,
+                 payment.occurred_at AS paid_at, payment.payment_method
+          FROM fixed_expenses fe
+          LEFT JOIN LATERAL (
+            SELECT t.occurred_at, t.payment_method
+            FROM transactions t
+            WHERE t.user_id = fe.user_id
+              AND t.fixed_expense_id = fe.id
+              AND t.source = 'despesa_fixa'
+              AND t.occurred_at >= CASE fe.recurrence
+                WHEN 'weekly' THEN date_trunc('week', now())
+                WHEN 'monthly' THEN date_trunc('month', now())
+                WHEN 'yearly' THEN date_trunc('year', now())
+                ELSE '-infinity'::timestamptz
+              END
+            ORDER BY t.occurred_at DESC
+            LIMIT 1
+          ) payment ON true
+          WHERE fe.user_id = $1 AND fe.active AND fe.recurrence IN ('weekly', 'monthly')
+          ORDER BY fe.created_at, fe.description
+        `, [user.id]);
+    const manualResult = await client.query(`
+          SELECT id, cash_session_id, occurred_at, type, description, amount, payment_method,
+                 movement_kind, entry_kind, expense_kind, identification_pending
           FROM transactions
           WHERE user_id = $1 AND source IN ('ajuste', 'despesa_avulsa')
           ORDER BY occurred_at
-        `, [user.id]),
-      ]);
+        `, [user.id]);
+    const cashResult = await client.query(`
+          SELECT cs.id, cs.responsible, cs.opened_at, cs.closed_at, cs.status,
+                 cs.opening_balance, cs.closing_balance, cs.expected_balance, cs.difference,
+                 COALESCE((SELECT SUM(t.amount) FROM transactions t
+                   WHERE t.user_id = cs.user_id AND t.cash_session_id = cs.id
+                     AND t.type = 'entrada' AND t.payment_method = 'dinheiro'
+                     AND t.movement_kind <> 'suprimento'), 0) AS sales_cash,
+                 COALESCE((SELECT SUM(t.amount) FROM transactions t
+                   WHERE t.user_id = cs.user_id AND t.cash_session_id = cs.id
+                     AND t.type = 'entrada' AND t.payment_method = 'pix'
+                     AND t.movement_kind <> 'suprimento'), 0) AS sales_pix,
+                 COALESCE((SELECT SUM(t.amount) FROM transactions t
+                   WHERE t.user_id = cs.user_id AND t.cash_session_id = cs.id
+                     AND t.type = 'entrada' AND t.payment_method IN ('cartao_credito', 'cartao_debito')
+                     AND t.movement_kind <> 'suprimento'), 0) AS sales_card,
+                 COALESCE((SELECT SUM(s.total_amount) FROM sales s
+                   WHERE s.user_id = cs.user_id AND s.cash_session_id = cs.id
+                     AND s.status = 'completed' AND s.payment_method = 'fiado'), 0) AS sales_credit,
+                 COALESCE((SELECT SUM(t.amount) FROM transactions t
+                   WHERE t.user_id = cs.user_id AND t.cash_session_id = cs.id
+                     AND t.type = 'entrada' AND t.payment_method = 'dinheiro'
+                     AND t.movement_kind = 'suprimento'), 0) AS supplies,
+                 COALESCE((SELECT SUM(t.amount) FROM transactions t
+                   WHERE t.user_id = cs.user_id AND t.cash_session_id = cs.id
+                     AND t.type = 'saida' AND t.payment_method = 'dinheiro'), 0) AS withdrawals,
+                 COALESCE((SELECT SUM(t.amount) FROM transactions t
+                   WHERE t.user_id = cs.user_id AND t.cash_session_id = cs.id
+                     AND t.type = 'saida' AND t.payment_method <> 'dinheiro'), 0) AS other_outflows,
+                 COALESCE((SELECT COUNT(*) FROM transactions t
+                   WHERE t.user_id = cs.user_id AND t.cash_session_id = cs.id
+                     AND t.identification_pending), 0)::integer AS pending_count
+          FROM cash_sessions cs
+          WHERE cs.user_id = $1
+          ORDER BY cs.opened_at DESC
+        `, [user.id]);
 
     const hasBusinessData =
-      productsResult.rowCount || categoriesResult.rowCount || salesResult.rowCount || expensesResult.rowCount || creditsResult.rowCount;
+      productsResult.rowCount || categoriesResult.rowCount || salesResult.rowCount || expensesResult.rowCount ||
+      creditsResult.rowCount || manualResult.rowCount || cashResult.rowCount;
     if (!hasBusinessData) return null;
 
     const fixedExpenses = expensesResult.rows.map((expense) => ({
@@ -83,6 +136,32 @@ export async function loadBootstrapData(user: UserIdentity) {
       nome: expense.description,
       valor: Number(expense.amount),
       recorrencia: expense.recurrence === 'weekly' ? 'semanal' : 'mensal',
+      quitado: Boolean(expense.paid_at),
+      pagoEm: expense.paid_at ? new Date(expense.paid_at).toISOString() : undefined,
+      formaPagamento: expense.payment_method ?? undefined,
+    }));
+
+    const cashSessions = cashResult.rows.map((session) => ({
+      id: session.id,
+      status: session.status,
+      responsavel: session.responsible,
+      abertoEm: new Date(session.opened_at).toISOString(),
+      fechadoEm: session.closed_at ? new Date(session.closed_at).toISOString() : undefined,
+      valorInicial: Number(session.opening_balance),
+      vendasDinheiro: Number(session.sales_cash),
+      vendasPix: Number(session.sales_pix),
+      vendasCartao: Number(session.sales_card),
+      vendasFiado: Number(session.sales_credit),
+      suprimentos: Number(session.supplies),
+      sangrias: Number(session.withdrawals),
+      saidasOutros: Number(session.other_outflows),
+      dinheiroEsperado: Number(
+        session.expected_balance ??
+          Number(session.opening_balance) + Number(session.sales_cash) + Number(session.supplies) - Number(session.withdrawals),
+      ),
+      dinheiroContado: session.closing_balance === null ? undefined : Number(session.closing_balance),
+      diferenca: session.difference === null ? undefined : Number(session.difference),
+      pendenciasIdentificacao: Number(session.pending_count),
     }));
 
     return {
@@ -147,7 +226,14 @@ export async function loadBootstrapData(user: UserIdentity) {
         descricao: entry.description ?? 'Lançamento manual',
         valor: Number(entry.amount),
         formaPagamento: entry.payment_method ?? undefined,
+        tipoEntrada: entry.entry_kind ?? undefined,
+        tipoDespesa: entry.expense_kind ?? undefined,
+        movimentoCaixa: entry.movement_kind,
+        identificacaoPendente: entry.identification_pending,
+        caixaSessaoId: entry.cash_session_id ?? undefined,
       })),
+      caixaAtual: cashSessions.find((session) => session.status === 'open') ?? null,
+      fechamentosCaixa: cashSessions.filter((session) => session.status === 'closed'),
     };
   });
 }

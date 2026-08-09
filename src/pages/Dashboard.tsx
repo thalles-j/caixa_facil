@@ -18,7 +18,6 @@ import {
   Info,
   ChartBar,
   Newspaper,
-  Clock,
   PencilSimple,
   Trash,
   CaretRight,
@@ -29,8 +28,9 @@ import {
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import Modal from '../components/Modal';
-import { formatCurrency, parseMoney, todayISO } from '../lib/format';
-import type { FormaPagamento, LancamentoManual, Venda } from '../types';
+import { formatCurrency, parseMoney, sanitizeIntegerInput, sanitizeMoneyInput, todayISO } from '../lib/format';
+import { TIPOS_DESPESA } from '../types';
+import type { FormaPagamento, LancamentoManual, TipoDespesa, TipoEntrada, Venda } from '../types';
 import { obterMovimentacoesFinanceiras } from '../lib/movements';
 
 const diaSemanaCurto = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
@@ -48,13 +48,6 @@ const FORMAS_LANCAMENTO: {
   { value: 'cartao_credito', label: 'Cartão', Icon: CreditCard },
 ];
 
-function somenteValorMonetario(valor: string): string {
-  const limpo = valor.replace(/\./g, '').replace(/[^\d,]/g, '');
-  const [inteiro, ...decimais] = limpo.split(',');
-  const decimal = decimais.join('').slice(0, 2);
-  return decimais.length > 0 ? `${inteiro},${decimal}` : inteiro;
-}
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const {
@@ -69,7 +62,7 @@ export default function Dashboard() {
     contasVencendoEmBreve,
     contasVencidas,
     produtosEstoqueBaixo,
-    addLancamentoManual,
+    registrarLancamentoNoBanco,
     editarVenda,
     removerVenda,
     editarLancamentoManual,
@@ -81,9 +74,12 @@ export default function Dashboard() {
   const [lancamentoTipo, setLancamentoTipo] = useState<'entrada' | 'saida'>('entrada');
   const [lancamentoDescricao, setLancamentoDescricao] = useState('');
   const [lancamentoValor, setLancamentoValor] = useState('');
-  const [lancamentoCategoria, setLancamentoCategoria] = useState('');
+  const [lancamentoCategoria, setLancamentoCategoria] = useState<TipoDespesa | ''>('');
   const [lancamentoData, setLancamentoData] = useState(todayISO());
   const [lancamentoPagamento, setLancamentoPagamento] = useState<FormaPagamentoLancamento>('dinheiro');
+  const [lancamentoTipoEntrada, setLancamentoTipoEntrada] = useState<TipoEntrada>('produto');
+  const [lancamentoSalvando, setLancamentoSalvando] = useState(false);
+  const [lancamentoErro, setLancamentoErro] = useState<string | null>(null);
   const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
   const [lancamentoEditando, setLancamentoEditando] = useState<LancamentoManual | null>(null);
   const [itemParaExcluir, setItemParaExcluir] = useState<ItemParaExcluir | null>(null);
@@ -106,29 +102,38 @@ export default function Dashboard() {
     return comCliente.size + semCliente;
   }, [contasAReceberEmAberto]);
 
-  const handleSalvarLancamento = (e: FormEvent<HTMLFormElement>) => {
+  const handleSalvarLancamento = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const valor = parseMoney(lancamentoValor);
-    const descricao =
-      lancamentoDescricao.trim() ||
-      (lancamentoTipo === 'saida' ? lancamentoCategoria : '') ||
-      '';
+    const categoriaLabel = TIPOS_DESPESA.find((item) => item.valor === lancamentoCategoria)?.label ?? '';
+    const descricao = lancamentoDescricao.trim() || (lancamentoTipo === 'saida' ? categoriaLabel : '') || '';
     if (!descricao || valor <= 0) return;
 
-    addLancamentoManual({
-      tipo: lancamentoTipo,
-      descricao,
-      valor,
-      data: lancamentoData,
-      formaPagamento: lancamentoPagamento,
-    });
+    setLancamentoSalvando(true);
+    setLancamentoErro(null);
+    try {
+      await registrarLancamentoNoBanco({
+        tipo: lancamentoTipo,
+        descricao,
+        valor,
+        formaPagamento: lancamentoPagamento,
+        tipoEntrada: lancamentoTipo === 'entrada' ? lancamentoTipoEntrada : undefined,
+        tipoDespesa: lancamentoTipo === 'saida' ? lancamentoCategoria || undefined : undefined,
+        movimentoCaixa: 'regular',
+      });
 
-    setLancamentoModalAberto(false);
-    setLancamentoDescricao('');
-    setLancamentoValor('');
-    setLancamentoCategoria('');
-    setLancamentoData(todayISO());
-    setLancamentoPagamento('dinheiro');
+      setLancamentoModalAberto(false);
+      setLancamentoDescricao('');
+      setLancamentoValor('');
+      setLancamentoCategoria('');
+      setLancamentoData(todayISO());
+      setLancamentoPagamento('dinheiro');
+      setLancamentoTipoEntrada('produto');
+    } catch (error) {
+      setLancamentoErro(error instanceof Error ? error.message : 'Não foi possível salvar o lançamento.');
+    } finally {
+      setLancamentoSalvando(false);
+    }
   };
 
   const handleEditarVendaSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -266,32 +271,58 @@ export default function Dashboard() {
         <QuickAction
           icon={ArrowUpRight}
           label="Entradas"
+          disabled={!data.caixaAtual}
           onClick={() => {
             setLancamentoTipo('entrada');
+            setLancamentoErro(null);
             setLancamentoModalAberto(true);
           }}
         />
         <QuickAction
           icon={ArrowDownRight}
           label="Despesa"
+          disabled={!data.caixaAtual}
           onClick={() => {
             setLancamentoTipo('saida');
             setLancamentoCategoria('');
+            setLancamentoErro(null);
             setLancamentoModalAberto(true);
           }}
         />
-        <QuickAction icon={Clock} label="Em breve" disabled />
+        <QuickAction
+          icon={HandCoins}
+          label="Suprimento"
+          badge="Em breve"
+          disabled
+        />
       </div>
 
       <Modal
         open={lancamentoModalAberto}
         onClose={() => setLancamentoModalAberto(false)}
-        title={lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Despesa'}
       >
-        <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-line/40 p-1">
+        <div className="mb-5 flex items-center gap-3 pr-10">
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+              lancamentoTipo === 'entrada' ? 'bg-ledger/15 text-ledger-strong' : 'bg-stamp/15 text-stamp'
+            }`}
+          >
+            {lancamentoTipo === 'entrada' ? <ArrowUp size={24} /> : <ArrowDown size={24} />}
+          </div>
+          <div>
+            <h2 className="font-display text-xl font-bold">{lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Despesa'}</h2>
+            <p className="text-xs text-ink-soft">
+              {lancamentoTipo === 'entrada' ? 'Registre um recebimento' : 'Registre uma despesa'}
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-line/40 p-1">
           <button
             type="button"
-            onClick={() => setLancamentoTipo('entrada')}
+            onClick={() => {
+              setLancamentoTipo('entrada');
+            }}
             className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
               lancamentoTipo === 'entrada'
                 ? 'bg-paper-raised text-ledger-strong shadow-sm dark:text-ledger'
@@ -302,7 +333,9 @@ export default function Dashboard() {
           </button>
           <button
             type="button"
-            onClick={() => setLancamentoTipo('saida')}
+            onClick={() => {
+              setLancamentoTipo('saida');
+            }}
             className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
               lancamentoTipo === 'saida'
                 ? 'bg-paper-raised text-stamp shadow-sm'
@@ -311,24 +344,6 @@ export default function Dashboard() {
           >
             <ArrowDownRight size={17} /> Despesa
           </button>
-        </div>
-
-        <div className="mb-6 flex items-center gap-3">
-          <div
-            className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
-              lancamentoTipo === 'entrada' ? 'bg-ledger/15 text-ledger-strong' : 'bg-stamp/15 text-stamp'
-            }`}
-          >
-            {lancamentoTipo === 'entrada' ? <ArrowUp size={24} /> : <ArrowDown size={24} />}
-          </div>
-          <div>
-            <h3 className="font-display text-xl font-bold">
-              {lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Despesa'}
-            </h3>
-            <p className="text-xs text-ink-soft">
-              {lancamentoTipo === 'entrada' ? 'Registre um recebimento' : 'Registre uma despesa'}
-            </p>
-          </div>
         </div>
 
         <form className="space-y-5" onSubmit={handleSalvarLancamento}>
@@ -341,7 +356,7 @@ export default function Dashboard() {
               <input
                 id="lancamento-valor"
                 value={lancamentoValor}
-                onChange={(e) => setLancamentoValor(somenteValorMonetario(e.target.value))}
+                onChange={(e) => setLancamentoValor(sanitizeMoneyInput(e.target.value))}
                 type="text"
                 inputMode="decimal"
                 pattern="[0-9]+([,][0-9]{1,2})?"
@@ -351,6 +366,38 @@ export default function Dashboard() {
               />
             </div>
           </div>
+
+          {lancamentoTipo === 'entrada' && (
+            <fieldset>
+              <legend className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Tipo de entrada</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  ['produto', 'Produto'],
+                  ['servico', 'Serviço'],
+                  ['gorjeta', 'Gorjeta'],
+                ] as const).map(([tipo, label]) => (
+                  <button
+                    key={tipo}
+                    type="button"
+                    aria-pressed={lancamentoTipoEntrada === tipo}
+                    onClick={() => setLancamentoTipoEntrada(tipo)}
+                    className={`rounded-xl border px-2 py-3 text-xs font-semibold transition ${
+                      lancamentoTipoEntrada === tipo
+                        ? 'border-ledger bg-ledger/10 text-ledger-strong ring-2 ring-ledger/15 dark:text-ledger'
+                        : 'border-line bg-paper text-ink-soft hover:border-ink-soft hover:text-ink'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {lancamentoTipoEntrada === 'gorjeta' ? (
+                <p className="mt-2 text-xs text-ledger-strong dark:text-ledger">Entrada direta, sem pendência de identificação.</p>
+              ) : (
+                <p className="mt-2 text-xs text-brass">Será marcada como pendente de identificação para o fechamento.</p>
+              )}
+            </fieldset>
+          )}
 
           <div>
             <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Descrição</label>
@@ -371,34 +418,32 @@ export default function Dashboard() {
               <select
                 id="lancamento-categoria"
                 value={lancamentoCategoria}
-                onChange={(e) => setLancamentoCategoria(e.target.value)}
+                onChange={(e) => setLancamentoCategoria(e.target.value as TipoDespesa | '')}
                 className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
               >
                 <option value="">Selecione uma categoria</option>
-                <option>Mercadoria</option>
-                <option>Fornecedor</option>
-                <option>Aluguel</option>
-                <option>Energia</option>
-                <option>Água</option>
-                <option>Internet</option>
-                <option>Funcionário</option>
-                <option>Combustível</option>
-                <option>Impostos</option>
-                <option>Outros</option>
+                {TIPOS_DESPESA.map((tipo) => (
+                  <option key={tipo.valor} value={tipo.valor}>{tipo.label}</option>
+                ))}
               </select>
+              {!lancamentoCategoria && (
+                <p className="mt-2 text-xs text-brass">Sem categoria, a despesa ficará pendente para revisão no fechamento.</p>
+              )}
             </div>
           )}
 
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Data</label>
-            <input
-              type="date"
-              value={lancamentoData}
-              onChange={(e) => setLancamentoData(e.target.value)}
-              required
-              className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
-            />
-          </div>
+          {lancamentoTipo === 'saida' && (
+            <div>
+              <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Data</label>
+              <input
+                type="date"
+                value={lancamentoData}
+                onChange={(e) => setLancamentoData(e.target.value)}
+                required
+                className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
+              />
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">
@@ -443,11 +488,14 @@ export default function Dashboard() {
           <button
             id="btn-salvar-lancamento"
             type="submit"
-            className={`w-full rounded-2xl py-4 font-bold text-paper transition active:scale-[0.98] ${
+            disabled={lancamentoSalvando}
+            className={`w-full rounded-2xl py-4 font-bold text-paper transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 ${
               lancamentoTipo === 'entrada' ? 'bg-ledger hover:bg-ledger-strong' : 'bg-stamp hover:bg-stamp/90'
             }`}
           >
-            {lancamentoTipo === 'entrada' ? (
+            {lancamentoSalvando ? (
+              'Salvando…'
+            ) : lancamentoTipo === 'entrada' ? (
               <span className="inline-flex items-center justify-center gap-2">
                 <ArrowUpRight size={18} /> Salvar Entrada
               </span>
@@ -457,6 +505,7 @@ export default function Dashboard() {
               </span>
             )}
           </button>
+          {lancamentoErro && <p className="text-center text-sm font-medium text-stamp">{lancamentoErro}</p>}
         </form>
       </Modal>
 
@@ -720,9 +769,12 @@ export default function Dashboard() {
                 <label className="mb-1 block text-xs font-medium text-ink-soft">Quantidade</label>
                 <input
                   name="quantidade"
-                  type="number"
-                  min="1"
-                  step="1"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]+"
+                  onInput={(e) => {
+                    e.currentTarget.value = sanitizeIntegerInput(e.currentTarget.value);
+                  }}
                   required
                   defaultValue={vendaEditando.quantidade}
                   className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
@@ -734,6 +786,9 @@ export default function Dashboard() {
                   name="valorUnitario"
                   type="text"
                   inputMode="decimal"
+                  onInput={(e) => {
+                    e.currentTarget.value = sanitizeMoneyInput(e.currentTarget.value);
+                  }}
                   required
                   defaultValue={vendaEditando.valorUnitario.toString().replace('.', ',')}
                   className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
@@ -795,6 +850,9 @@ export default function Dashboard() {
                 name="valor"
                 type="text"
                 inputMode="decimal"
+                onInput={(e) => {
+                  e.currentTarget.value = sanitizeMoneyInput(e.currentTarget.value);
+                }}
                 required
                 defaultValue={lancamentoEditando.valor.toString().replace('.', ',')}
                 className="w-full rounded-lg border border-line bg-paper p-2 text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
@@ -914,12 +972,14 @@ function QuickAction({
   to,
   onClick,
   disabled,
+  badge,
 }: {
   icon: typeof Calculator;
   label: string;
   to?: string;
   onClick?: () => void;
   disabled?: boolean;
+  badge?: string;
 }) {
   const content = (
     <>
@@ -931,10 +991,15 @@ function QuickAction({
         <Icon size={18} />
       </div>
       <span className="text-[10px] font-medium">{label}</span>
+      {badge && (
+        <span className="rounded-full bg-brass/10 px-1.5 py-0.5 font-ledger text-[8px] font-bold uppercase tracking-wide text-brass">
+          {badge}
+        </span>
+      )}
     </>
   );
 
-  const className = `flex flex-col items-center gap-1 rounded-xl py-2 transition ${
+  const className = `flex flex-col items-center gap-1 rounded-xl py-1.5 transition ${
     disabled ? 'cursor-default text-ink-soft/50' : 'text-ink-soft hover:bg-line/40 hover:text-ink'
   }`;
 

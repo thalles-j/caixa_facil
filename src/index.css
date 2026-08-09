@@ -159,3 +159,40 @@ body {
 .modal-overlay.active .modal-content {
   transform: scale(1);
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body:has(.print-report) {
+    background: white;
+  }
+
+  body:has(.print-report) nav,
+  body:has(.print-report) aside,
+  body:has(.print-report) header.sticky,
+  body:has(.print-report) button.fixed,
+  .print-report .no-print {
+    display: none !important;
+  }
+
+  body:has(.print-report) main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .print-report .report-sheet {
+    border: 0;
+    border-radius: 0;
+    background: white;
+    box-shadow: none;
+    color: #241a12;
+    padding: 0;
+  }
+
+  .print-report .break-inside-avoid {
+    break-inside: avoid;
+  }
+}

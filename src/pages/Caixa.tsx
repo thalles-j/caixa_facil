@@ -12,9 +12,11 @@ import {
   Trash,
   UserCirclePlus,
   Check,
+  LockKey,
+  WarningCircle,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
-import { formatCurrency, parseMoney, todayISO } from '../lib/format';
+import { formatCurrency, parseMoney, sanitizeMoneyInput } from '../lib/format';
 import type { Cliente, FormaPagamento } from '../types';
 import Modal from '../components/Modal';
 
@@ -42,7 +44,12 @@ const FORMAS: { forma: FormaPagamento; label: string; Icon: typeof Money; classe
 
 export default function Caixa() {
   const navigate = useNavigate();
-  const { data, addVenda, addCliente } = useAppData();
+  const {
+    data,
+    registrarVendaNoBanco,
+    cadastrarClienteNoBanco,
+    abrirCaixa,
+  } = useAppData();
   const [busca, setBusca] = useState('');
   const [valorAvulso, setValorAvulso] = useState('');
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
@@ -54,6 +61,10 @@ export default function Caixa() {
   const [novoClienteTelefone, setNovoClienteTelefone] = useState('');
   const [cadastrandoCliente, setCadastrandoCliente] = useState(false);
   const [confirmacaoCobranca, setConfirmacaoCobranca] = useState<ConfirmacaoCobranca | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [erroOperacao, setErroOperacao] = useState<string | null>(null);
+  const [modalAbertura, setModalAbertura] = useState(false);
+  const [valorInicial, setValorInicial] = useState('');
 
   const resultados = useMemo(() => {
     if (!busca.trim()) return [];
@@ -125,19 +136,27 @@ export default function Caixa() {
     }
   };
 
-  const cadastrarCliente = () => {
+  const cadastrarCliente = async () => {
     if (!novoClienteNome.trim()) return;
-    const cliente = addCliente({
-      nome: novoClienteNome.trim(),
-      telefone: novoClienteTelefone.trim() || undefined,
-    });
-    setClienteSelecionado(cliente);
-    setCadastrandoCliente(false);
-    setNovoClienteNome('');
-    setNovoClienteTelefone('');
+    setSalvando(true);
+    setErroOperacao(null);
+    try {
+      const cliente = await cadastrarClienteNoBanco({
+        nome: novoClienteNome.trim(),
+        telefone: novoClienteTelefone.trim() || undefined,
+      });
+      setClienteSelecionado(cliente);
+      setCadastrandoCliente(false);
+      setNovoClienteNome('');
+      setNovoClienteTelefone('');
+    } catch (error) {
+      setErroOperacao(error instanceof Error ? error.message : 'Não foi possível cadastrar o cliente.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
-  const finalizarVenda = () => {
+  const finalizarVenda = async () => {
     if (!podeFinalizar) return;
 
     // reconfere contra o estoque atual — protege contra edições no Estoque
@@ -162,7 +181,6 @@ export default function Caixa() {
       }
     }
 
-    const hoje = todayISO();
     const formaCobranca = formaSelecionada!;
     const confirmacao: ConfirmacaoCobranca = {
       total,
@@ -170,39 +188,103 @@ export default function Caixa() {
       quantidadeItens: carrinho.reduce((quantidade, item) => quantidade + item.quantidade, 0),
       cliente: clienteSelecionado?.nome,
     };
-    carrinho.forEach((item) => {
-      addVenda(
-        {
-          data: hoje,
-          descricao: item.descricao,
-          quantidade: item.quantidade,
-          valorUnitario: item.valorUnitario,
-          formaPagamento: formaCobranca,
-          produtoId: item.produtoId,
-        },
-        formaCobranca === 'fiado' && clienteSelecionado ? { clienteId: clienteSelecionado.id } : undefined,
+    setSalvando(true);
+    setErroOperacao(null);
+    try {
+      await registrarVendaNoBanco(
+        carrinho.map((item) => ({
+          productId: item.produtoId,
+          description: item.descricao,
+          quantity: item.quantidade,
+          unitPrice: item.valorUnitario,
+        })),
+        formaCobranca,
+        formaCobranca === 'fiado' ? clienteSelecionado?.id : undefined,
       );
-    });
-    setCarrinho([]);
-    setFormaSelecionada(null);
-    setClienteSelecionado(null);
-    setConfirmacaoCobranca(confirmacao);
+      setCarrinho([]);
+      setFormaSelecionada(null);
+      setClienteSelecionado(null);
+      setConfirmacaoCobranca(confirmacao);
+    } catch (error) {
+      setErroOperacao(error instanceof Error ? error.message : 'Não foi possível registrar a venda.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const abrirNovoCaixa = async () => {
+    const inicial = valorInicial.trim() ? parseMoney(valorInicial) : 0;
+    if (!Number.isFinite(inicial) || inicial < 0) return;
+    setSalvando(true);
+    setErroOperacao(null);
+    try {
+      await abrirCaixa(inicial);
+      setModalAbertura(false);
+      setValorInicial('');
+    } catch (error) {
+      setErroOperacao(error instanceof Error ? error.message : 'Não foi possível abrir o caixa.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const precisaCliente = formaSelecionada === 'fiado';
   const podeFinalizar =
-    carrinho.length > 0 && formaSelecionada !== null && (!precisaCliente || clienteSelecionado !== null);
+    data.caixaAtual !== null && !salvando && carrinho.length > 0 && formaSelecionada !== null && (!precisaCliente || clienteSelecionado !== null);
+  const caixa = data.caixaAtual;
 
   return (
     <div className="fade-in">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="font-display text-xl font-bold">Frente de Caixa</h2>
-        <button onClick={lerCodigo} className="flex items-center gap-1 text-sm font-medium text-ledger-strong dark:text-ledger">
-          <Camera size={18} /> Ler Código
-        </button>
+        <div className="flex items-center gap-3">
+          {caixa ? (
+            <button
+              onClick={() => navigate('/caixa/fechamento')}
+              className="flex items-center gap-1 text-sm font-semibold text-stamp"
+            >
+              <LockKey size={18} /> Fechar Caixa
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setErroOperacao(null);
+                setModalAbertura(true);
+              }}
+              className="flex items-center gap-1 text-sm font-semibold text-ledger-strong dark:text-ledger"
+            >
+              <Money size={18} /> Abrir Caixa
+            </button>
+          )}
+          <button
+            onClick={lerCodigo}
+            disabled={!caixa}
+            className="hidden items-center gap-1 text-sm font-medium text-ledger-strong disabled:opacity-40 dark:text-ledger sm:flex"
+          >
+            <Camera size={18} /> Ler Código
+          </button>
+        </div>
       </div>
 
-      <div className="receipt-edge flex h-[60vh] flex-col rounded-2xl border border-line bg-paper-raised p-4 pb-6 shadow-sm lg:h-[65vh]">
+      {caixa ? (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-ledger/20 bg-ledger/5 px-3 py-2 text-xs">
+          <span className="font-semibold text-ledger-strong dark:text-ledger">Caixa aberto</span>
+          <span className="font-ledger text-ink-soft">Inicial: {formatCurrency(caixa.valorInicial)}</span>
+        </div>
+      ) : (
+        <div className="mb-3 rounded-xl border border-brass/30 bg-brass/10 p-3 text-sm text-ink">
+          <p className="font-semibold text-brass">O caixa está fechado.</p>
+          <p className="mt-1 text-xs text-ink-soft">Abra um novo caixa para registrar vendas e movimentações.</p>
+        </div>
+      )}
+
+      {erroOperacao && !modalAbertura && (
+        <div className="mb-3 flex items-start gap-2 rounded-xl bg-stamp/10 p-3 text-sm text-stamp">
+          <WarningCircle size={18} className="mt-0.5 shrink-0" /> {erroOperacao}
+        </div>
+      )}
+
+      <div className={`receipt-edge flex h-[60vh] flex-col rounded-2xl border border-line bg-paper-raised p-4 pb-6 shadow-sm lg:h-[65vh] ${!caixa ? 'pointer-events-none opacity-45' : ''}`}>
         <div className="relative mb-2">
           <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
           <input
@@ -233,7 +315,7 @@ export default function Caixa() {
             type="text"
             inputMode="decimal"
             value={valorAvulso}
-            onChange={(e) => setValorAvulso(e.target.value)}
+            onChange={(e) => setValorAvulso(sanitizeMoneyInput(e.target.value))}
             placeholder="Ou digite um valor avulso (ex: 12,50)"
             className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-sm text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
           />
@@ -340,7 +422,8 @@ export default function Caixa() {
                       Cancelar
                     </button>
                     <button
-                      onClick={cadastrarCliente}
+                      onClick={() => void cadastrarCliente()}
+                      disabled={salvando}
                       className="flex-1 rounded-lg bg-brass py-2 text-xs font-bold text-paper"
                     >
                       Cadastrar
@@ -383,13 +466,13 @@ export default function Caixa() {
           )}
 
           <button
-            onClick={finalizarVenda}
+            onClick={() => void finalizarVenda()}
             disabled={!podeFinalizar}
             className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold text-paper shadow-md transition active:scale-[0.98] ${
               podeFinalizar ? 'bg-ledger hover:bg-ledger-strong' : 'cursor-not-allowed bg-ledger opacity-50'
             }`}
           >
-            <CheckCircle size={20} /> Cobrar
+            <CheckCircle size={20} /> {salvando ? 'Salvando…' : 'Cobrar'}
           </button>
         </div>
       </div>
@@ -468,6 +551,48 @@ export default function Caixa() {
           </div>
         )}
       </Modal>
+
+      <Modal open={modalAbertura} onClose={() => setModalAbertura(false)} title="Abrir novo caixa">
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void abrirNovoCaixa();
+          }}
+        >
+          <p className="text-sm text-ink-soft">Informe quanto há em dinheiro físico no início desta sessão.</p>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-soft">Valor inicial</label>
+            <input
+              autoFocus
+              value={valorInicial}
+              onChange={(event) => setValorInicial(sanitizeMoneyInput(event.target.value))}
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
+              className="w-full rounded-xl border border-line bg-paper px-4 py-3 font-ledger text-xl text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
+            />
+          </div>
+          {erroOperacao && <p className="text-sm font-medium text-stamp">{erroOperacao}</p>}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setModalAbertura(false)}
+              className="flex-1 rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-ink"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="flex-1 rounded-lg bg-ledger px-4 py-2.5 text-sm font-bold text-paper disabled:opacity-60"
+            >
+              {salvando ? 'Abrindo…' : 'Abrir Caixa'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
     </div>
   );
 }

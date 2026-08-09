@@ -5,7 +5,7 @@ import { useAppData } from '../context/AppDataContext';
 import { RAMOS_ATUACAO } from '../types';
 import type { DespesaFixa, Oferta, Recorrencia, ViewPeriod } from '../types';
 import { getCategoryTheme } from '../lib/categoryThemes';
-import { formatCurrency, parseMoney } from '../lib/format';
+import { formatCurrency, parseMoney, sanitizeMoneyInput } from '../lib/format';
 import { uid } from '../lib/storage';
 
 const TOTAL_STEPS = 4;
@@ -17,7 +17,7 @@ const OFERTAS: { valor: Oferta; label: string }[] = [
 ];
 
 export default function Onboarding() {
-  const { setConfig } = useAppData();
+  const { setConfig, cadastrarDespesaFixaNoBanco } = useAppData();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(0);
@@ -25,7 +25,6 @@ export default function Onboarding() {
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState<string>(RAMOS_ATUACAO[0]);
   const [oferta, setOferta] = useState<Oferta>('ambos');
-  const [controlaEstoque, setControlaEstoque] = useState(true);
   const [despesasFixas, setDespesasFixas] = useState<DespesaFixa[]>([]);
   const [novaDespesaNome, setNovaDespesaNome] = useState('');
   const [novaDespesaValor, setNovaDespesaValor] = useState('');
@@ -33,10 +32,11 @@ export default function Onboarding() {
   const [viewPeriod, setViewPeriod] = useState<ViewPeriod>('day');
   const [resumoSemanal, setResumoSemanal] = useState(true);
   const [fechamentoMensal, setFechamentoMensal] = useState(true);
+  const [concluindo, setConcluindo] = useState(false);
+  const [conclusaoErro, setConclusaoErro] = useState<string | null>(null);
 
   const selecionarOferta = (valor: Oferta) => {
     setOferta(valor);
-    setControlaEstoque(valor !== 'servicos');
   };
 
   const adicionarDespesa = () => {
@@ -63,7 +63,7 @@ export default function Onboarding() {
 
   const voltar = () => setStep((s) => Math.max(0, s - 1));
 
-  const concluir = () => {
+  const concluir = async () => {
     const frequencia =
       resumoSemanal && fechamentoMensal
         ? 'ambos'
@@ -77,14 +77,28 @@ export default function Onboarding() {
       nome: nome.trim(),
       categoria,
       oferta,
-      controlaEstoque,
+      controlaEstoque: oferta !== 'servicos',
       despesasFixas,
       relatorio: { frequencia, porEmail: false },
       viewPeriod,
       onboardingConcluido: true,
     });
 
-    navigate('/', { replace: true });
+    setConcluindo(true);
+    setConclusaoErro(null);
+    try {
+      for (const despesa of despesasFixas) {
+        await cadastrarDespesaFixaNoBanco({
+          nome: despesa.nome,
+          valor: despesa.valor,
+          recorrencia: despesa.recorrencia,
+        });
+      }
+      navigate('/', { replace: true });
+    } catch (error) {
+      setConclusaoErro(error instanceof Error ? error.message : 'Não foi possível concluir a configuração.');
+      setConcluindo(false);
+    }
   };
 
   return (
@@ -174,25 +188,6 @@ export default function Onboarding() {
                   </button>
                 ))}
               </div>
-              <label
-                className={`flex items-center justify-between gap-3 rounded-xl bg-paper p-3 transition ${
-                  oferta === 'servicos' ? 'opacity-50' : ''
-                }`}
-              >
-                <div>
-                  <span className="block text-sm font-medium text-ink">Gerenciar Estoque?</span>
-                  {oferta === 'servicos' && (
-                    <span className="block text-xs text-ink-soft">Não disponível para "Apenas Serviços"</span>
-                  )}
-                </div>
-                <input
-                  type="checkbox"
-                  checked={controlaEstoque}
-                  disabled={oferta === 'servicos'}
-                  onChange={(e) => setControlaEstoque(e.target.checked)}
-                  className="h-5 w-5 accent-ledger"
-                />
-              </label>
             </div>
           )}
 
@@ -228,7 +223,7 @@ export default function Onboarding() {
                     type="text"
                     inputMode="decimal"
                     value={novaDespesaValor}
-                    onChange={(e) => setNovaDespesaValor(e.target.value)}
+                    onChange={(e) => setNovaDespesaValor(sanitizeMoneyInput(e.target.value))}
                     placeholder="Ex: 900,00"
                     className="w-28 min-w-0 rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
                   />
@@ -327,6 +322,7 @@ export default function Onboarding() {
           )}
         </div>
 
+        {conclusaoErro && <p className="px-4 pt-3 text-center text-xs font-medium text-stamp">{conclusaoErro}</p>}
         <div className="flex items-center gap-3 border-t border-line p-4">
           {step > 0 && (
             <button
@@ -351,16 +347,17 @@ export default function Onboarding() {
           ) : (
             <button
               type="button"
-              onClick={concluir}
+              onClick={() => void concluir()}
+              disabled={concluindo}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-ledger py-3 font-bold text-paper shadow-md transition-all hover:bg-ledger-strong active:scale-95"
             >
-              Concluir <Check size={18} weight="bold" />
+              {concluindo ? 'Salvando…' : 'Concluir'} <Check size={18} weight="bold" />
             </button>
           )}
         </div>
       </div>
 
-      <p className="mt-6 text-xs text-[#f7f1e4]/50">Protótipo 1.0 • Salvo no seu dispositivo</p>
+      <p className="mt-6 text-xs text-[#f7f1e4]/50">Seus dados financeiros ficam salvos com segurança na sua conta.</p>
     </div>
   );
 }

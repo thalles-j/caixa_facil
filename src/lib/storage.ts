@@ -15,6 +15,8 @@ export const emptyData: AppData = {
   contas: [],
   lancamentosManuais: [],
   clientes: [],
+  caixaAtual: null,
+  fechamentosCaixa: [],
 };
 
 function instanteLegado(data: string, hora: number, ordem: number): string {
@@ -87,7 +89,19 @@ export function loadData(userId?: string | null): AppData {
 }
 
 export function saveData(data: AppData, userId?: string | null) {
-  localStorage.setItem(storageKeyForUser(userId), JSON.stringify(data));
+  // Dados financeiros autenticados pertencem ao PostgreSQL. O armazenamento
+  // local mantém apenas preferências e catálogo para a primeira pintura da UI;
+  // vendas, contas, lançamentos e sessões nunca são usados como fonte de verdade.
+  const persistedData = userId
+    ? {
+        ...emptyData,
+        config: data.config,
+        produtos: data.produtos,
+        categorias: data.categorias,
+        clientes: data.clientes,
+      }
+    : data;
+  localStorage.setItem(storageKeyForUser(userId), JSON.stringify(persistedData));
 }
 
 /**

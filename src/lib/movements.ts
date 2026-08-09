@@ -62,6 +62,8 @@ export function obterMovimentacoesFinanceiras(data: AppData): Movimentacao[] {
     origem: 'lancamento',
     categoria: lancamento.tipo === 'entrada' ? 'entrada' : 'despesa',
     detalhe: `${lancamento.tipo === 'entrada' ? 'Entrada manual' : 'Saída manual'}${
+      lancamento.identificacaoPendente ? ' · identificação pendente' : ''
+    }${
       lancamento.formaPagamento ? ` · ${formaPagamentoLabel(lancamento.formaPagamento)}` : ''
     }`,
     formaPagamento: lancamento.formaPagamento,
@@ -88,7 +90,23 @@ export function obterMovimentacoesFinanceiras(data: AppData): Movimentacao[] {
       };
     });
 
-  return ordenarMaisRecentesPrimeiro([...vendas, ...lancamentos, ...contas]);
+  const despesasFixas: Movimentacao[] = (data.config?.despesasFixas ?? [])
+    .filter((despesa) => despesa.quitado && despesa.pagoEm)
+    .map((despesa, index) => ({
+      id: despesa.id,
+      data: despesa.pagoEm!.slice(0, 10),
+      descricao: despesa.nome,
+      valor: despesa.valor,
+      tipo: 'saida',
+      origem: 'conta',
+      categoria: 'despesa',
+      detalhe: `Conta fixa paga${despesa.formaPagamento ? ` · ${formaPagamentoLabel(despesa.formaPagamento)}` : ''}`,
+      formaPagamento: despesa.formaPagamento,
+      ocorridoEm: despesa.pagoEm!,
+      ordem: index * 3,
+    }));
+
+  return ordenarMaisRecentesPrimeiro([...vendas, ...lancamentos, ...contas, ...despesasFixas]);
 }
 
 /** Histórico comercial completo, incluindo fiado ainda não recebido. */
@@ -98,8 +116,7 @@ export function obterVendas(data: AppData): Movimentacao[] {
     data.contas.filter((conta) => conta.origemVendaId).map((conta) => [conta.origemVendaId!, conta]),
   );
 
-  return ordenarMaisRecentesPrimeiro(
-    data.vendas.map((venda, index) => {
+  const vendas: Movimentacao[] = data.vendas.map((venda, index) => {
       const conta = contasPorVenda.get(venda.id);
       const fiadoPendente = venda.formaPagamento === 'fiado' && !conta?.quitado;
       return {
@@ -122,6 +139,32 @@ export function obterVendas(data: AppData): Movimentacao[] {
         ocorridoEm: venda.createdAt ?? `${venda.data}T12:00:00.000Z`,
         ordem: index,
       };
-    }),
-  );
+    });
+
+  const entradasRapidas: Movimentacao[] = data.lancamentosManuais
+    .filter((lancamento) => lancamento.tipo === 'entrada' && lancamento.movimentoCaixa !== 'suprimento')
+    .map((lancamento, index) => ({
+      id: lancamento.id,
+      data: lancamento.data,
+      descricao: lancamento.descricao,
+      valor: lancamento.valor,
+      tipo: 'entrada',
+      origem: 'lancamento',
+      categoria: 'entrada',
+      detalhe: `${lancamento.tipoEntrada === 'gorjeta' ? 'Gorjeta' : 'Entrada rápida'}${
+        lancamento.identificacaoPendente ? ' · identificação pendente' : ''
+      }${lancamento.formaPagamento ? ` · ${formaPagamentoLabel(lancamento.formaPagamento)}` : ''}`,
+      formaPagamento: lancamento.formaPagamento,
+      itemType:
+        lancamento.tipoEntrada === 'produto'
+          ? 'product'
+          : lancamento.tipoEntrada === 'servico'
+            ? 'service'
+            : undefined,
+      fiadoPendente: false,
+      ocorridoEm: lancamento.createdAt ?? `${lancamento.data}T23:00:00.000Z`,
+      ordem: data.vendas.length + index,
+    }));
+
+  return ordenarMaisRecentesPrimeiro([...vendas, ...entradasRapidas]);
 }

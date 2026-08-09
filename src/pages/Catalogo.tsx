@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { MagnifyingGlass, Package, Plus, WarningCircle, Wrench, Tag, PencilSimple, Trash } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
-import { formatCurrency, parseMoney } from '../lib/format';
+import { formatCurrency, parseMoney, sanitizeIntegerInput, sanitizeMoneyInput } from '../lib/format';
 import Modal from '../components/Modal';
 import type { CategoriaProduto, Produto } from '../types';
 
@@ -429,6 +429,9 @@ export default function Catalogo() {
                 name="precoVenda"
                 type="text"
                 inputMode="decimal"
+                onInput={(e) => {
+                  e.currentTarget.value = sanitizeMoneyInput(e.currentTarget.value);
+                }}
                 defaultValue={produtoEditando?.precoVenda}
                 placeholder="Ex: 25,00"
                 className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
@@ -443,6 +446,9 @@ export default function Catalogo() {
               name="custo"
               type="text"
               inputMode="decimal"
+              onInput={(e) => {
+                e.currentTarget.value = sanitizeMoneyInput(e.currentTarget.value);
+              }}
               defaultValue={produtoEditando?.custo}
               placeholder="Ex: 12,00"
               className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
@@ -455,8 +461,12 @@ export default function Catalogo() {
                 <label className="mb-1 block text-xs font-medium text-ink-soft">Quantidade</label>
                 <input
                   name="quantidade"
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  onInput={(e) => {
+                    e.currentTarget.value = sanitizeIntegerInput(e.currentTarget.value);
+                  }}
                   defaultValue={produtoEditando?.quantidade ?? 0}
                   className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
                 />
@@ -465,8 +475,12 @@ export default function Catalogo() {
                 <label className="mb-1 block text-xs font-medium text-ink-soft">Estoque mínimo</label>
                 <input
                   name="quantidadeMinima"
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  onInput={(e) => {
+                    e.currentTarget.value = sanitizeIntegerInput(e.currentTarget.value);
+                  }}
                   defaultValue={produtoEditando?.quantidadeMinima ?? 0}
                   className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
                 />

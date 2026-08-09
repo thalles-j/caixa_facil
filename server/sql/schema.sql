@@ -374,6 +374,14 @@ CREATE TABLE IF NOT EXISTS transactions (
                     CHECK (payment_method IN ('dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'outro')),
   amount            NUMERIC(14,2) NOT NULL CHECK (amount > 0),
   description       TEXT,
+  movement_kind     TEXT NOT NULL DEFAULT 'regular'
+                    CHECK (movement_kind IN ('regular', 'suprimento', 'sangria')),
+  entry_kind        TEXT CHECK (entry_kind IN ('produto', 'servico', 'gorjeta')),
+  expense_kind      TEXT CHECK (expense_kind IN (
+                      'mercadoria', 'fornecedor', 'aluguel', 'energia', 'agua',
+                      'internet', 'funcionario', 'combustivel', 'impostos', 'outros'
+                    )),
+  identification_pending BOOLEAN NOT NULL DEFAULT false,
   occurred_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_transactions_tenant_id UNIQUE (user_id, id),
@@ -403,6 +411,48 @@ CREATE TABLE IF NOT EXISTS transactions (
   )
 );
 
+ALTER TABLE transactions
+  ADD COLUMN IF NOT EXISTS movement_kind TEXT NOT NULL DEFAULT 'regular';
+ALTER TABLE transactions
+  ADD COLUMN IF NOT EXISTS entry_kind TEXT;
+ALTER TABLE transactions
+  ADD COLUMN IF NOT EXISTS expense_kind TEXT;
+ALTER TABLE transactions
+  ADD COLUMN IF NOT EXISTS identification_pending BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE transactions DROP CONSTRAINT IF EXISTS ck_transactions_identification;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_transactions_movement_kind') THEN
+    ALTER TABLE transactions ADD CONSTRAINT ck_transactions_movement_kind
+      CHECK (movement_kind IN ('regular', 'suprimento', 'sangria'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_transactions_entry_kind') THEN
+    ALTER TABLE transactions ADD CONSTRAINT ck_transactions_entry_kind
+      CHECK (entry_kind IS NULL OR entry_kind IN ('produto', 'servico', 'gorjeta'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_transactions_expense_kind') THEN
+    ALTER TABLE transactions ADD CONSTRAINT ck_transactions_expense_kind
+      CHECK (
+        expense_kind IS NULL OR
+        (type = 'saida' AND expense_kind IN (
+          'mercadoria', 'fornecedor', 'aluguel', 'energia', 'agua',
+          'internet', 'funcionario', 'combustivel', 'impostos', 'outros'
+        ))
+      );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_transactions_identification') THEN
+    ALTER TABLE transactions ADD CONSTRAINT ck_transactions_identification
+      CHECK (
+        (identification_pending = false) OR
+        (type = 'entrada' AND entry_kind IN ('produto', 'servico')) OR
+        (type = 'saida' AND expense_kind IS NULL)
+      );
+  END IF;
+END;
+$$;
+
 COMMENT ON TABLE transactions IS
   'Livro de entradas e saidas efetivamente liquidadas. A criacao da venda fiado nao e inserida aqui.';
 COMMENT ON COLUMN transactions.credit_sale_id IS
@@ -414,6 +464,9 @@ CREATE INDEX IF NOT EXISTS idx_transactions_user_session_occurred
   ON transactions (user_id, cash_session_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_transactions_user_source_occurred
   ON transactions (user_id, source, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_pending
+  ON transactions (user_id, cash_session_id, occurred_at DESC)
+  WHERE identification_pending;
 CREATE INDEX IF NOT EXISTS idx_transactions_user_credit_occurred
   ON transactions (user_id, credit_sale_id, occurred_at DESC)
   WHERE credit_sale_id IS NOT NULL;
@@ -673,7 +726,8 @@ BEGIN
   END IF;
 
   SELECT current_session.opening_balance
-       + COALESCE(SUM(CASE WHEN type = 'entrada' THEN amount ELSE -amount END), 0)
+       + COALESCE(SUM(CASE WHEN type = 'entrada' THEN amount ELSE -amount END)
+           FILTER (WHERE payment_method = 'dinheiro'), 0)
     INTO expected
   FROM transactions
   WHERE user_id = tenant_id AND cash_session_id = p_session_id;

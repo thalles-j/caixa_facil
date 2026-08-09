@@ -2,16 +2,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   clearStoredToken,
   decodeToken,
+  ensureStoredAccessToken,
   getStoredToken,
   isTokenValid,
   loginRequest,
+  logoutRequest,
+  refreshSessionRequest,
   registerRequest,
   resetAccountDataRequest,
   sessionRequest,
   setStoredToken,
   TOKEN_KEY,
 } from '../lib/auth';
-import { APP_DATA_CHANGED_EVENT, loadData, saveData } from '../lib/storage';
+import { APP_DATA_CHANGED_EVENT } from '../lib/storage';
 
 interface AuthUser {
   id: string;
@@ -21,10 +24,11 @@ interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  isInitializing: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, confirmPassword: string) => Promise<void>;
   resetAccountData: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -36,37 +40,67 @@ function userFromToken(token: string | null): AuthUser | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => userFromToken(getStoredToken()));
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    const token = getStoredToken();
-    if (!isTokenValid(token)) return;
+    let cancelled = false;
 
-    void sessionRequest(token)
-      .then(({ user: sessionUser, data }) => {
-        if (data && !loadData(sessionUser.id).config) saveData(data, sessionUser.id);
-        window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
-        setUser(sessionUser);
-      })
-      .catch(() => {
+    const restoreSession = async () => {
+      const token = getStoredToken();
+      try {
+        let session;
+        if (isTokenValid(token)) {
+          try {
+            session = await sessionRequest(token);
+          } catch {
+            session = await refreshSessionRequest();
+          }
+        } else {
+          session = await refreshSessionRequest();
+        }
+        if (cancelled) return;
+        if ('token' in session && typeof session.token === 'string') setStoredToken(session.token);
+        window.dispatchEvent(new CustomEvent(APP_DATA_CHANGED_EVENT, { detail: session.data }));
+        setUser(session.user);
+      } catch {
+        if (cancelled) return;
         clearStoredToken();
         window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
         setUser(null);
-      });
+      } finally {
+        if (!cancelled) setIsInitializing(false);
+      }
+    };
+
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    // reavalia periodicamente para deslogar automaticamente quando o token de 2h expira
-    // enquanto o app está aberto, sem esperar uma ação do usuário para notar
+    if (!user) return;
+    // O refresh token HTTP-only mantém a sessão. Este intervalo apenas renova o
+    // access token quando necessário enquanto a aplicação permanece aberta.
     const interval = setInterval(() => {
       const token = getStoredToken();
-      if (token && !isTokenValid(token)) {
-        clearStoredToken();
-        setUser(null);
+      if (!isTokenValid(token)) {
+        void refreshSessionRequest()
+          .then((session) => {
+            setStoredToken(session.token);
+            window.dispatchEvent(new CustomEvent(APP_DATA_CHANGED_EVENT, { detail: session.data }));
+            setUser(session.user);
+          })
+          .catch(() => {
+            clearStoredToken();
+            window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
+            setUser(null);
+          });
       }
     }, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -81,8 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const { token, user: loggedUser, data } = await loginRequest(email, password);
     setStoredToken(token);
-    if (data && !loadData(loggedUser.id).config) saveData(data, loggedUser.id);
-    window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
+    window.dispatchEvent(new CustomEvent(APP_DATA_CHANGED_EVENT, { detail: data }));
     setUser(loggedUser);
   };
 
@@ -93,21 +126,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(registeredUser);
   };
 
-  const logout = () => {
-    clearStoredToken();
-    window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
-    setUser(null);
+  const logout = async () => {
+    try {
+      await logoutRequest();
+    } finally {
+      clearStoredToken();
+      window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
+      setUser(null);
+    }
   };
 
   const resetAccountData = async () => {
-    const token = getStoredToken();
-    if (!isTokenValid(token)) throw new Error('Sua sessão expirou. Entre novamente.');
+    const token = await ensureStoredAccessToken();
     await resetAccountDataRequest(token);
   };
 
   const value: AuthContextValue = {
     user,
     isAuthenticated: user !== null,
+    isInitializing,
     login,
     register,
     resetAccountData,

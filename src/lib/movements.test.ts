@@ -49,6 +49,8 @@ const dados: AppData = {
   lancamentosManuais: [
     { id: 'entrada', data: '2026-08-02', tipo: 'entrada', descricao: 'Serviço', valor: 25 },
   ],
+  caixaAtual: null,
+  fechamentosCaixa: [],
 };
 
 describe('movimentações financeiras', () => {
@@ -63,5 +65,31 @@ describe('movimentações financeiras', () => {
     const vendas = obterVendas(dados);
 
     expect(vendas[0]).toMatchObject({ id: 'venda-fiado', fiadoPendente: true });
+  });
+
+  it('lista uma entrada manual comum em Entradas sem classificá-la como fiado', () => {
+    const vendas = obterVendas({
+      ...dados,
+      lancamentosManuais: [
+        {
+          id: 'entrada-produto',
+          data: '2026-08-04',
+          tipo: 'entrada',
+          descricao: 'Venda rápida',
+          valor: 30,
+          formaPagamento: 'dinheiro',
+          tipoEntrada: 'produto',
+          identificacaoPendente: true,
+        },
+      ],
+    });
+
+    expect(vendas[0]).toMatchObject({
+      id: 'entrada-produto',
+      origem: 'lancamento',
+      formaPagamento: 'dinheiro',
+      fiadoPendente: false,
+    });
+    expect(vendas[0]?.detalhe).toContain('identificação pendente');
   });
 });

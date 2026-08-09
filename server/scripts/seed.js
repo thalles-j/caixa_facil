@@ -23,6 +23,7 @@ const pool = new Pool({
 });
 
 const DEMO_PASSWORD = '123456';
+const RESET_DATABASE = process.argv.includes('--reset');
 const DEMO_USERS = [
   { name: 'Thalles', email: 'thalles@gmail.com', factor: 1 },
   { name: 'Gustavo', email: 'gustavo@gmail.com', factor: 1.15 },
@@ -39,6 +40,13 @@ function daysFromNow(days) {
   return date.toISOString().slice(0, 10);
 }
 
+function daysAgoAt(days, hour, minute = 0) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - days);
+  date.setUTCHours(hour, minute, 0, 0);
+  return date.toISOString();
+}
+
 function money(value, factor) {
   return Number((value * factor).toFixed(2));
 }
@@ -46,6 +54,40 @@ function money(value, factor) {
 async function applySchema() {
   const schema = await readFile(new URL('../sql/schema.sql', import.meta.url), 'utf8');
   await pool.query(schema);
+}
+
+async function resetDatabase() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // A exclusao direta de users dispara cascatas em ordem definida pelo
+    // PostgreSQL. Como transactions possui um trigger que estorna fiados, a
+    // limpeza precisa ser explicitamente ordenada para a divida ainda existir
+    // quando cada pagamento for removido.
+    const businessTables = [
+      'transactions',
+      'credit_sales',
+      'sale_items',
+      'sales',
+      'cash_sessions',
+      'fixed_expenses',
+      'products',
+      'categories',
+      'customers',
+      'password_reset_tokens',
+    ];
+    for (const table of businessTables) {
+      await client.query(`DELETE FROM ${table}`);
+    }
+    const result = await client.query('DELETE FROM users');
+    await client.query('COMMIT');
+    console.log(`Banco reiniciado: ${result.rowCount ?? 0} conta(s) removida(s).`);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function createUser(client, user, passwordHash) {
@@ -140,6 +182,7 @@ async function seedTenant(client, user, passwordHash) {
       [servicosId, money(12, f), money(75, f)],
     );
     const atendimentoId = servicesResult.rows.find((service) => service.name === 'Atendimento personalizado').id;
+    const entregaId = servicesResult.rows.find((service) => service.name === 'Entrega local').id;
 
     const mariaId = await insertReturningId(
       client,
@@ -172,11 +215,13 @@ async function seedTenant(client, user, passwordHash) {
       `,
       [money(30, f), daysFromNow(3)],
     );
-    await client.query(
+    const internetId = await insertReturningId(
+      client,
       `
         INSERT INTO fixed_expenses
           (description, amount, recurrence, due_day, next_due_date)
         VALUES ('Internet', $1, 'monthly', 15, $2)
+        RETURNING id
       `,
       [money(120, f), daysFromNow(15)],
     );
@@ -188,7 +233,7 @@ async function seedTenant(client, user, passwordHash) {
         VALUES ($1, $2, $3, 'Sessão histórica criada pela seed')
         RETURNING id
       `,
-      [user.name, hoursAgo(30), money(100, f)],
+      [user.name, daysAgoAt(1, 12), money(100, f)],
     );
 
     const previousSaleTotal = money(20, f);
@@ -200,7 +245,7 @@ async function seedTenant(client, user, passwordHash) {
         VALUES ($1, 'Venda balcão', 'dinheiro', $2, $3)
         RETURNING id
       `,
-      [previousSessionId, previousSaleTotal, hoursAgo(29)],
+      [previousSessionId, previousSaleTotal, daysAgoAt(1, 13)],
     );
     await client.query(
       `
@@ -226,20 +271,79 @@ async function seedTenant(client, user, passwordHash) {
           (cash_session_id, sale_id, type, source, payment_method, amount, description, occurred_at)
         VALUES ($1, $2, 'entrada', 'venda', 'dinheiro', $3, 'Venda à vista', $4)
       `,
-      [previousSessionId, previousSaleId, previousSaleTotal, hoursAgo(29)],
+      [previousSessionId, previousSaleId, previousSaleTotal, daysAgoAt(1, 13)],
+    );
+
+    const previousPixTotal = money(24, f);
+    const previousPixSaleId = await insertReturningId(
+      client,
+      `
+        INSERT INTO sales
+          (cash_session_id, description, payment_method, total_amount, sold_at)
+        VALUES ($1, 'Entregas recebidas por Pix', 'pix', $2, $3)
+        RETURNING id
+      `,
+      [previousSessionId, previousPixTotal, daysAgoAt(1, 14)],
+    );
+    await client.query(
+      `
+        INSERT INTO sale_items
+          (sale_id, product_id, product_name, quantity, unit_price, unit_cost)
+        VALUES ($1, $2, 'Entrega local', 2, $3, 0)
+      `,
+      [previousPixSaleId, entregaId, money(12, f)],
     );
     await client.query(
       `
         INSERT INTO transactions
-          (cash_session_id, type, source, payment_method, amount, description, occurred_at)
-        VALUES ($1, 'saida', 'despesa_avulsa', 'dinheiro', $2, 'Material de escritório', $3)
+          (cash_session_id, sale_id, type, source, payment_method, amount, description, occurred_at)
+        VALUES ($1, $2, 'entrada', 'venda', 'pix', $3, 'Entregas recebidas por Pix', $4)
       `,
-      [previousSessionId, money(5, f), hoursAgo(28)],
+      [previousSessionId, previousPixSaleId, previousPixTotal, daysAgoAt(1, 14)],
+    );
+
+    const previousCardTotal = money(75, f);
+    const previousCardSaleId = await insertReturningId(
+      client,
+      `
+        INSERT INTO sales
+          (cash_session_id, description, payment_method, total_amount, sold_at)
+        VALUES ($1, 'Atendimento no cartão', 'cartao_credito', $2, $3)
+        RETURNING id
+      `,
+      [previousSessionId, previousCardTotal, daysAgoAt(1, 15)],
+    );
+    await client.query(
+      `
+        INSERT INTO sale_items
+          (sale_id, product_id, product_name, quantity, unit_price, unit_cost)
+        VALUES ($1, $2, 'Atendimento personalizado', 1, $3, 0)
+      `,
+      [previousCardSaleId, atendimentoId, previousCardTotal],
+    );
+    await client.query(
+      `
+        INSERT INTO transactions
+          (cash_session_id, sale_id, type, source, payment_method, amount, description, occurred_at)
+        VALUES ($1, $2, 'entrada', 'venda', 'cartao_credito', $3, 'Atendimento recebido no cartão', $4)
+      `,
+      [previousSessionId, previousCardSaleId, previousCardTotal, daysAgoAt(1, 15)],
+    );
+
+    await client.query(
+      `
+        INSERT INTO transactions
+          (cash_session_id, type, source, payment_method, amount, description,
+           movement_kind, expense_kind, occurred_at)
+        VALUES ($1, 'saida', 'despesa_avulsa', 'dinheiro', $2,
+                'Material de escritório', 'sangria', 'outros', $3)
+      `,
+      [previousSessionId, money(5, f), daysAgoAt(1, 16)],
     );
     await client.query('SELECT close_cash_session($1, $2, $3)', [
       previousSessionId,
       money(114.5, f),
-      hoursAgo(20),
+      daysAgoAt(1, 20),
     ]);
 
     const openSessionId = await insertReturningId(
@@ -249,7 +353,7 @@ async function seedTenant(client, user, passwordHash) {
         VALUES ($1, $2, $3, 'Caixa atual de demonstração')
         RETURNING id
       `,
-      [user.name, hoursAgo(6), money(50, f)],
+      [user.name, hoursAgo(1.8), money(50, f)],
     );
 
     const todaySaleTotal = money(24, f);
@@ -261,7 +365,7 @@ async function seedTenant(client, user, passwordHash) {
         VALUES ($1, 'Venda via Pix', 'pix', $2, $3)
         RETURNING id
       `,
-      [openSessionId, todaySaleTotal, hoursAgo(4)],
+      [openSessionId, todaySaleTotal, hoursAgo(1.6)],
     );
     await client.query(
       `
@@ -277,7 +381,36 @@ async function seedTenant(client, user, passwordHash) {
           (cash_session_id, sale_id, type, source, payment_method, amount, description, occurred_at)
         VALUES ($1, $2, 'entrada', 'venda', 'pix', $3, 'Venda recebida por Pix', $4)
       `,
-      [openSessionId, todaySaleId, todaySaleTotal, hoursAgo(4)],
+      [openSessionId, todaySaleId, todaySaleTotal, hoursAgo(1.6)],
+    );
+
+    // Entradas rápidas: produto/serviço ficam pendentes; gorjeta é direta.
+    await client.query(
+      `
+        INSERT INTO transactions
+          (cash_session_id, type, source, payment_method, amount, description,
+           movement_kind, entry_kind, identification_pending, occurred_at)
+        VALUES
+          ($1, 'entrada', 'ajuste', 'dinheiro', $2, 'Venda rápida de balcão',
+           'regular', 'produto', true, $3),
+          ($1, 'entrada', 'ajuste', 'pix', $4, 'Gorjeta recebida',
+           'regular', 'gorjeta', false, $5)
+      `,
+      [openSessionId, money(35, f), hoursAgo(1.5), money(5, f), hoursAgo(1.4)],
+    );
+
+    await client.query(
+      `
+        INSERT INTO transactions
+          (cash_session_id, type, source, payment_method, amount, description,
+           movement_kind, expense_kind, identification_pending, occurred_at)
+        VALUES
+          ($1, 'saida', 'despesa_avulsa', 'dinheiro', $2,
+           'Retirada para cofre', 'sangria', 'outros', false, $3),
+          ($1, 'saida', 'despesa_avulsa', 'pix', $4,
+           'Compra de embalagens sem categoria', 'regular', NULL, true, $5)
+      `,
+      [openSessionId, money(20, f), hoursAgo(1.3), money(12, f), hoursAgo(1.2)],
     );
 
     // Fiado pendente: existe comercialmente, mas nao gera transaction.
@@ -290,7 +423,7 @@ async function seedTenant(client, user, passwordHash) {
         VALUES ($1, $2, 'Fiado pendente', 'fiado', $3, $4)
         RETURNING id
       `,
-      [previousSessionId, mariaId, pendingTotal, hoursAgo(27)],
+      [previousSessionId, mariaId, pendingTotal, daysAgoAt(1, 16, 30)],
     );
     await client.query(
       `
@@ -318,7 +451,7 @@ async function seedTenant(client, user, passwordHash) {
         VALUES ($1, $2, 'Serviço vendido fiado', 'fiado', $3, $4)
         RETURNING id
       `,
-      [previousSessionId, joaoId, partialTotal, hoursAgo(26)],
+      [previousSessionId, joaoId, partialTotal, daysAgoAt(1, 17)],
     );
     await client.query(
       `
@@ -343,7 +476,7 @@ async function seedTenant(client, user, passwordHash) {
           (cash_session_id, credit_sale_id, type, source, payment_method, amount, description, occurred_at)
         VALUES ($1, $2, 'entrada', 'pagamento_fiado', 'pix', $3, 'Pagamento parcial de João', $4)
       `,
-      [openSessionId, partialCreditId, money(15, f), hoursAgo(3)],
+      [openSessionId, partialCreditId, money(15, f), hoursAgo(1.1)],
     );
 
     // Fiado integralmente pago: paid_at e preenchido pelo trigger.
@@ -356,7 +489,7 @@ async function seedTenant(client, user, passwordHash) {
         VALUES ($1, $2, 'Fiado já quitado', 'fiado', $3, $4)
         RETURNING id
       `,
-      [previousSessionId, mariaId, paidTotal, hoursAgo(25)],
+      [previousSessionId, mariaId, paidTotal, daysAgoAt(1, 17, 30)],
     );
     await client.query(
       `
@@ -381,16 +514,26 @@ async function seedTenant(client, user, passwordHash) {
           (cash_session_id, credit_sale_id, type, source, payment_method, amount, description, occurred_at)
         VALUES ($1, $2, 'entrada', 'pagamento_fiado', 'dinheiro', $3, 'Quitação de fiado da Maria', $4)
       `,
-      [openSessionId, paidCreditId, paidTotal, hoursAgo(2)],
+      [openSessionId, paidCreditId, paidTotal, hoursAgo(0.7)],
     );
 
     await client.query(
       `
         INSERT INTO transactions
-          (cash_session_id, fixed_expense_id, type, source, payment_method, amount, description, occurred_at)
-        VALUES ($1, $2, 'saida', 'despesa_fixa', 'dinheiro', $3, 'Pagamento da limpeza', $4)
+          (cash_session_id, fixed_expense_id, type, source, payment_method, amount, description, movement_kind, occurred_at)
+        VALUES ($1, $2, 'saida', 'despesa_fixa', 'dinheiro', $3, 'Pagamento da limpeza', 'sangria', $4)
       `,
-      [openSessionId, limpezaId, money(30, f), hoursAgo(1)],
+      [openSessionId, limpezaId, money(30, f), hoursAgo(0.4)],
+    );
+
+    // Pagamento não monetário fica registrado, sem alterar o dinheiro físico.
+    await client.query(
+      `
+        INSERT INTO transactions
+          (cash_session_id, fixed_expense_id, type, source, payment_method, amount, description, movement_kind, occurred_at)
+        VALUES ($1, $2, 'saida', 'despesa_fixa', 'pix', $3, 'Pagamento da internet', 'regular', $4)
+      `,
+      [openSessionId, internetId, money(120, f), hoursAgo(0.2)],
     );
 
     // Mantem a despesa de aluguel referenciada no exemplo sem registra-la como
@@ -407,6 +550,7 @@ async function seedTenant(client, user, passwordHash) {
 async function main() {
   console.log('Aplicando schema...');
   await applySchema();
+  if (RESET_DATABASE) await resetDatabase();
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const client = await pool.connect();
