@@ -9,7 +9,7 @@ const links = [
 
 export default function FinanceNav() {
   return (
-    <nav className="scrollbar-hide mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="Áreas financeiras">
+    <nav className="scrollbar-hide mb-6 mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="Áreas financeiras">
       {links.map(({ to, label, end }) => (
         <NavLink
           key={to}
