@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Eye,
   EyeSlash,
@@ -21,15 +21,39 @@ import {
   Clock,
   PencilSimple,
   Trash,
+  CaretRight,
+  Money,
+  QrCode,
+  CreditCard,
+  CheckCircle,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import Modal from '../components/Modal';
 import { formatCurrency, parseMoney, todayISO } from '../lib/format';
 import type { FormaPagamento, LancamentoManual, Venda } from '../types';
+import { obterMovimentacoesFinanceiras } from '../lib/movements';
 
 const diaSemanaCurto = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
 
 type ItemParaExcluir = { tipo: 'venda' | 'lancamento'; id: string; label: string };
+type FormaPagamentoLancamento = 'dinheiro' | 'pix' | 'cartao_credito';
+
+const FORMAS_LANCAMENTO: {
+  value: FormaPagamentoLancamento;
+  label: string;
+  Icon: typeof Money;
+}[] = [
+  { value: 'dinheiro', label: 'Dinheiro', Icon: Money },
+  { value: 'pix', label: 'Pix', Icon: QrCode },
+  { value: 'cartao_credito', label: 'Cartão', Icon: CreditCard },
+];
+
+function somenteValorMonetario(valor: string): string {
+  const limpo = valor.replace(/\./g, '').replace(/[^\d,]/g, '');
+  const [inteiro, ...decimais] = limpo.split(',');
+  const decimal = decimais.join('').slice(0, 2);
+  return decimais.length > 0 ? `${inteiro},${decimal}` : inteiro;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -44,9 +68,7 @@ export default function Dashboard() {
     contasAReceberEmAberto,
     contasVencendoEmBreve,
     contasVencidas,
-    contasQuitadasHoje,
     produtosEstoqueBaixo,
-    addConta,
     addLancamentoManual,
     editarVenda,
     removerVenda,
@@ -59,10 +81,9 @@ export default function Dashboard() {
   const [lancamentoTipo, setLancamentoTipo] = useState<'entrada' | 'saida'>('entrada');
   const [lancamentoDescricao, setLancamentoDescricao] = useState('');
   const [lancamentoValor, setLancamentoValor] = useState('');
-  const [lancamentoItemType, setLancamentoItemType] = useState<'product' | 'service'>('product');
-  const [lancamentoItemId, setLancamentoItemId] = useState('');
+  const [lancamentoCategoria, setLancamentoCategoria] = useState('');
   const [lancamentoData, setLancamentoData] = useState(todayISO());
-  const [lancamentoVencimento, setLancamentoVencimento] = useState(todayISO());
+  const [lancamentoPagamento, setLancamentoPagamento] = useState<FormaPagamentoLancamento>('dinheiro');
   const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
   const [lancamentoEditando, setLancamentoEditando] = useState<LancamentoManual | null>(null);
   const [itemParaExcluir, setItemParaExcluir] = useState<ItemParaExcluir | null>(null);
@@ -88,30 +109,26 @@ export default function Dashboard() {
   const handleSalvarLancamento = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const valor = parseMoney(lancamentoValor);
-    if (!lancamentoDescricao.trim() || valor <= 0) return;
+    const descricao =
+      lancamentoDescricao.trim() ||
+      (lancamentoTipo === 'saida' ? lancamentoCategoria : '') ||
+      '';
+    if (!descricao || valor <= 0) return;
 
-    if (lancamentoTipo === 'entrada') {
-      const itemSelecionado = data.produtos.find((item) => item.id === lancamentoItemId);
-      addLancamentoManual({
-        tipo: 'entrada',
-        descricao: lancamentoDescricao.trim() || itemSelecionado?.nome || '',
-        valor,
-        data: lancamentoData,
-      });
-    } else {
-      addConta({
-        tipo: 'pagar',
-        descricao: lancamentoDescricao.trim(),
-        valor,
-        vencimento: lancamentoVencimento,
-      });
-    }
+    addLancamentoManual({
+      tipo: lancamentoTipo,
+      descricao,
+      valor,
+      data: lancamentoData,
+      formaPagamento: lancamentoPagamento,
+    });
 
     setLancamentoModalAberto(false);
     setLancamentoDescricao('');
     setLancamentoValor('');
+    setLancamentoCategoria('');
     setLancamentoData(todayISO());
-    setLancamentoVencimento(todayISO());
+    setLancamentoPagamento('dinheiro');
   };
 
   const handleEditarVendaSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -176,31 +193,7 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [data.vendas, hoje]);
 
-  const movimentacoesHoje = useMemo(() => {
-    const vendas = data.vendas
-      .filter((v) => v.data === hoje)
-      .map((v) => ({
-        id: v.id,
-        descricao: `${v.descricao} (${formaPagamentoLabel(v.formaPagamento)})`,
-        valor: v.quantidade * v.valorUnitario,
-        tipo: 'entrada' as const,
-        origem: 'venda' as const,
-      }));
-    const manuais = data.lancamentosManuais
-      .filter((l) => l.data === hoje)
-      .map((l) => ({ id: l.id, descricao: l.descricao, valor: l.valor, tipo: l.tipo, origem: 'lancamento' as const }));
-    // contas quitadas hoje entram só como leitura — já são editáveis/removíveis em Finanças
-    const contas = contasQuitadasHoje
-      .filter((c) => !c.origemVendaId)
-      .map((c) => ({
-        id: c.id,
-        descricao: c.descricao,
-        valor: c.valor,
-        tipo: c.tipo === 'pagar' ? ('saida' as const) : ('entrada' as const),
-        origem: 'conta' as const,
-      }));
-    return [...vendas, ...manuais, ...contas];
-  }, [data.vendas, data.lancamentosManuais, contasQuitadasHoje, hoje]);
+  const movimentacoesRecentes = useMemo(() => obterMovimentacoesFinanceiras(data).slice(0, 5), [data]);
 
   const maxHistorico = Math.max(1, ...vendasUltimos7Dias.map((d) => d.total));
 
@@ -227,28 +220,40 @@ export default function Dashboard() {
         </div>
 
         <div className="flex gap-3">
-          <div className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3">
+          <Link
+            to="/entradas"
+            className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3 transition hover:bg-[#f7f1e4]/15"
+          >
             <div className="mb-1 flex items-start justify-between gap-2">
               <p className="truncate font-ledger text-[9px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">
-                Vendas {sufixoPeriodo}
+                Entradas {sufixoPeriodo}
               </p>
-              <TrendUp size={16} weight="fill" className="shrink-0 text-[#7fd9ab]" />
+              <span className="flex shrink-0 items-center text-[#7fd9ab]">
+                <TrendUp size={16} weight="fill" />
+                <CaretRight size={14} weight="bold" />
+              </span>
             </div>
             <p className="truncate font-ledger text-lg font-semibold tabular-nums">
               {saldoVisivel ? formatCurrency(resumoPeriodo.vendas) : '••••'}
             </p>
-          </div>
-          <div className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3">
+          </Link>
+          <Link
+            to="/despesas"
+            className="min-w-0 flex-1 rounded-xl border border-[#f7f1e4]/15 bg-[#f7f1e4]/10 p-3 transition hover:bg-[#f7f1e4]/15"
+          >
             <div className="mb-1 flex items-start justify-between gap-2">
               <p className="truncate font-ledger text-[9px] font-bold uppercase tracking-wide text-[#f7f1e4]/80">
                 Despesas {sufixoPeriodo}
               </p>
-              <TrendDown size={16} weight="fill" className="shrink-0 text-[#f0a89f]" />
+              <span className="flex shrink-0 items-center text-[#f0a89f]">
+                <TrendDown size={16} weight="fill" />
+                <CaretRight size={14} weight="bold" />
+              </span>
             </div>
             <p className="truncate font-ledger text-lg font-semibold tabular-nums">
               {saldoVisivel ? formatCurrency(resumoPeriodo.despesas) : '••••'}
             </p>
-          </div>
+          </Link>
         </div>
       </div>
 
@@ -257,14 +262,12 @@ export default function Dashboard() {
         id="dashboard-action-buttons"
         className="grid grid-cols-4 gap-2 rounded-2xl border border-line bg-paper-raised p-3 shadow-sm"
       >
-        <QuickAction icon={Calculator} label="Caixa" onClick={() => navigate('/caixa')} />
+        <QuickAction icon={Calculator} label="Caixa" to="/caixa" />
         <QuickAction
           icon={ArrowUpRight}
-          label="Entrada"
+          label="Entradas"
           onClick={() => {
             setLancamentoTipo('entrada');
-            setLancamentoItemType('product');
-            setLancamentoItemId('');
             setLancamentoModalAberto(true);
           }}
         />
@@ -273,6 +276,7 @@ export default function Dashboard() {
           label="Despesa"
           onClick={() => {
             setLancamentoTipo('saida');
+            setLancamentoCategoria('');
             setLancamentoModalAberto(true);
           }}
         />
@@ -284,6 +288,31 @@ export default function Dashboard() {
         onClose={() => setLancamentoModalAberto(false)}
         title={lancamentoTipo === 'entrada' ? 'Nova Entrada' : 'Nova Despesa'}
       >
+        <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-line/40 p-1">
+          <button
+            type="button"
+            onClick={() => setLancamentoTipo('entrada')}
+            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+              lancamentoTipo === 'entrada'
+                ? 'bg-paper-raised text-ledger-strong shadow-sm dark:text-ledger'
+                : 'text-ink-soft hover:text-ink'
+            }`}
+          >
+            <ArrowUpRight size={17} /> Entrada
+          </button>
+          <button
+            type="button"
+            onClick={() => setLancamentoTipo('saida')}
+            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+              lancamentoTipo === 'saida'
+                ? 'bg-paper-raised text-stamp shadow-sm'
+                : 'text-ink-soft hover:text-ink'
+            }`}
+          >
+            <ArrowDownRight size={17} /> Despesa
+          </button>
+        </div>
+
         <div className="mb-6 flex items-center gap-3">
           <div
             className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
@@ -312,9 +341,10 @@ export default function Dashboard() {
               <input
                 id="lancamento-valor"
                 value={lancamentoValor}
-                onChange={(e) => setLancamentoValor(e.target.value)}
+                onChange={(e) => setLancamentoValor(somenteValorMonetario(e.target.value))}
                 type="text"
                 inputMode="decimal"
+                pattern="[0-9]+([,][0-9]{1,2})?"
                 required
                 className="w-full rounded-2xl border border-line bg-paper py-4 pl-12 pr-4 font-ledger text-3xl font-black text-ink"
                 placeholder="0,00"
@@ -329,76 +359,21 @@ export default function Dashboard() {
               value={lancamentoDescricao}
               onChange={(e) => setLancamentoDescricao(e.target.value)}
               type="text"
-              required
+              required={lancamentoTipo === 'entrada' || !lancamentoCategoria}
               placeholder={lancamentoTipo === 'entrada' ? 'Ex: Venda de Produtos' : 'Ex: Conta de luz ou fornecimento'}
               className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
             />
           </div>
 
-          {lancamentoTipo === 'entrada' ? (
-            <>
-              <div>
-                <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Produto ou Serviço</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLancamentoItemType('product');
-                      setLancamentoItemId('');
-                    }}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                      lancamentoItemType === 'product'
-                        ? 'border-ink bg-ink/5 text-ink'
-                        : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
-                    }`}
-                  >
-                    Produto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLancamentoItemType('service');
-                      setLancamentoItemId('');
-                    }}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                      lancamentoItemType === 'service'
-                        ? 'border-ink bg-ink/5 text-ink'
-                        : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
-                    }`}
-                  >
-                    Serviço
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Item</label>
-                <select
-                  id="lancamento-item"
-                  value={lancamentoItemId}
-                  onChange={(e) => setLancamentoItemId(e.target.value)}
-                  className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
-                >
-                  <option value="">{`Selecione um ${lancamentoItemType === 'product' ? 'produto' : 'serviço'}`}</option>
-                  {data.produtos
-                    .filter((item) => item.type === lancamentoItemType)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nome}
-                      </option>
-                    ))}
-                </select>
-                {data.produtos.filter((item) => item.type === lancamentoItemType).length === 0 && (
-                  <p className="mt-2 text-xs text-ink-soft">
-                    Nenhum {lancamentoItemType === 'product' ? 'produto' : 'serviço'} cadastrado.
-                  </p>
-                )}
-              </div>
-            </>
-          ) : (
+          {lancamentoTipo === 'saida' && (
             <div>
               <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Categoria de despesa</label>
-              <select id="lancamento-categoria" className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink">
+              <select
+                id="lancamento-categoria"
+                value={lancamentoCategoria}
+                onChange={(e) => setLancamentoCategoria(e.target.value)}
+                className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
+              >
                 <option value="">Selecione uma categoria</option>
                 <option>Mercadoria</option>
                 <option>Fornecedor</option>
@@ -415,22 +390,53 @@ export default function Dashboard() {
           )}
 
           <div>
+            <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">Data</label>
+            <input
+              type="date"
+              value={lancamentoData}
+              onChange={(e) => setLancamentoData(e.target.value)}
+              required
+              className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-ink"
+            />
+          </div>
+
+          <div>
             <label className="mb-2 block text-[10px] font-black uppercase text-ink-soft">
               {lancamentoTipo === 'entrada' ? 'Forma de Recebimento' : 'Forma de Pagamento'}
             </label>
             <div className="grid grid-cols-3 gap-2">
-              <label className="radio-card">
-                <input type="radio" name="lancamento-pagamento" value="Dinheiro" defaultChecked hidden />
-                <div>💵 Dinheiro</div>
-              </label>
-              <label className="radio-card">
-                <input type="radio" name="lancamento-pagamento" value="Pix" hidden />
-                <div>📱 Pix</div>
-              </label>
-              <label className="radio-card">
-                <input type="radio" name="lancamento-pagamento" value="Cartão" hidden />
-                <div>💳 Cartão</div>
-              </label>
+              {FORMAS_LANCAMENTO.map(({ value, label, Icon }) => {
+                const selecionado = lancamentoPagamento === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={selecionado}
+                    onClick={() => setLancamentoPagamento(value)}
+                    className={`relative flex min-w-0 flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-semibold transition ${
+                      selecionado
+                        ? 'border-ledger bg-ledger/10 text-ledger-strong ring-2 ring-ledger/15 dark:text-ledger'
+                        : 'border-line bg-paper text-ink-soft hover:border-ink-soft hover:text-ink'
+                    }`}
+                  >
+                    {selecionado && (
+                      <CheckCircle
+                        size={15}
+                        weight="fill"
+                        className="absolute right-1.5 top-1.5 text-ledger-strong dark:text-ledger"
+                      />
+                    )}
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        selecionado ? 'bg-ledger text-paper' : 'bg-line/50 text-ink-soft'
+                      }`}
+                    >
+                      <Icon size={17} weight={selecionado ? 'fill' : 'regular'} />
+                    </span>
+                    <span className="truncate">{label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -478,7 +484,7 @@ export default function Dashboard() {
           <p className="font-ledger text-lg font-semibold tabular-nums text-ledger-strong dark:text-ledger">
             {formatCurrency(lucroEstimadoHoje)}
           </p>
-          <p className="text-[10px] text-ink-soft">Considera só vendas com custo cadastrado.</p>
+          <p className="text-[10px] text-ink-soft">Considera só itens com custo cadastrado.</p>
         </div>
         {metaDiaria > 0 && (
           <div className="col-span-2 flex min-w-0 flex-col justify-between gap-2 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm md:col-span-1">
@@ -611,29 +617,29 @@ export default function Dashboard() {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-ink-soft">Movimentações Hoje</h2>
-          <button onClick={() => navigate('/financas')} className="text-xs font-medium text-ledger-strong dark:text-ledger">
-            Ver Finanças
-          </button>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-ink-soft">Movimentações recentes</h2>
+          <Link to="/movimentacoes" className="inline-flex items-center gap-1 text-xs font-medium text-ledger-strong dark:text-ledger">
+            Ver todas <CaretRight size={13} weight="bold" />
+          </Link>
         </div>
         <div className="overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-sm">
-          {movimentacoesHoje.length === 0 ? (
+          {movimentacoesRecentes.length === 0 ? (
             <div className="flex flex-col items-center px-4 py-8 text-center">
               <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-line/50 text-ink-soft">
                 <Newspaper size={20} />
               </div>
-              <p className="mb-1 text-sm font-medium text-ink">Nenhuma movimentação hoje</p>
-              <p className="mb-3 text-xs text-ink-soft">Vendas e contas pagas hoje aparecem aqui.</p>
+              <p className="mb-1 text-sm font-medium text-ink">Nenhuma movimentação registrada</p>
+              <p className="mb-3 text-xs text-ink-soft">Entradas recebidas e despesas pagas aparecem aqui.</p>
               <button onClick={() => navigate('/caixa')} className="text-xs font-medium text-ledger-strong dark:text-ledger">
-                Registrar uma venda
+                Registrar uma entrada
               </button>
             </div>
           ) : (
             <ul className="divide-y divide-line">
-              {movimentacoesHoje.map((mov) => {
+              {movimentacoesRecentes.map((mov) => {
                 const isSaida = mov.tipo === 'saida';
                 return (
-                  <li key={mov.id} className="flex items-center justify-between gap-3 p-3">
+                  <li key={`${mov.origem}-${mov.id}`} className="flex items-center justify-between gap-3 p-3">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-line/40">
                         {isSaida ? (
@@ -642,7 +648,10 @@ export default function Dashboard() {
                           <ArrowUp size={18} className="text-ledger-strong dark:text-ledger" />
                         )}
                       </div>
-                      <div className="min-w-0 truncate text-sm font-medium text-ink">{mov.descricao}</div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-ink">{mov.descricao}</div>
+                        <div className="text-[10px] text-ink-soft">{mov.data.split('-').reverse().join('/')}</div>
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <div
@@ -670,7 +679,13 @@ export default function Dashboard() {
                             <PencilSimple size={14} />
                           </button>
                           <button
-                            onClick={() => setItemParaExcluir({ tipo: mov.origem, id: mov.id, label: mov.descricao })}
+                            onClick={() =>
+                              setItemParaExcluir({
+                                tipo: mov.origem === 'venda' ? 'venda' : 'lancamento',
+                                id: mov.id,
+                                label: mov.descricao,
+                              })
+                            }
                             aria-label="Excluir"
                             className="rounded p-1.5 text-ink-soft transition hover:bg-stamp/10 hover:text-stamp"
                           >
@@ -896,22 +911,18 @@ function AlertRow({
 function QuickAction({
   icon: Icon,
   label,
+  to,
   onClick,
   disabled,
 }: {
   icon: typeof Calculator;
   label: string;
+  to?: string;
   onClick?: () => void;
   disabled?: boolean;
 }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex flex-col items-center gap-1 rounded-xl py-2 transition ${
-        disabled ? 'cursor-default text-ink-soft/50' : 'text-ink-soft hover:bg-line/40 hover:text-ink'
-      }`}
-    >
+  const content = (
+    <>
       <div
         className={`flex h-9 w-9 items-center justify-center rounded-full ${
           disabled ? 'bg-line/30' : 'bg-ledger/10 text-ledger-strong dark:text-ledger'
@@ -920,24 +931,20 @@ function QuickAction({
         <Icon size={18} />
       </div>
       <span className="text-[10px] font-medium">{label}</span>
+    </>
+  );
+
+  const className = `flex flex-col items-center gap-1 rounded-xl py-2 transition ${
+    disabled ? 'cursor-default text-ink-soft/50' : 'text-ink-soft hover:bg-line/40 hover:text-ink'
+  }`;
+
+  return to ? (
+    <Link to={to} className={className}>
+      {content}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} disabled={disabled} className={className}>
+      {content}
     </button>
   );
 }
-
-function formaPagamentoLabel(forma: string) {
-  switch (forma) {
-    case 'dinheiro':
-      return 'Dinheiro';
-    case 'pix':
-      return 'Pix';
-    case 'cartao_credito':
-      return 'Cartão Crédito';
-    case 'cartao_debito':
-      return 'Cartão Débito';
-    case 'fiado':
-      return 'Fiado';
-    default:
-      return forma;
-  }
-}
-

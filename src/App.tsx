@@ -11,6 +11,8 @@ import Caixa from './pages/Caixa';
 import Catalogo from './pages/Catalogo';
 import Financas from './pages/Financas';
 import Configuracoes from './pages/Configuracoes';
+import Movimentacoes from './pages/Movimentacoes';
+import RecuperarConta from './pages/RecuperarConta';
 
 export default function App() {
   const { isAuthenticated } = useAuth();
@@ -23,6 +25,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
+        <Route path="/recuperar-conta" element={<RecuperarConta />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -48,6 +51,10 @@ export default function App() {
         <Route path="/catalogo" element={<Catalogo />} />
         <Route path="/estoque" element={<Navigate to="/catalogo" replace />} />
         <Route path="/financas" element={<Financas />} />
+        <Route path="/movimentacoes" element={<Movimentacoes modo="todas" />} />
+        <Route path="/entradas" element={<Movimentacoes modo="vendas" />} />
+        <Route path="/vendas" element={<Navigate to="/entradas" replace />} />
+        <Route path="/despesas" element={<Movimentacoes modo="saidas" />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

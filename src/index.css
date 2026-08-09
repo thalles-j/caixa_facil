@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&family=Karla:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: 'Fraunces', ui-serif, serif;
-  --font-body: 'Karla', ui-sans-serif, sans-serif;
+  --font-display: 'Anthropic Sans', 'Inter', ui-sans-serif, sans-serif;
+  --font-body: 'Anthropic Sans', 'Inter', ui-sans-serif, sans-serif;
   --font-ledger: 'IBM Plex Mono', ui-monospace, monospace;
 
   --color-paper: #f7f1e4;
@@ -65,8 +65,8 @@ body {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Carimbo — rotated stamp badge used for every status label in the app
-   (Pago, Atrasado, Vence hoje, Estoque baixo, Fiado...) instead of a flat pill. */
+/* Etiqueta de status fixa e alinhada, compartilhada por Pago, Atrasado,
+   Vence hoje, Estoque baixo, Fiado e demais estados. */
 .stamp {
   display: inline-flex;
   align-items: center;
@@ -80,12 +80,8 @@ body {
   border-radius: 0.4rem;
   border: 1.5px solid currentColor;
   box-shadow: 0 0 0 1px currentColor inset;
-  transform: rotate(-1.5deg);
+  transform: none;
   white-space: nowrap;
-}
-
-.stamp-tilt-right {
-  transform: rotate(1.5deg);
 }
 
 /* Recibo — perforated/torn paper edge for the one hero card per screen. */
@@ -162,36 +158,4 @@ body {
 
 .modal-overlay.active .modal-content {
   transform: scale(1);
-}
-
-.radio-card {
-  border: 1px solid var(--color-line);
-  border-radius: 1rem;
-  padding: 0.85rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  cursor: pointer;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.radio-card div {
-  width: 100%;
-}
-
-.radio-card input:checked + div {
-  border: 1px solid transparent;
-  background-color: color-mix(in srgb, var(--color-ledger) 16%, transparent);
-  color: var(--color-ledger-strong);
-}
-
-.dark .radio-card input:checked + div {
-  color: var(--color-ledger);
-}
-
-.radio-card:hover {
-  border-color: var(--color-ink-soft);
 }

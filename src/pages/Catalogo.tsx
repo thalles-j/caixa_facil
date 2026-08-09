@@ -1,15 +1,23 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { MagnifyingGlass, Package, Plus, WarningCircle, Wrench } from '@phosphor-icons/react';
+import { MagnifyingGlass, Package, Plus, WarningCircle, Wrench, Tag, PencilSimple, Trash } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney } from '../lib/format';
 import Modal from '../components/Modal';
-import type { Produto } from '../types';
+import type { CategoriaProduto, Produto } from '../types';
 
 type TipoFiltro = 'todos' | 'product' | 'service';
 type Filtro = 'todos' | 'baixo' | string;
 
 export default function Catalogo() {
-  const { data, addProduto, atualizarProduto, removerProduto } = useAppData();
+  const {
+    data,
+    addProduto,
+    atualizarProduto,
+    removerProduto,
+    addCategoria,
+    editarCategoria,
+    removerCategoria,
+  } = useAppData();
   const oferta = data.config?.oferta ?? 'ambos';
   const tipoPadrao = oferta === 'produtos' ? 'product' : oferta === 'servicos' ? 'service' : 'product';
   const permiteTrocarTipo = oferta === 'ambos';
@@ -22,6 +30,12 @@ export default function Catalogo() {
   const [produtoEditando, setProdutoEditando] = useState<Produto | null>(null);
   const [itemType, setItemType] = useState<'product' | 'service'>(tipoPadrao);
   const [produtoParaRemover, setProdutoParaRemover] = useState<Produto | null>(null);
+  const [categoriasModalAberto, setCategoriasModalAberto] = useState(false);
+  const [novaCategoria, setNovaCategoria] = useState('');
+  const [categoriaEditando, setCategoriaEditando] = useState<CategoriaProduto | null>(null);
+  const [nomeCategoriaEditando, setNomeCategoriaEditando] = useState('');
+  const [categoriaParaRemover, setCategoriaParaRemover] = useState<CategoriaProduto | null>(null);
+  const [categoriaErro, setCategoriaErro] = useState<string | null>(null);
 
   // ajusta itemType quando tipoPadrao muda (ex: oferta do negócio foi alterada em
   // outra tela) — setState direto durante o render em vez de useEffect, seguindo
@@ -32,13 +46,7 @@ export default function Catalogo() {
     setItemType(tipoPadrao);
   }
 
-  const categorias = useMemo(() => {
-    const set = new Set<string>();
-    data.produtos.forEach((item) => {
-      if (item.categoria) set.add(item.categoria);
-    });
-    return Array.from(set);
-  }, [data.produtos]);
+  const categorias = data.categorias ?? [];
 
   const itensFiltrados = useMemo(() => {
     return data.produtos.filter((item) => {
@@ -79,6 +87,42 @@ export default function Catalogo() {
     if (!produtoParaRemover) return;
     removerProduto(produtoParaRemover.id);
     fecharConfirmarRemocao();
+  };
+
+  const cadastrarCategoria = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!addCategoria(novaCategoria)) {
+      setCategoriaErro('Informe um nome diferente das categorias existentes.');
+      return;
+    }
+    setNovaCategoria('');
+    setCategoriaErro(null);
+  };
+
+  const iniciarEdicaoCategoria = (categoria: CategoriaProduto) => {
+    setCategoriaEditando(categoria);
+    setNomeCategoriaEditando(categoria.nome);
+    setCategoriaErro(null);
+  };
+
+  const salvarEdicaoCategoria = () => {
+    if (!categoriaEditando) return;
+    const nomeAnterior = categoriaEditando.nome;
+    if (!editarCategoria(categoriaEditando.id, nomeCategoriaEditando)) {
+      setCategoriaErro('Informe um nome diferente das categorias existentes.');
+      return;
+    }
+    if (filtro === nomeAnterior) setFiltro(nomeCategoriaEditando.trim());
+    setCategoriaEditando(null);
+    setNomeCategoriaEditando('');
+    setCategoriaErro(null);
+  };
+
+  const confirmarRemocaoCategoria = () => {
+    if (!categoriaParaRemover) return;
+    if (filtro === categoriaParaRemover.nome) setFiltro('todos');
+    removerCategoria(categoriaParaRemover.id);
+    setCategoriaParaRemover(null);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -145,12 +189,23 @@ export default function Catalogo() {
           <h2 className="font-display text-xl font-bold">Catálogo</h2>
           <p className="truncate text-sm text-ink-soft">Gerencie produtos e serviços com o mesmo visual do app.</p>
         </div>
-        <button
-          onClick={abrirNovo}
-          className="flex shrink-0 items-center gap-2 rounded-lg bg-ledger/10 px-3 py-1.5 text-sm font-medium text-ledger-strong transition hover:bg-ledger/20 dark:text-ledger"
-        >
-          <Plus size={16} /> Novo
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => {
+              setCategoriasModalAberto(true);
+              setCategoriaErro(null);
+            }}
+            className="flex items-center gap-2 rounded-lg border border-line bg-paper-raised px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:border-ledger/30 hover:text-ink"
+          >
+            <Tag size={16} /> Categorias
+          </button>
+          <button
+            onClick={abrirNovo}
+            className="flex items-center gap-2 rounded-lg bg-ledger/10 px-3 py-1.5 text-sm font-medium text-ledger-strong transition hover:bg-ledger/20 dark:text-ledger"
+          >
+            <Plus size={16} /> Novo
+          </button>
+        </div>
       </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -197,13 +252,13 @@ export default function Catalogo() {
         </button>
         {categorias.map((cat) => (
           <button
-            key={cat}
-            onClick={() => setFiltro(cat)}
+            key={cat.id}
+            onClick={() => setFiltro(cat.nome)}
             className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
-              filtro === cat ? 'bg-ledger text-paper' : 'border border-line bg-paper-raised text-ink-soft'
+              filtro === cat.nome ? 'bg-ledger text-paper' : 'border border-line bg-paper-raised text-ink-soft'
             }`}
           >
-            {cat}
+            {cat.nome}
           </button>
         ))}
       </div>
@@ -265,7 +320,7 @@ export default function Catalogo() {
                       {item.quantidade ?? 0} em estoque
                     </span>
                   ) : (
-                    <span className="stamp stamp-tilt-right text-ledger-strong dark:text-ledger">
+                    <span className="stamp text-ledger-strong dark:text-ledger">
                       {item.duracao ?? '—'}
                     </span>
                   )}
@@ -346,13 +401,27 @@ export default function Catalogo() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-ink-soft">Categoria (opcional)</label>
-              <input
+              <select
                 name="categoria"
-                type="text"
                 defaultValue={produtoEditando?.categoria}
-                placeholder="Ex: Bebidas"
                 className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
-              />
+              >
+                <option value="">Sem categoria</option>
+                {categorias.map((categoria) => (
+                  <option key={categoria.id} value={categoria.nome}>
+                    {categoria.nome}
+                  </option>
+                ))}
+              </select>
+              {categorias.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCategoriasModalAberto(true)}
+                  className="mt-1 text-xs font-medium text-ledger-strong hover:underline dark:text-ledger"
+                >
+                  Criar uma categoria
+                </button>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-ink-soft">Preço de Venda</label>
@@ -421,6 +490,141 @@ export default function Catalogo() {
             Salvar
           </button>
         </form>
+      </Modal>
+
+      <Modal
+        open={categoriasModalAberto}
+        onClose={() => {
+          setCategoriasModalAberto(false);
+          setCategoriaEditando(null);
+          setCategoriaErro(null);
+        }}
+        title="Gerenciar categorias"
+      >
+        <div className="space-y-4">
+          <form onSubmit={cadastrarCategoria} className="flex gap-2">
+            <input
+              value={novaCategoria}
+              onChange={(event) => setNovaCategoria(event.target.value)}
+              required
+              maxLength={60}
+              placeholder="Ex: Bebidas"
+              className="min-w-0 flex-1 rounded-lg border border-line bg-paper p-2.5 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
+            />
+            <button
+              type="submit"
+              className="flex shrink-0 items-center gap-1 rounded-lg bg-ledger px-3 py-2 text-sm font-semibold text-paper transition hover:bg-ledger-strong"
+            >
+              <Plus size={16} /> Criar
+            </button>
+          </form>
+
+          {categoriaErro && <p className="text-xs font-medium text-stamp">{categoriaErro}</p>}
+
+          <div className="overflow-hidden rounded-xl border border-line">
+            {categorias.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <Tag size={28} className="mx-auto mb-2 text-ink-soft" />
+                <p className="text-sm font-medium text-ink">Nenhuma categoria criada</p>
+                <p className="mt-1 text-xs text-ink-soft">Crie uma categoria para organizar seus produtos.</p>
+              </div>
+            ) : (
+              <ul className="max-h-72 divide-y divide-line overflow-y-auto">
+                {categorias.map((categoria) => (
+                  <li key={categoria.id} className="p-3">
+                    {categoriaEditando?.id === categoria.id ? (
+                      <div className="flex gap-2">
+                        <input
+                          value={nomeCategoriaEditando}
+                          onChange={(event) => setNomeCategoriaEditando(event.target.value)}
+                          maxLength={60}
+                          autoFocus
+                          className="min-w-0 flex-1 rounded-lg border border-ledger bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/20"
+                        />
+                        <button
+                          type="button"
+                          onClick={salvarEdicaoCategoria}
+                          className="rounded-lg bg-ledger px-3 py-2 text-xs font-bold text-paper"
+                        >
+                          Salvar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCategoriaEditando(null)}
+                          className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-ink"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Tag size={17} className="shrink-0 text-ledger-strong dark:text-ledger" />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-ink">{categoria.nome}</p>
+                            <p className="text-[11px] text-ink-soft">
+                              {data.produtos.filter((produto) => produto.categoria === categoria.nome).length} item(ns)
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => iniciarEdicaoCategoria(categoria)}
+                            aria-label={`Editar categoria ${categoria.nome}`}
+                            className="rounded-lg p-2 text-ink-soft transition hover:bg-line/40 hover:text-ink"
+                          >
+                            <PencilSimple size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCategoriaParaRemover(categoria)}
+                            aria-label={`Excluir categoria ${categoria.nome}`}
+                            className="rounded-lg p-2 text-ink-soft transition hover:bg-stamp/10 hover:text-stamp"
+                          >
+                            <Trash size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={categoriaParaRemover !== null}
+        onClose={() => setCategoriaParaRemover(null)}
+        title="Excluir categoria?"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink-soft">
+            Deseja excluir a categoria{' '}
+            <span className="font-semibold text-ink">{categoriaParaRemover?.nome}</span>?
+          </p>
+          <p className="rounded-lg bg-brass/10 p-3 text-xs text-brass">
+            Os produtos não serão excluídos; eles ficarão sem categoria.
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setCategoriaParaRemover(null)}
+              className="flex-1 rounded-lg border border-line bg-paper px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-line/30"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmarRemocaoCategoria}
+              className="flex-1 rounded-lg bg-stamp px-4 py-2.5 text-sm font-bold text-paper transition hover:bg-stamp/90"
+            >
+              Excluir categoria
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <Modal open={confirmarRemocaoAberto} onClose={fecharConfirmarRemocao} title="Confirmar exclusão">

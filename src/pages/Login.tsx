@@ -53,7 +53,12 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-ink-soft">Senha</label>
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <label className="text-xs font-medium text-ink-soft">Senha</label>
+              <Link to="/recuperar-conta" className="text-xs font-semibold text-ledger-strong hover:underline dark:text-ledger">
+                Esqueci minha senha
+              </Link>
+            </div>
             <input
               type="password"
               required

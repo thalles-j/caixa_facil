@@ -6,9 +6,12 @@ import {
   isTokenValid,
   loginRequest,
   registerRequest,
+  resetAccountDataRequest,
+  sessionRequest,
   setStoredToken,
   TOKEN_KEY,
 } from '../lib/auth';
+import { APP_DATA_CHANGED_EVENT, loadData, saveData } from '../lib/storage';
 
 interface AuthUser {
   id: string;
@@ -20,6 +23,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, confirmPassword: string) => Promise<void>;
+  resetAccountData: () => Promise<void>;
   logout: () => void;
 }
 
@@ -33,6 +37,23 @@ function userFromToken(token: string | null): AuthUser | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => userFromToken(getStoredToken()));
+
+  useEffect(() => {
+    const token = getStoredToken();
+    if (!isTokenValid(token)) return;
+
+    void sessionRequest(token)
+      .then(({ user: sessionUser, data }) => {
+        if (data && !loadData(sessionUser.id).config) saveData(data, sessionUser.id);
+        window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
+        setUser(sessionUser);
+      })
+      .catch(() => {
+        clearStoredToken();
+        window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
+        setUser(null);
+      });
+  }, []);
 
   useEffect(() => {
     // reavalia periodicamente para deslogar automaticamente quando o token de 2h expira
@@ -58,20 +79,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { token, user: loggedUser } = await loginRequest(email, password);
+    const { token, user: loggedUser, data } = await loginRequest(email, password);
     setStoredToken(token);
+    if (data && !loadData(loggedUser.id).config) saveData(data, loggedUser.id);
+    window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
     setUser(loggedUser);
   };
 
   const register = async (email: string, password: string, confirmPassword: string) => {
     const { token, user: registeredUser } = await registerRequest(email, password, confirmPassword);
     setStoredToken(token);
+    window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
     setUser(registeredUser);
   };
 
   const logout = () => {
     clearStoredToken();
+    window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
     setUser(null);
+  };
+
+  const resetAccountData = async () => {
+    const token = getStoredToken();
+    if (!isTokenValid(token)) throw new Error('Sua sessão expirou. Entre novamente.');
+    await resetAccountDataRequest(token);
   };
 
   const value: AuthContextValue = {
@@ -79,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: user !== null,
     login,
     register,
+    resetAccountData,
     logout,
   };
 

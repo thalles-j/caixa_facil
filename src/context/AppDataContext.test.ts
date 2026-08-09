@@ -102,7 +102,7 @@ describe('AppDataContext', () => {
       expect(result.current.vendasHoje).toBe(20);
     });
 
-    it('vendasHoje inclui vendas fiado, mesmo ainda não recebidas', () => {
+    it('vendasHoje só inclui uma venda fiado depois do recebimento', () => {
       mockarAgora('2026-08-03T10:00:00-03:00');
       const { result } = renderAppData();
 
@@ -114,6 +114,13 @@ describe('AppDataContext', () => {
           valorUnitario: 50,
           formaPagamento: 'fiado',
         });
+      });
+
+      expect(result.current.vendasHoje).toBe(0);
+
+      const contaFiado = result.current.data.contas.find((conta) => conta.origemVendaId)!;
+      act(() => {
+        result.current.marcarContaQuitada(contaFiado.id, '2026-08-03');
       });
 
       expect(result.current.vendasHoje).toBe(50);
@@ -388,6 +395,44 @@ describe('AppDataContext', () => {
       expect(retorno).toBe(true);
       expect(result.current.data.vendas.find((v) => v.id === venda.id)).toBeUndefined();
       expect(result.current.data.contas.find((c) => c.id === conta.id)).toBeUndefined();
+    });
+  });
+
+  describe('categorias personalizadas', () => {
+    it('renomeia a categoria nos produtos e preserva os produtos ao excluir', () => {
+      const { result } = renderAppData();
+
+      let criada = false;
+      act(() => {
+        criada = result.current.addCategoria('Bebidas');
+      });
+      expect(criada).toBe(true);
+
+      const categoria = result.current.data.categorias[0];
+      act(() => {
+        result.current.addProduto({
+          type: 'product',
+          nome: 'Refrigerante',
+          categoria: 'Bebidas',
+          precoVenda: 8,
+          quantidade: 10,
+          quantidadeMinima: 2,
+        });
+      });
+
+      let editada = false;
+      act(() => {
+        editada = result.current.editarCategoria(categoria.id, 'Bebidas geladas');
+      });
+      expect(editada).toBe(true);
+      expect(result.current.data.produtos[0].categoria).toBe('Bebidas geladas');
+
+      act(() => {
+        result.current.removerCategoria(categoria.id);
+      });
+      expect(result.current.data.categorias).toHaveLength(0);
+      expect(result.current.data.produtos).toHaveLength(1);
+      expect(result.current.data.produtos[0].categoria).toBeUndefined();
     });
   });
 

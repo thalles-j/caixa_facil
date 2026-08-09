@@ -1,23 +1,34 @@
-import type { AppData } from '../types';
+import type { AppData, CategoriaProduto, Produto } from '../types';
 
 export const STORAGE_KEY = 'mnb-data-v1';
+export const APP_DATA_CHANGED_EVENT = 'mnb-app-data-changed';
+
+export function storageKeyForUser(userId?: string | null): string {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
 
 export const emptyData: AppData = {
   config: null,
   vendas: [],
   produtos: [],
+  categorias: [],
   contas: [],
   lancamentosManuais: [],
   clientes: [],
 };
 
-export function loadData(): AppData {
+function instanteLegado(data: string, hora: number, ordem: number): string {
+  const base = new Date(`${data}T${String(hora).padStart(2, '0')}:00:00.000Z`).getTime();
+  return Number.isNaN(base) ? `${data}T00:00:00.000Z` : new Date(base + ordem).toISOString();
+}
+
+export function loadData(userId?: string | null): AppData {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKeyForUser(userId));
     if (!raw) return emptyData;
     const parsed = JSON.parse(raw);
 
-    const produtos = Array.isArray(parsed.produtos)
+    const produtos: Produto[] = Array.isArray(parsed.produtos)
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalizando JSON bruto de origem externa (localStorage/importação), sem shape garantido
         parsed.produtos.map((p: any) => ({
           ...p,
@@ -28,14 +39,55 @@ export function loadData(): AppData {
         }))
       : [];
 
-    return { ...emptyData, ...parsed, produtos };
+    const categorias: CategoriaProduto[] = Array.isArray(parsed.categorias)
+      ? parsed.categorias
+          .map((categoria: unknown) => {
+            const registro = categoria as Record<string, unknown>;
+            return { id: String(registro.id ?? ''), nome: String(registro.nome ?? '').trim() };
+          })
+          .filter((categoria: { id: string; nome: string }) => categoria.id && categoria.nome)
+      : Array.from(
+          new Set(
+            produtos
+              .map((produto) => produto.categoria?.trim())
+              .filter((categoria): categoria is string => Boolean(categoria)),
+          ),
+        ).map((nome, index) => ({ id: `categoria-legada-${index}`, nome }));
+
+    const vendas = Array.isArray(parsed.vendas)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalização do backup/localStorage legado
+        parsed.vendas.map((venda: any, index: number) => ({
+          ...venda,
+          createdAt: venda.createdAt ?? instanteLegado(venda.data, 12, index),
+        }))
+      : [];
+
+    const lancamentosManuais = Array.isArray(parsed.lancamentosManuais)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalização do backup/localStorage legado
+        parsed.lancamentosManuais.map((lancamento: any, index: number) => ({
+          ...lancamento,
+          createdAt: lancamento.createdAt ?? instanteLegado(lancamento.data, 23, index),
+        }))
+      : [];
+
+    const contas = Array.isArray(parsed.contas)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalização do backup/localStorage legado
+        parsed.contas.map((conta: any, index: number) => ({
+          ...conta,
+          quitadoEm:
+            conta.quitadoEm ??
+            (conta.quitado && conta.dataQuitacao ? instanteLegado(conta.dataQuitacao, 20, index) : undefined),
+        }))
+      : [];
+
+    return { ...emptyData, ...parsed, produtos, categorias, vendas, contas, lancamentosManuais };
   } catch {
     return emptyData;
   }
 }
 
-export function saveData(data: AppData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+export function saveData(data: AppData, userId?: string | null) {
+  localStorage.setItem(storageKeyForUser(userId), JSON.stringify(data));
 }
 
 /**

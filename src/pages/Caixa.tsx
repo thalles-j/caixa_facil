@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   MagnifyingGlass,
   Camera,
@@ -15,6 +16,7 @@ import {
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney, todayISO } from '../lib/format';
 import type { Cliente, FormaPagamento } from '../types';
+import Modal from '../components/Modal';
 
 interface ItemCarrinho {
   key: string;
@@ -22,6 +24,13 @@ interface ItemCarrinho {
   descricao: string;
   quantidade: number;
   valorUnitario: number;
+}
+
+interface ConfirmacaoCobranca {
+  total: number;
+  forma: FormaPagamento;
+  quantidadeItens: number;
+  cliente?: string;
 }
 
 const FORMAS: { forma: FormaPagamento; label: string; Icon: typeof Money; classes: string }[] = [
@@ -32,6 +41,7 @@ const FORMAS: { forma: FormaPagamento; label: string; Icon: typeof Money; classe
 ];
 
 export default function Caixa() {
+  const navigate = useNavigate();
   const { data, addVenda, addCliente } = useAppData();
   const [busca, setBusca] = useState('');
   const [valorAvulso, setValorAvulso] = useState('');
@@ -43,6 +53,7 @@ export default function Caixa() {
   const [novoClienteNome, setNovoClienteNome] = useState('');
   const [novoClienteTelefone, setNovoClienteTelefone] = useState('');
   const [cadastrandoCliente, setCadastrandoCliente] = useState(false);
+  const [confirmacaoCobranca, setConfirmacaoCobranca] = useState<ConfirmacaoCobranca | null>(null);
 
   const resultados = useMemo(() => {
     if (!busca.trim()) return [];
@@ -152,6 +163,13 @@ export default function Caixa() {
     }
 
     const hoje = todayISO();
+    const formaCobranca = formaSelecionada!;
+    const confirmacao: ConfirmacaoCobranca = {
+      total,
+      forma: formaCobranca,
+      quantidadeItens: carrinho.reduce((quantidade, item) => quantidade + item.quantidade, 0),
+      cliente: clienteSelecionado?.nome,
+    };
     carrinho.forEach((item) => {
       addVenda(
         {
@@ -159,16 +177,16 @@ export default function Caixa() {
           descricao: item.descricao,
           quantidade: item.quantidade,
           valorUnitario: item.valorUnitario,
-          formaPagamento: formaSelecionada!,
+          formaPagamento: formaCobranca,
           produtoId: item.produtoId,
         },
-        formaSelecionada === 'fiado' && clienteSelecionado ? { clienteId: clienteSelecionado.id } : undefined,
+        formaCobranca === 'fiado' && clienteSelecionado ? { clienteId: clienteSelecionado.id } : undefined,
       );
     });
     setCarrinho([]);
     setFormaSelecionada(null);
     setClienteSelecionado(null);
-    alert('Venda registrada com sucesso!');
+    setConfirmacaoCobranca(confirmacao);
   };
 
   const precisaCliente = formaSelecionada === 'fiado';
@@ -375,6 +393,81 @@ export default function Caixa() {
           </button>
         </div>
       </div>
+
+      <Modal
+        open={confirmacaoCobranca !== null}
+        onClose={() => setConfirmacaoCobranca(null)}
+        title="Cobrança registrada"
+      >
+        {confirmacaoCobranca && (
+          <div className="space-y-5 text-center">
+            <div
+              className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${
+                confirmacaoCobranca.forma === 'fiado'
+                  ? 'bg-brass/10 text-brass'
+                  : 'bg-ledger/10 text-ledger-strong dark:text-ledger'
+              }`}
+            >
+              {confirmacaoCobranca.forma === 'fiado' ? (
+                <BookBookmark size={32} weight="fill" />
+              ) : (
+                <CheckCircle size={32} weight="fill" />
+              )}
+            </div>
+
+            <div>
+              <p className="font-ledger text-3xl font-bold tabular-nums text-ink">
+                {formatCurrency(confirmacaoCobranca.total)}
+              </p>
+              <p className="mt-1 text-sm text-ink-soft">
+                {confirmacaoCobranca.quantidadeItens} item(ns) ·{' '}
+                {FORMAS.find((item) => item.forma === confirmacaoCobranca.forma)?.label}
+              </p>
+            </div>
+
+            <div
+              className={`rounded-xl p-3 text-left text-sm ${
+                confirmacaoCobranca.forma === 'fiado'
+                  ? 'bg-brass/10 text-brass'
+                  : 'bg-ledger/10 text-ledger-strong dark:text-ledger'
+              }`}
+            >
+              {confirmacaoCobranca.forma === 'fiado' ? (
+                <>
+                  <p className="font-semibold">Fiado registrado{confirmacaoCobranca.cliente ? ` para ${confirmacaoCobranca.cliente}` : ''}.</p>
+                  <p className="mt-1 text-xs">Esse valor entrará no caixa somente quando o pagamento receber baixa.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold">Entrada adicionada com sucesso.</p>
+                  <p className="mt-1 text-xs">O valor já aparece nas movimentações e no saldo do caixa.</p>
+                </>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmacaoCobranca(null)}
+                className="flex-1 rounded-lg border border-line bg-paper px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-line/30"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const destino = confirmacaoCobranca.forma === 'fiado' ? '/financas?tab=receber' : '/entradas';
+                  setConfirmacaoCobranca(null);
+                  navigate(destino);
+                }}
+                className="flex-1 rounded-lg bg-ledger px-4 py-2.5 text-sm font-bold text-paper transition hover:bg-ledger-strong"
+              >
+                {confirmacaoCobranca.forma === 'fiado' ? 'Ver em Finanças' : 'Ver em Entradas'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Plus, Trash, PaperPlaneTilt, Moon, Sun, DownloadSimple, UploadSimple, SignOut } from '@phosphor-icons/react';
+import { Plus, Trash, PaperPlaneTilt, Moon, Sun, DownloadSimple, UploadSimple, SignOut, Warning } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency, parseMoney, todayISO } from '../lib/format';
@@ -12,7 +12,7 @@ import Modal from '../components/Modal';
 export default function Configuracoes() {
   const { data, setConfig, resetData } = useAppData();
   const config = data.config;
-  const { logout } = useAuth();
+  const { user, logout, resetAccountData } = useAuth();
 
   const [novaDespesaNome, setNovaDespesaNome] = useState('');
   const [novaDespesaValor, setNovaDespesaValor] = useState('');
@@ -20,6 +20,9 @@ export default function Configuracoes() {
   const [darkMode, setDarkMode] = useDarkMode();
   const [importErro, setImportErro] = useState<string | null>(null);
   const [importPendente, setImportPendente] = useState<AppData | null>(null);
+  const [resetando, setResetando] = useState(false);
+  const [resetErro, setResetErro] = useState<string | null>(null);
+  const [acaoPendente, setAcaoPendente] = useState<'logout' | 'reset' | null>(null);
   const arquivoInputRef = useRef<HTMLInputElement>(null);
 
   if (!config) return null;
@@ -54,7 +57,7 @@ export default function Configuracoes() {
   };
 
   const exportarDados = () => {
-    const dados = loadData();
+    const dados = loadData(user?.id);
     const conteudo = JSON.stringify(dados, null, 2);
     const blob = new Blob([conteudo], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -98,8 +101,31 @@ export default function Configuracoes() {
 
   const confirmarImportacao = () => {
     if (!importPendente) return;
-    saveData(importPendente);
+    saveData(importPendente, user?.id);
     window.location.reload();
+  };
+
+  const zerarDadosDaConta = async () => {
+    setResetando(true);
+    setResetErro(null);
+    try {
+      await resetAccountData();
+      resetData();
+      setAcaoPendente(null);
+      logout();
+    } catch (error) {
+      setResetErro(error instanceof Error ? error.message : 'Não foi possível zerar os dados da conta.');
+      setResetando(false);
+    }
+  };
+
+  const confirmarAcaoPendente = () => {
+    if (acaoPendente === 'logout') {
+      setAcaoPendente(null);
+      logout();
+      return;
+    }
+    if (acaoPendente === 'reset') void zerarDadosDaConta();
   };
 
   const inputClasses =
@@ -334,7 +360,7 @@ export default function Configuracoes() {
         </section>
 
         <button
-          onClick={logout}
+          onClick={() => setAcaoPendente('logout')}
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-paper-raised py-2.5 text-sm font-bold text-ink transition hover:bg-line/30"
         >
           <SignOut size={18} /> Sair
@@ -343,19 +369,17 @@ export default function Configuracoes() {
         <div className="rounded-2xl border border-stamp/20 p-4">
           <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-stamp">Zona de risco</h3>
           <p className="mb-3 text-xs text-ink-soft">
-            Apaga todos os dados salvos neste aparelho — vendas, catálogo, contas e configurações. Não pode ser
-            desfeito.
+            Apaga produtos, vendas, fiado, despesas, caixas e configurações. Seu e-mail e senha são mantidos. Ao
+            concluir, você será desconectado e o próximo acesso começará pela configuração inicial.
           </p>
           <button
-            onClick={() => {
-              if (confirm('Isso vai apagar todos os dados salvos neste dispositivo. Continuar?')) {
-                resetData();
-              }
-            }}
-            className="w-full rounded-lg border border-stamp/30 bg-stamp/10 py-2.5 text-sm font-bold text-stamp transition hover:bg-stamp/20"
+            onClick={() => setAcaoPendente('reset')}
+            disabled={resetando}
+            className="w-full rounded-lg border border-stamp/30 bg-stamp/10 py-2.5 text-sm font-bold text-stamp transition hover:bg-stamp/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Zerar Dados do App
+            {resetando ? 'Zerando dados...' : 'Zerar Dados do App'}
           </button>
+          {resetErro && <p className="mt-2 text-xs font-medium text-stamp">{resetErro}</p>}
         </div>
       </div>
 
@@ -377,6 +401,53 @@ export default function Configuracoes() {
               className="flex-1 rounded-lg bg-stamp px-4 py-2 text-sm font-semibold text-paper transition hover:bg-stamp/90"
             >
               Substituir Dados
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={acaoPendente !== null}
+        onClose={() => {
+          if (!resetando) setAcaoPendente(null);
+        }}
+        title={acaoPendente === 'reset' ? 'Zerar dados do app?' : 'Sair da conta?'}
+      >
+        <div className="space-y-4">
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-full ${
+              acaoPendente === 'reset' ? 'bg-stamp/10 text-stamp' : 'bg-brass/10 text-brass'
+            }`}
+          >
+            {acaoPendente === 'reset' ? <Warning size={24} weight="fill" /> : <SignOut size={24} />}
+          </div>
+          <p className="text-sm text-ink-soft">
+            {acaoPendente === 'reset'
+              ? 'Produtos, entradas, fiado, despesas, caixas e configurações serão apagados. Seu e-mail e senha serão mantidos, e você será desconectado.'
+              : 'Sua sessão será encerrada. Você precisará informar e-mail e senha para entrar novamente.'}
+          </p>
+          {acaoPendente === 'reset' && (
+            <p className="rounded-lg bg-stamp/10 p-3 text-xs font-semibold text-stamp">Esta ação não pode ser desfeita.</p>
+          )}
+          {resetErro && <p className="text-xs font-medium text-stamp">{resetErro}</p>}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setAcaoPendente(null)}
+              disabled={resetando}
+              className="flex-1 rounded-lg border border-line bg-paper px-4 py-2.5 text-sm font-medium text-ink transition hover:bg-line/30 disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmarAcaoPendente}
+              disabled={resetando}
+              className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold text-paper transition disabled:opacity-60 ${
+                acaoPendente === 'reset' ? 'bg-stamp hover:bg-stamp/90' : 'bg-ledger hover:bg-ledger-strong'
+              }`}
+            >
+              {resetando ? 'Zerando...' : acaoPendente === 'reset' ? 'Sim, zerar dados' : 'Sim, sair'}
             </button>
           </div>
         </div>

@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type {
   AppData,
   Cliente,
+  CategoriaProduto,
   CompanyConfig,
   Conta,
   LancamentoManual,
@@ -9,7 +10,15 @@ import type {
   Venda,
   ViewPeriod,
 } from '../types';
-import { loadData, saveData, uid, STORAGE_KEY } from '../lib/storage';
+import { decodeToken, getStoredToken, TOKEN_KEY } from '../lib/auth';
+import {
+  APP_DATA_CHANGED_EVENT,
+  emptyData,
+  loadData,
+  saveData,
+  storageKeyForUser,
+  uid,
+} from '../lib/storage';
 import { todayISO } from '../lib/format';
 
 interface ResumoPeriodo {
@@ -38,6 +47,9 @@ interface AppDataContextValue {
   addProduto: (produto: Omit<Produto, 'id'>) => void;
   atualizarProduto: (id: string, patch: Partial<Omit<Produto, 'id'>>) => void;
   removerProduto: (id: string) => void;
+  addCategoria: (nome: string) => boolean;
+  editarCategoria: (id: string, nome: string) => boolean;
+  removerCategoria: (id: string) => void;
   addConta: (conta: Omit<Conta, 'id' | 'quitado'>) => void;
   editarConta: (id: string, patch: Partial<Omit<Conta, 'id'>>) => void;
   removerConta: (id: string) => void;
@@ -46,6 +58,7 @@ interface AppDataContextValue {
   editarLancamentoManual: (id: string, patch: Partial<Omit<LancamentoManual, 'id'>>) => void;
   removerLancamentoManual: (id: string) => void;
   addCliente: (cliente: Omit<Cliente, 'id'>) => Cliente;
+  editarCliente: (id: string, patch: Partial<Omit<Cliente, 'id'>>) => void;
   resetData: () => void;
   saldoCaixa: number;
   vendasHoje: number;
@@ -82,11 +95,28 @@ function diffDias(deIso: string, paraIso: string): number {
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<AppData>(() => loadData());
+  const getAuthenticatedUserId = () => {
+    const token = getStoredToken();
+    return token ? decodeToken(token)?.sub ?? null : null;
+  };
+  const initialUserId = getAuthenticatedUserId();
+  const activeUserIdRef = useRef<string | null>(initialUserId);
+  const [data, setData] = useState<AppData>(() => loadData(initialUserId));
 
   useEffect(() => {
-    saveData(data);
+    saveData(data, activeUserIdRef.current);
   }, [data]);
+
+  useEffect(() => {
+    const reloadAuthenticatedData = () => {
+      const userId = getAuthenticatedUserId();
+      activeUserIdRef.current = userId;
+      setData(userId ? loadData(userId) : emptyData);
+    };
+
+    window.addEventListener(APP_DATA_CHANGED_EVENT, reloadAuthenticatedData);
+    return () => window.removeEventListener(APP_DATA_CHANGED_EVENT, reloadAuthenticatedData);
+  }, []);
 
   useEffect(() => {
     // Sincroniza entre abas: se outra aba salvar (ou zerar) os dados, o
@@ -125,8 +155,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // nesse instante específico.
     const handleStorageChange = (event: StorageEvent) => {
       if (event.storageArea !== localStorage) return;
-      if (event.key !== null && event.key !== STORAGE_KEY) return;
-      setData(loadData());
+      const userId = getAuthenticatedUserId();
+      if (event.key === TOKEN_KEY) {
+        activeUserIdRef.current = userId;
+        setData(userId ? loadData(userId) : emptyData);
+        return;
+      }
+      if (event.key !== null && event.key !== storageKeyForUser(userId)) return;
+      setData(loadData(userId));
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -138,7 +174,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const addVenda = (venda: Omit<Venda, 'id'>, opts?: { clienteId?: string }) => {
-    const novaVenda: Venda = { ...venda, id: uid() };
+    const novaVenda: Venda = { ...venda, createdAt: venda.createdAt ?? new Date().toISOString(), id: uid() };
 
     setData((prev) => {
       let produtos = prev.produtos;
@@ -173,7 +209,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const vendaAtual = data.vendas.find((v) => v.id === id);
     if (!vendaAtual) return false;
 
-    const vendaAtualizada: Venda = { ...vendaAtual, ...patch };
+    const vendaAtualizada: Venda = {
+      ...vendaAtual,
+      ...patch,
+      createdAt:
+        patch.data && patch.data !== vendaAtual.data
+          ? `${patch.data}T12:00:00.000Z`
+          : vendaAtual.createdAt,
+    };
     const saiuDoFiado = vendaAtual.formaPagamento === 'fiado' && vendaAtualizada.formaPagamento !== 'fiado';
     const contaVinculada = saiuDoFiado ? data.contas.find((c) => c.origemVendaId === id) : undefined;
 
@@ -273,6 +316,57 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const addCategoria = (nome: string): boolean => {
+    const nomeNormalizado = nome.trim();
+    if (!nomeNormalizado) return false;
+    const categorias = data.categorias ?? [];
+    if (categorias.some((categoria) => categoria.nome.toLocaleLowerCase('pt-BR') === nomeNormalizado.toLocaleLowerCase('pt-BR'))) {
+      return false;
+    }
+    const novaCategoria: CategoriaProduto = { id: uid(), nome: nomeNormalizado };
+    setData((prev) => ({ ...prev, categorias: [...(prev.categorias ?? []), novaCategoria] }));
+    return true;
+  };
+
+  const editarCategoria = (id: string, nome: string): boolean => {
+    const nomeNormalizado = nome.trim();
+    const categorias = data.categorias ?? [];
+    const categoriaAtual = categorias.find((categoria) => categoria.id === id);
+    if (!categoriaAtual || !nomeNormalizado) return false;
+    if (
+      categorias.some(
+        (categoria) =>
+          categoria.id !== id &&
+          categoria.nome.toLocaleLowerCase('pt-BR') === nomeNormalizado.toLocaleLowerCase('pt-BR'),
+      )
+    ) {
+      return false;
+    }
+
+    setData((prev) => ({
+      ...prev,
+      categorias: (prev.categorias ?? []).map((categoria) =>
+        categoria.id === id ? { ...categoria, nome: nomeNormalizado } : categoria,
+      ),
+      produtos: prev.produtos.map((produto) =>
+        produto.categoria === categoriaAtual.nome ? { ...produto, categoria: nomeNormalizado } : produto,
+      ),
+    }));
+    return true;
+  };
+
+  const removerCategoria = (id: string) => {
+    const categoriaAtual = (data.categorias ?? []).find((categoria) => categoria.id === id);
+    if (!categoriaAtual) return;
+    setData((prev) => ({
+      ...prev,
+      categorias: (prev.categorias ?? []).filter((categoria) => categoria.id !== id),
+      produtos: prev.produtos.map((produto) =>
+        produto.categoria === categoriaAtual.nome ? { ...produto, categoria: undefined } : produto,
+      ),
+    }));
+  };
+
   const addConta = (conta: Omit<Conta, 'id' | 'quitado'>) => {
     setData((prev) => ({
       ...prev,
@@ -292,10 +386,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const marcarContaQuitada = (id: string, dataPagamento?: string) => {
+    const dataQuitacao = dataPagamento ?? todayISO();
+    const quitadoEm = dataQuitacao === todayISO() ? new Date().toISOString() : `${dataQuitacao}T12:00:00.000Z`;
     setData((prev) => ({
       ...prev,
       contas: prev.contas.map((c) =>
-        c.id === id ? { ...c, quitado: true, dataQuitacao: dataPagamento ?? todayISO() } : c,
+        c.id === id ? { ...c, quitado: true, dataQuitacao, quitadoEm } : c,
       ),
     }));
   };
@@ -303,14 +399,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const addLancamentoManual = (lancamento: Omit<LancamentoManual, 'id'>) => {
     setData((prev) => ({
       ...prev,
-      lancamentosManuais: [...prev.lancamentosManuais, { ...lancamento, id: uid() }],
+      lancamentosManuais: [
+        ...prev.lancamentosManuais,
+        { ...lancamento, createdAt: lancamento.createdAt ?? new Date().toISOString(), id: uid() },
+      ],
     }));
   };
 
   const editarLancamentoManual = (id: string, patch: Partial<Omit<LancamentoManual, 'id'>>) => {
     setData((prev) => ({
       ...prev,
-      lancamentosManuais: prev.lancamentosManuais.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+      lancamentosManuais: prev.lancamentosManuais.map((l) =>
+        l.id === id
+          ? {
+              ...l,
+              ...patch,
+              createdAt: patch.data && patch.data !== l.data ? `${patch.data}T12:00:00.000Z` : l.createdAt,
+            }
+          : l,
+      ),
     }));
   };
 
@@ -327,19 +434,31 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return novoCliente;
   };
 
+  const editarCliente = (id: string, patch: Partial<Omit<Cliente, 'id'>>) => {
+    setData((prev) => ({
+      ...prev,
+      clientes: prev.clientes.map((cliente) => (cliente.id === id ? { ...cliente, ...patch } : cliente)),
+    }));
+  };
+
   const resetData = () => {
-    setData({ config: null, vendas: [], produtos: [], contas: [], lancamentosManuais: [], clientes: [] });
+    setData({ config: null, vendas: [], produtos: [], categorias: [], contas: [], lancamentosManuais: [], clientes: [] });
   };
 
   const hoje = todayISO();
   const viewPeriod: ViewPeriod = data.config?.viewPeriod ?? 'day';
 
   const vendasHoje = useMemo(
-    () =>
-      data.vendas
-        .filter((v) => v.data === hoje)
-        .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0),
-    [data.vendas, hoje],
+    () => {
+      const vendasRecebidas = data.vendas
+        .filter((v) => v.data === hoje && v.formaPagamento !== 'fiado')
+        .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0);
+      const fiadosRecebidos = data.contas
+        .filter((c) => c.tipo === 'receber' && c.quitado && c.dataQuitacao === hoje)
+        .reduce((sum, c) => sum + c.valor, 0);
+      return vendasRecebidas + fiadosRecebidos;
+    },
+    [data.vendas, data.contas, hoje],
   );
 
   const contasQuitadasHoje = useMemo(
@@ -358,22 +477,35 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [contasQuitadasHoje, data.lancamentosManuais, hoje]);
 
   const lucroEstimadoHoje = useMemo(() => {
+    const vendasFiadoRecebidasHoje = new Set(
+      data.contas
+        .filter((c) => c.tipo === 'receber' && c.quitado && c.dataQuitacao === hoje && c.origemVendaId)
+        .map((c) => c.origemVendaId),
+    );
     return data.vendas
-      .filter((v) => v.data === hoje && v.produtoId)
+      .filter(
+        (v) =>
+          v.produtoId &&
+          ((v.data === hoje && v.formaPagamento !== 'fiado') || vendasFiadoRecebidasHoje.has(v.id)),
+      )
       .reduce((sum, v) => {
         const produto = data.produtos.find((p) => p.id === v.produtoId);
         if (!produto || produto.custo === undefined) return sum;
         return sum + (v.valorUnitario - produto.custo) * v.quantidade;
       }, 0);
-  }, [data.vendas, data.produtos, hoje]);
+  }, [data.vendas, data.produtos, data.contas, hoje]);
 
   const resumoPeriodo = useMemo<ResumoPeriodo>(() => {
     const dias = viewPeriod === 'day' ? [hoje] : ultimosNDias(hoje, 7);
     const diasSet = new Set(dias);
 
     const vendas = data.vendas
-      .filter((v) => diasSet.has(v.data))
+      .filter((v) => v.formaPagamento !== 'fiado' && diasSet.has(v.data))
       .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0);
+
+    const recebimentos = data.contas
+      .filter((c) => c.tipo === 'receber' && c.quitado && c.dataQuitacao && diasSet.has(c.dataQuitacao))
+      .reduce((sum, c) => sum + c.valor, 0);
 
     const contasPagas = data.contas
       .filter((c) => c.tipo === 'pagar' && c.quitado && c.dataQuitacao && diasSet.has(c.dataQuitacao))
@@ -382,7 +514,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .filter((l) => l.tipo === 'saida' && diasSet.has(l.data))
       .reduce((sum, l) => sum + l.valor, 0);
 
-    return { vendas, despesas: contasPagas + lancamentosSaida };
+    return { vendas: vendas + recebimentos, despesas: contasPagas + lancamentosSaida };
   }, [data.vendas, data.contas, data.lancamentosManuais, viewPeriod, hoje]);
 
   const vendasUltimos7Dias = useMemo(() => {
@@ -390,10 +522,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return dias.map((data_) => ({
       data: data_,
       total: data.vendas
-        .filter((v) => v.data === data_)
-        .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0),
+        .filter((v) => v.data === data_ && v.formaPagamento !== 'fiado')
+        .reduce((sum, v) => sum + v.quantidade * v.valorUnitario, 0) +
+        data.contas
+          .filter((c) => c.tipo === 'receber' && c.quitado && c.dataQuitacao === data_)
+          .reduce((sum, c) => sum + c.valor, 0),
     }));
-  }, [data.vendas, hoje]);
+  }, [data.vendas, data.contas, hoje]);
 
   const saldoCaixa = useMemo(() => {
     const entradasVendas = data.vendas
@@ -468,6 +603,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     addProduto,
     atualizarProduto,
     removerProduto,
+    addCategoria,
+    editarCategoria,
+    removerCategoria,
     addConta,
     editarConta,
     removerConta,
@@ -476,6 +614,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     editarLancamentoManual,
     removerLancamentoManual,
     addCliente,
+    editarCliente,
     resetData,
     saldoCaixa,
     vendasHoje,

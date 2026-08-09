@@ -1,3 +1,5 @@
+import type { AppData } from '../types';
+
 export const TOKEN_KEY = 'mnb-auth-token';
 
 export type TokenPayload = {
@@ -37,7 +39,12 @@ export function clearStoredToken() {
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
-export type AuthResponse = { token: string; user: { id: string; email: string } };
+export type AuthResponse = {
+  token: string;
+  user: { id: string; email: string };
+  data?: AppData | null;
+};
+export type SessionResponse = Omit<AuthResponse, 'token'>;
 
 async function parseJsonOrThrow(res: Response) {
   const body = await res.json().catch(() => null);
@@ -67,4 +74,44 @@ export async function loginRequest(email: string, password: string): Promise<Aut
     body: JSON.stringify({ email, password }),
   });
   return parseJsonOrThrow(res);
+}
+
+export async function forgotPasswordRequest(email: string): Promise<{ message: string; resetToken?: string }> {
+  const res = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function resetPasswordRequest(
+  token: string,
+  password: string,
+  confirmPassword: string,
+): Promise<{ message: string }> {
+  const res = await fetch(`${API_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password, confirmPassword }),
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function sessionRequest(token: string): Promise<SessionResponse> {
+  const res = await fetch(`${API_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJsonOrThrow(res);
+}
+
+export async function resetAccountDataRequest(token: string): Promise<void> {
+  const res = await fetch(`${API_URL}/account/data`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? 'Não foi possível zerar os dados da conta.');
+  }
 }

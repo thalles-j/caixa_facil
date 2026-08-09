@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { House, Calculator, Package, CurrencyDollar, Storefront } from '@phosphor-icons/react';
+import { House, Calculator, Package, CurrencyDollar, List } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 
 const items = [
@@ -43,7 +43,7 @@ export default function BottomNav() {
       <aside className="sticky top-0 hidden h-screen w-20 shrink-0 flex-col items-center gap-1 border-r border-line bg-paper-raised py-6 md:flex lg:w-56 lg:items-stretch lg:px-4">
         <div className="mb-6 flex items-center gap-2 px-1 lg:px-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ledger text-paper">
-            <Storefront size={18} weight="fill" />
+            <List size={22} weight="bold" aria-label="Menu" />
           </div>
           <span className="hidden font-display text-lg font-semibold lg:inline">Caderneta</span>
         </div>
