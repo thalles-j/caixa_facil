@@ -8,6 +8,12 @@ import type { CategoriaProduto, Produto } from '../types';
 type TipoFiltro = 'todos' | 'product' | 'service';
 type Filtro = 'todos' | 'baixo' | string;
 
+function obterTipoItem(item: Produto): 'product' | 'service' {
+  const tipoPersistido = (item as Produto & { type?: unknown }).type;
+  if (tipoPersistido === 'product' || tipoPersistido === 'service') return tipoPersistido;
+  return item.duracao ? 'service' : 'product';
+}
+
 export default function Catalogo() {
   const {
     data,
@@ -50,10 +56,11 @@ export default function Catalogo() {
 
   const itensFiltrados = useMemo(() => {
     return data.produtos.filter((item) => {
-      if (tipoFiltro === 'product' && item.type !== 'product') return false;
-      if (tipoFiltro === 'service' && item.type !== 'service') return false;
+      const tipoItem = obterTipoItem(item);
+      if (tipoFiltro === 'product' && tipoItem !== 'product') return false;
+      if (tipoFiltro === 'service' && tipoItem !== 'service') return false;
       if (filtro === 'baixo') {
-        return item.type === 'product' && (item.quantidade ?? 0) <= (item.quantidadeMinima ?? 0);
+        return tipoItem === 'product' && (item.quantidade ?? 0) <= (item.quantidadeMinima ?? 0);
       }
       if (filtro !== 'todos' && item.categoria !== filtro) return false;
       if (!busca.trim()) return true;
@@ -64,12 +71,14 @@ export default function Catalogo() {
   const abrirNovo = () => {
     setProdutoEditando(null);
     setItemType(tipoPadrao);
+    setConfirmarRemocaoAberto(false);
     setModalAberto(true);
   };
 
   const abrirEdicao = (produto: Produto) => {
     setProdutoEditando(produto);
-    setItemType(produto.type);
+    setItemType(obterTipoItem(produto));
+    setConfirmarRemocaoAberto(false);
     setModalAberto(true);
   };
 
@@ -179,7 +188,7 @@ export default function Catalogo() {
   };
 
   const quantidadeBaixa = (item: Produto) => {
-    return item.type === 'product' && (item.quantidade ?? 0) <= (item.quantidadeMinima ?? 0);
+    return obterTipoItem(item) === 'product' && (item.quantidade ?? 0) <= (item.quantidadeMinima ?? 0);
   };
 
   return (
@@ -292,6 +301,7 @@ export default function Catalogo() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {itensFiltrados.map((item) => {
             const baixo = quantidadeBaixa(item);
+            const tipoItem = obterTipoItem(item);
             return (
               <div
                 key={item.id}
@@ -301,7 +311,7 @@ export default function Catalogo() {
               >
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-line/40 text-ledger-strong dark:text-ledger">
-                    {item.type === 'product' ? <Package size={22} /> : <Wrench size={22} />}
+                    {tipoItem === 'product' ? <Package size={22} /> : <Wrench size={22} />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -319,7 +329,7 @@ export default function Catalogo() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {item.type === 'product' ? (
+                  {tipoItem === 'product' ? (
                     <span className={`stamp ${baixo ? 'text-stamp' : 'text-ink-soft'}`}>
                       {item.quantidade ?? 0} em estoque
                     </span>
@@ -360,18 +370,19 @@ export default function Catalogo() {
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-soft">Tipo</label>
             <div
+              data-selected={itemType}
               data-choice-position={itemType === 'service' ? 'second' : 'first'}
-              className="sliding-choice grid grid-cols-2 rounded-xl bg-line/40 p-1"
+              className="sliding-choice catalog-type-choice grid grid-cols-2 rounded-xl border border-line bg-line/40 p-1"
             >
               <button
                 type="button"
                 disabled={!permiteTrocarTipo && tipoPadrao !== 'product'}
                 onClick={() => setItemType('product')}
                 data-selected={itemType === 'product'}
-                className={`choice-option rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                className={`choice-option rounded-lg border-0 px-4 py-3 text-sm font-semibold ${
                   itemType === 'product'
-                    ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger'
-                    : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
+                    ? 'bg-ledger/10 text-ledger-strong dark:text-ledger'
+                    : 'bg-transparent text-ink-soft hover:text-ink'
                 } ${!permiteTrocarTipo && tipoPadrao !== 'product' ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 Produto
@@ -381,10 +392,10 @@ export default function Catalogo() {
                 disabled={!permiteTrocarTipo && tipoPadrao !== 'service'}
                 onClick={() => setItemType('service')}
                 data-selected={itemType === 'service'}
-                className={`choice-option rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                className={`choice-option rounded-lg border-0 px-4 py-3 text-sm font-semibold ${
                   itemType === 'service'
-                    ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger'
-                    : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
+                    ? 'bg-ledger/10 text-ledger-strong dark:text-ledger'
+                    : 'bg-transparent text-ink-soft hover:text-ink'
                 } ${!permiteTrocarTipo && tipoPadrao !== 'service' ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 Serviço

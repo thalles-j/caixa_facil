@@ -139,6 +139,31 @@ body {
   background-color: #934038;
 }
 
+.catalog-type-choice[data-selected='product']::before {
+  background-color: #1f6f4a;
+}
+
+.catalog-type-choice[data-selected='service']::before {
+  background-color: #8a6024;
+}
+
+.catalog-type-choice > .choice-option[data-selected='true'] {
+  color: #fff !important;
+}
+
+.catalog-type-choice > .choice-option {
+  border: 0 !important;
+  border-radius: 0.5rem;
+}
+
+.dark .catalog-type-choice[data-selected='product']::before {
+  background-color: #245f47;
+}
+
+.dark .catalog-type-choice[data-selected='service']::before {
+  background-color: #745224;
+}
+
 .dark .choice-option[data-selected='true'],
 .dark .choice-option[aria-pressed='true'],
 .dark .choice-option[aria-current='page'] {
@@ -201,6 +226,22 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -277,12 +318,9 @@ body {
   }
 
   .fade-in,
-  .modal-overlay.active {
-    animation: none;
-  }
-
+  .modal-overlay.active,
   .modal-content {
-    transition: none;
+    animation: none;
   }
 }
 
@@ -290,16 +328,15 @@ body {
   display: none;
   position: fixed;
   inset: 0;
-  background-color: rgba(36, 26, 18, 0.55);
+  background-color: rgba(20, 16, 12, 0.72);
   z-index: 100;
-  backdrop-filter: blur(4px);
 }
 
 .modal-overlay.active {
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: fadeIn 0.2s ease-out;
+  animation: modal-overlay-in 180ms ease-out;
 }
 
 .modal-content {
@@ -310,8 +347,7 @@ body {
   max-width: 420px;
   max-height: 90vh;
   overflow-y: auto;
-  transform: scale(0.95);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modal-content-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 25px 50px -12px rgba(36, 26, 18, 0.3);
   border: 1px solid var(--color-line);
 }
