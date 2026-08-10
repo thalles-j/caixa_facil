@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import { readFile } from 'node:fs/promises';
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
 
@@ -7,7 +6,7 @@ const { Pool } = pg;
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL nao foi definida em server/.env.');
+  throw new Error('DATABASE_URL nao foi definida em backend/.env.');
 }
 
 const normalizedDatabaseUrl = new URL(databaseUrl);
@@ -49,11 +48,6 @@ function daysAgoAt(days, hour, minute = 0) {
 
 function money(value, factor) {
   return Number((value * factor).toFixed(2));
-}
-
-async function applySchema() {
-  const schema = await readFile(new URL('../sql/schema.sql', import.meta.url), 'utf8');
-  await pool.query(schema);
 }
 
 async function resetDatabase() {
@@ -687,8 +681,6 @@ async function seedTenant(client, user, passwordHash) {
 }
 
 async function main() {
-  console.log('Aplicando schema...');
-  await applySchema();
   if (RESET_DATABASE) await resetDatabase();
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);

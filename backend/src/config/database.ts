@@ -1,7 +1,4 @@
 import { Pool } from 'pg';
-import { readFile } from 'node:fs/promises';
-
-const schemaUrl = new URL('../sql/schema.sql', import.meta.url);
 const configuredDatabaseUrl = process.env.DATABASE_URL;
 
 if (!configuredDatabaseUrl) {
@@ -46,24 +43,6 @@ export const pool = createPool(
   runtimeDatabaseUrl,
   positiveInteger(process.env.DB_POOL_MAX, 10),
 );
-
-export async function ensureSchema() {
-  const schema = await readFile(schemaUrl, 'utf8');
-  // Se uma URL direta existir, ela e preferida para DDL. Caso contrario, o
-  // mesmo pool do runtime e usado; DATABASE_URL_UNPOOLED nao e obrigatoria.
-  const migrationDatabaseUrl = process.env.DATABASE_URL_UNPOOLED ?? runtimeDatabaseUrl;
-  if (migrationDatabaseUrl === runtimeDatabaseUrl) {
-    await pool.query(schema);
-    return;
-  }
-
-  const migrationPool = createPool(migrationDatabaseUrl, 1);
-  try {
-    await migrationPool.query(schema);
-  } finally {
-    await migrationPool.end();
-  }
-}
 
 /**
  * Executa operacoes autenticadas com o tenant preso a uma transacao.

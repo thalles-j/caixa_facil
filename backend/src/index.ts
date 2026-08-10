@@ -1,13 +1,12 @@
 import 'dotenv/config';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
-import { ensureSchema } from './db.js';
-import { authRouter } from './auth/routes.js';
-import { accountRouter } from './account/routes.js';
-import { businessRouter } from './business/routes.js';
+import { authRouter } from './routes/auth.routes.js';
+import { accountRouter } from './routes/account.routes.js';
+import { businessRouter } from './routes/business.routes.js';
 
 const app = express();
-const PORT = process.env.PORT ?? 3001;
+const PORT = process.env.PORT ?? 3000;
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
   .split(',')
@@ -84,31 +83,19 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   }
   if (code === '42P01') {
     return res.status(503).json({
-      error: 'Banco de dados ainda não preparado. Execute npm run db:schema no servidor.',
+      error: 'Banco de dados ainda não preparado. Execute as migrações Prisma.',
     });
   }
 
   return res.status(500).json({ error: 'Erro interno do servidor.' });
 });
 
-const prepareDatabase =
-  process.env.NODE_ENV !== 'production' || process.env.RUN_DB_MIGRATIONS_ON_STARTUP === 'true'
-    ? ensureSchema()
-    : Promise.resolve();
-
-prepareDatabase
-  .then(() => {
-    const server = app.listen(PORT, () => console.log(`API rodando em http://localhost:${PORT}`));
-    server.on('error', (error: NodeJS.ErrnoException) => {
-      if (error.code === 'EADDRINUSE') {
-        console.error(`A porta ${PORT} já está em uso. Encerre a API anterior e tente novamente.`);
-      } else {
-        console.error('Falha ao iniciar o servidor HTTP:', error);
-      }
-      process.exit(1);
-    });
-  })
-  .catch((err) => {
-    console.error('Falha ao preparar o banco de dados:', err);
-    process.exit(1);
-  });
+const server = app.listen(PORT, () => console.log(`API rodando em http://localhost:${PORT}`));
+server.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`A porta ${PORT} já está em uso. Encerre a API anterior e tente novamente.`);
+  } else {
+    console.error('Falha ao iniciar o servidor HTTP:', error);
+  }
+  process.exit(1);
+});

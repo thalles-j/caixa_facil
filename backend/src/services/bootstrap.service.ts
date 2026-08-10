@@ -1,4 +1,4 @@
-import { withTenantTransaction } from '../db.js';
+import { withTenantTransaction } from '../config/database.js';
 
 type UserIdentity = {
   id: string;

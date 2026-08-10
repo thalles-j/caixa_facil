@@ -164,7 +164,7 @@ O projeto é um app de gestão financeira/operacional para pequenos negócios (p
 ### [MÉDIO] Nenhum caminho de deploy definido
 - Status: Confirmado
 - Área: infra / produção
-- Evidência: ausência de `Dockerfile`, `vercel.json`, `netlify.toml`, workflow de deploy ou qualquer documentação de hospedagem no repositório.
+- Evidência: ausência de configuração de hospedagem ou workflow de deploy no repositório auditado.
 - Impacto: "produção" hoje significaria rodar `vite build` manualmente e hospedar `dist/` em algum lugar não documentado — não repetível, não versionado.
 - Como corrigir: escolher uma plataforma estática (Vercel/Netlify/GitHub Pages) e configurar o deploy automático a partir de `main`.
 - Esforço estimado: Baixo.

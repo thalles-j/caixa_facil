@@ -1,81 +1,126 @@
-# Meu Negocio no Bolso
+# CaixaFácil
 
-## Banco PostgreSQL
+Aplicação de gestão de caixa organizada como um monorepo npm: React/Vite no
+frontend e uma API Express/PostgreSQL no backend.
 
-O schema completo fica em [`server/sql/schema.sql`](server/sql/schema.sql) e e
-aplicado automaticamente pela API na inicializacao. Ele inclui vendas e itens,
-catalogo, clientes, despesas recorrentes, sessoes de caixa, fiado, relatorios,
-indices compostos e Row Level Security por `user_id`.
+## Requisitos
 
-Configure `DATABASE_URL` a partir de `server/.env.example`. No painel do Neon,
-copie a URL pooled para essa variavel e mantenha `sslmode=require`. A variavel
-`DATABASE_URL_UNPOOLED` e opcional; quando ausente, o comando de schema usa a
-propria conexao pooled.
+- Node.js 22.12 ou superior
+- Um banco PostgreSQL no Neon
 
-Antes de iniciar a aplicacao pela primeira vez, aplique o schema:
+## Instalação
+
+Na raiz do projeto, um único comando instala as dependências da raiz e dos dois
+workspaces:
 
 ```bash
-cd server
-npm run db:schema
-cd ..
-npm run dev
+npm install
 ```
 
-O `npm run dev` da raiz inicia API e front-end juntos, informa as URLs no
-terminal e encerra os dois processos com um unico `Ctrl+C`. Para executar apenas
-um servico, use `npm run dev:web` ou `npm run dev:api`. As mensagens recebem os
-prefixos `[FRONT]` e `[BACK]`; as portas `5173` e `3000` sao estritas, então uma
-segunda execucao mostra qual processo ja esta ativo em vez de escolher outra
-porta silenciosamente.
-
-Por padrao, o Vite encaminha `/api` para `http://localhost:3000`, a mesma porta
-definida no exemplo de `server/.env`.
-
-Em producao, execute `npm run db:schema:prod` como etapa de release depois do
-build. A API nao executa DDL automaticamente em producao, evitando que varias
-instancias concorrentes disputem locks de schema no Neon.
-
-### Dados de demonstracao
-
-Com `DATABASE_URL` configurada, a seed cria duas contas com produtos, servicos,
-clientes, despesas, sessoes de caixa e vendas a vista/fiado:
+Crie os arquivos locais de ambiente a partir dos exemplos:
 
 ```bash
-cd server
+cp frontend/.env.example frontend/.env
+cp backend/.env.example backend/.env
+```
+
+Preencha `backend/.env` com a connection string pooled do Neon e gere segredos
+JWT diferentes. Em desenvolvimento, `VITE_API_URL=/api` usa o proxy do Vite.
+
+## Banco de dados
+
+O modelo declarativo está em
+[`backend/prisma/schema.prisma`](backend/prisma/schema.prisma). A migração inicial
+preserva as regras PostgreSQL específicas do projeto, incluindo RLS por usuário,
+triggers de integridade, views de relatório e a função atômica de fechamento de
+caixa.
+
+Valide e aplique as migrações no Neon:
+
+```bash
+npm run prisma:validate
+npm run prisma:deploy
+```
+
+Para criar dados de demonstração:
+
+```bash
 npm run seed
 ```
 
-- `thalles@gmail.com` / `123456`
-- `gustavo@gmail.com` / `123456`
-- `marco@gmail.com` / `123456`
-
-A seed e nao destrutiva: cria e popula somente contas ausentes. Se um dos
-e-mails ja existir, seus dados e sua senha sao preservados. A senha curta existe
-apenas para demonstracao e deve ser trocada fora do ambiente de desenvolvimento.
-
-Para reiniciar integralmente o banco configurado e recriar os dados de
-demonstracao com o schema atual, use o modo explicito `--reset`:
+A seed é não destrutiva e ignora contas que já existem. O modo abaixo apaga os
+dados do banco configurado antes de recriá-los; use somente em desenvolvimento:
 
 ```bash
-cd server
-npm run seed -- --reset
+npm run seed:reset
 ```
 
-Esse comando remove todas as contas e dados de negocio do banco apontado por
-`DATABASE_URL`; use apenas em desenvolvimento.
+Contas de demonstração (senha `123456`):
 
-Toda rota autenticada que consulta dados de negocio deve usar
-`withTenantTransaction(userId, callback)` de `server/src/db.ts`. O helper define
-`app.current_user_id` somente durante a transacao, requisito para que as policies
-de RLS permitam acesso e para que uma conexao reutilizada pelo pool nao carregue
-o tenant da requisicao anterior.
+- `thalles@gmail.com`
+- `gustavo@gmail.com`
+- `marco@gmail.com`
 
-Venda `fiado` e registrada em `sales` + `credit_sales`, sem entrada em
-`transactions`. Cada recebimento (inclusive parcial) e uma transaction com
-`source = 'pagamento_fiado'`; um trigger atualiza a divida. Assim `daily_balance`
-contabiliza somente dinheiro efetivamente recebido.
+## Desenvolvimento
 
-No Neon, a connection string usa a role proprietaria apenas para autenticar e
-aplicar schema. Cada operacao de negocio executa `SET LOCAL ROLE
-mnb_app_runtime`, uma role `NOBYPASSRLS`, garantindo que as policies sejam
-aplicadas mesmo quando `neondb_owner` possui `BYPASSRLS`.
+Inicie frontend e backend juntos:
+
+```bash
+npm run dev
+```
+
+Os processos aparecem como `[FRONTEND]` em ciano e `[BACKEND]` em magenta. O
+frontend só é iniciado depois que o health check da API responde, evitando erros
+de proxy durante a subida. Para executar apenas um deles:
+
+```bash
+npm run dev:frontend
+npm run dev:backend
+```
+
+Endereços padrão:
+
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:3000`
+- Health check: `http://localhost:3000/api/health`
+
+## Qualidade e build
+
+Os comandos da raiz percorrem os workspaces automaticamente:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+Em produção, execute `npm run prisma:deploy` antes de iniciar a API com
+`npm run start --workspace backend`.
+
+## Estrutura
+
+```text
+.
+├── backend/
+│   ├── prisma/
+│   │   ├── migrations/
+│   │   ├── schema.prisma
+│   │   └── seed.js
+│   └── src/
+│       ├── config/
+│       ├── routes/
+│       └── services/
+├── frontend/
+│   ├── public/
+│   └── src/
+│       ├── components/
+│       ├── context/
+│       ├── lib/
+│       └── pages/
+└── package.json
+```
+
+Toda consulta autenticada do backend deve usar
+`withTenantTransaction(userId, callback)`, em `backend/src/config/database.ts`.
+O helper define o tenant somente durante a transação e troca para a role
+`mnb_app_runtime`, garantindo a aplicação das policies de RLS no Neon.

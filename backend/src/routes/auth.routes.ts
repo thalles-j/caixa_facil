@@ -1,9 +1,9 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import crypto from 'node:crypto';
-import { pool } from '../db.js';
-import { loadBootstrapData } from '../business/bootstrap.js';
-import { hashPassword, comparePassword } from './password.js';
-import { signRefreshToken, signToken, verifyRefreshToken, verifyToken } from './jwt.js';
+import { pool } from '../config/database.js';
+import { loadBootstrapData } from '../services/bootstrap.service.js';
+import { hashPassword, comparePassword } from '../services/password.service.js';
+import { signRefreshToken, signToken, verifyRefreshToken, verifyToken } from '../services/token.service.js';
 
 export const authRouter = Router();
 

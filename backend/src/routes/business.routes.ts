@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { verifyToken } from '../auth/jwt.js';
-import { withTenantTransaction } from '../db.js';
-import { loadBootstrapData } from './bootstrap.js';
+import { withTenantTransaction } from '../config/database.js';
+import { loadBootstrapData } from '../services/bootstrap.service.js';
+import { verifyToken } from '../services/token.service.js';
 
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
 type AuthenticatedUser = { id: string; email: string };

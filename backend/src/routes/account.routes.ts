@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { pool, withTenantTransaction } from '../db.js';
-import { verifyToken } from '../auth/jwt.js';
-import { comparePassword, hashPassword } from '../auth/password.js';
+import { pool, withTenantTransaction } from '../config/database.js';
+import { verifyToken } from '../services/token.service.js';
+import { comparePassword, hashPassword } from '../services/password.service.js';
 
 export const accountRouter = Router();
 
