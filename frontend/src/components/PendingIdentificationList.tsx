@@ -5,12 +5,6 @@ import { formatCurrency } from '../lib/format';
 import { TIPOS_DESPESA } from '../types';
 import type { LancamentoManual, TipoDespesa, TipoEntrada } from '../types';
 
-const TIPOS_ENTRADA: ReadonlyArray<{ valor: TipoEntrada; label: string }> = [
-  { valor: 'produto', label: 'Produto' },
-  { valor: 'servico', label: 'Serviço' },
-  { valor: 'gorjeta', label: 'Gorjeta' },
-];
-
 const FORMAS_PAGAMENTO: Record<string, string> = {
   dinheiro: 'Dinheiro',
   pix: 'Pix',
@@ -19,26 +13,38 @@ const FORMAS_PAGAMENTO: Record<string, string> = {
 };
 
 export default function PendingIdentificationList({ lancamentos }: { lancamentos: LancamentoManual[] }) {
-  const { resolverPendenciaNoBanco } = useAppData();
+  const { data, resolverPendenciaNoBanco } = useAppData();
   const [selecoes, setSelecoes] = useState<Record<string, string>>({});
   const [resolvendoId, setResolvendoId] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const produtos = data.produtos.filter((produto) => produto.type === 'product');
+  const servicos = data.produtos.filter((produto) => produto.type === 'service');
 
   const resolver = async (lancamento: LancamentoManual) => {
-    const classificacao = selecoes[lancamento.id] as TipoEntrada | TipoDespesa | undefined;
-    if (!classificacao) {
+    const selecao = selecoes[lancamento.id];
+    if (!selecao) {
       setErro(
         lancamento.tipo === 'entrada'
-          ? 'Escolha Produto, Serviço ou Gorjeta para confirmar a entrada.'
+          ? 'Escolha qual produto, qual serviço ou marque como gorjeta.'
           : 'Escolha uma categoria para confirmar a despesa.',
       );
       return;
     }
 
+    let classificacao: TipoEntrada | TipoDespesa;
+    let produtoId: string | undefined;
+    if (lancamento.tipo === 'entrada') {
+      const [tipoEntrada, itemId] = selecao.split(':');
+      classificacao = tipoEntrada as TipoEntrada;
+      produtoId = itemId || undefined;
+    } else {
+      classificacao = selecao as TipoDespesa;
+    }
+
     setResolvendoId(lancamento.id);
     setErro(null);
     try {
-      await resolverPendenciaNoBanco(lancamento.id, classificacao);
+      await resolverPendenciaNoBanco(lancamento.id, classificacao, produtoId);
       setSelecoes((atual) => {
         const proximo = { ...atual };
         delete proximo[lancamento.id];
@@ -55,7 +61,6 @@ export default function PendingIdentificationList({ lancamentos }: { lancamentos
     <div className="space-y-3">
       {lancamentos.map((lancamento) => {
         const entrada = lancamento.tipo === 'entrada';
-        const opcoes = entrada ? TIPOS_ENTRADA : TIPOS_DESPESA;
         const Icon = entrada ? ArrowUp : ArrowDown;
 
         return (
@@ -84,10 +89,30 @@ export default function PendingIdentificationList({ lancamentos }: { lancamentos
                 aria-label={entrada ? 'Classificar entrada' : 'Classificar despesa'}
                 className="min-w-0 flex-1 rounded-lg border border-line bg-paper-raised px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
               >
-                <option value="">{entrada ? 'Produto, serviço ou gorjeta' : 'Categoria da despesa'}</option>
-                {opcoes.map((opcao) => (
-                  <option key={opcao.valor} value={opcao.valor}>{opcao.label}</option>
-                ))}
+                <option value="">{entrada ? 'Qual produto, serviço ou gorjeta?' : 'Categoria da despesa'}</option>
+                {entrada ? (
+                  <>
+                    <option value="gorjeta">Gorjeta — entrada direta</option>
+                    {produtos.length > 0 && (
+                      <optgroup label="Produtos">
+                        {produtos.map((produto) => (
+                          <option key={produto.id} value={`produto:${produto.id}`}>{produto.nome}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {servicos.length > 0 && (
+                      <optgroup label="Serviços">
+                        {servicos.map((servico) => (
+                          <option key={servico.id} value={`servico:${servico.id}`}>{servico.nome}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                ) : (
+                  TIPOS_DESPESA.map((opcao) => (
+                    <option key={opcao.valor} value={opcao.valor}>{opcao.label}</option>
+                  ))
+                )}
               </select>
               <button
                 type="button"
@@ -99,6 +124,11 @@ export default function PendingIdentificationList({ lancamentos }: { lancamentos
                 {resolvendoId === lancamento.id ? 'Confirmando…' : 'Resolver'}
               </button>
             </div>
+            {entrada && produtos.length === 0 && servicos.length === 0 && (
+              <p className="mt-2 text-xs text-brass">
+                Nenhum item ativo no catálogo; esta entrada ainda pode ser identificada como gorjeta.
+              </p>
+            )}
           </article>
         );
       })}

@@ -11,6 +11,7 @@ import {
   PencilSimple,
   Trash,
   Phone,
+  WhatsappLogo,
   ArrowsClockwise,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
@@ -18,6 +19,7 @@ import { formatCurrency, formatDate, parseMoney, sanitizeMoneyInput, todayISO } 
 import Modal from '../components/Modal';
 import type { Cliente, Conta, FormaPagamento, LancamentoManual, TipoConta } from '../types';
 import FinanceNav from '../components/FinanceNav';
+import { buildWhatsAppChargeUrl } from '../lib/whatsapp';
 
 type ItemParaExcluir = { tipo: 'conta' | 'lancamento'; id: string; label: string };
 type BaixaPendente = { tipo: 'fiado' | 'fixa'; id: string; nome: string; valor: number };
@@ -36,7 +38,7 @@ export default function Financas() {
     baixarDespesaFixa,
   } = useAppData();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const aba: TipoConta = searchParams.get('tab') === 'receber' ? 'receber' : 'pagar';
   const [modalAberto, setModalAberto] = useState(false);
   const [contaEditando, setContaEditando] = useState<Conta | null>(null);
@@ -191,29 +193,41 @@ export default function Financas() {
   const hoje = todayISO();
   const mostrarPainelClientes = aba === 'receber' && saldoPorCliente.length > 0;
 
+  const selecionarAba = (proximaAba: TipoConta) => {
+    if (proximaAba === aba) return;
+    setSearchParams({ tab: proximaAba }, { replace: true });
+  };
+
   return (
     <div className="fade-in">
       <h2 className="font-display text-2xl font-bold text-ink">Financeiro</h2>
       <p className="mt-1 text-sm text-ink-soft">Suas principais contas aqui!</p>
       <FinanceNav />
 
-      <div className="mb-6 flex rounded-xl bg-line/40 p-1">
-        <Link
-          to="/financas?tab=pagar"
-          className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+      <div
+        data-choice-position={aba === 'receber' ? 'second' : 'first'}
+        className="sliding-choice mb-6 grid grid-cols-2 rounded-xl bg-line/40 p-1"
+      >
+        <button
+          type="button"
+          onClick={() => selecionarAba('pagar')}
+          data-selected={aba === 'pagar'}
+          className={`choice-option flex-1 rounded-lg py-2 text-sm font-medium ${
             aba === 'pagar' ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft'
           } text-center`}
         >
           A Pagar
-        </Link>
-        <Link
-          to="/financas?tab=receber"
-          className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+        </button>
+        <button
+          type="button"
+          onClick={() => selecionarAba('receber')}
+          data-selected={aba === 'receber'}
+          className={`choice-option flex-1 rounded-lg py-2 text-sm font-medium ${
             aba === 'receber' ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft'
           } text-center`}
         >
           A Receber (Fiado)
-        </Link>
+        </button>
       </div>
 
       <div className="mb-4 flex items-end justify-between gap-3">
@@ -327,6 +341,16 @@ export default function Financas() {
                   const venceHoje = conta.vencimento === hoje && !conta.quitado;
                   const atrasada = !conta.quitado && conta.vencimento < hoje;
                   const cliente = conta.clienteId ? clientesPorId.get(conta.clienteId) : undefined;
+                  const whatsappUrl = !conta.quitado && cliente
+                    ? buildWhatsAppChargeUrl({
+                        telefone: cliente.telefone,
+                        clienteNome: cliente.nome,
+                        valor: conta.valor,
+                        descricao: conta.descricao,
+                        vencimento: conta.vencimento,
+                        nomeNegocio: data.config?.nome,
+                      })
+                    : null;
                   return (
                     <li
                       key={conta.id}
@@ -384,6 +408,17 @@ export default function Financas() {
                           {formatCurrency(conta.valor)}
                         </p>
                         <div className="flex items-center gap-1">
+                          {whatsappUrl && (
+                            <a
+                              href={whatsappUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`Cobrar ${cliente?.nome ?? 'cliente'} pelo WhatsApp`}
+                              className="inline-flex items-center gap-1 rounded bg-[#25D366]/15 px-2 py-1 text-xs font-semibold text-[#128C4A] dark:text-[#55e781]"
+                            >
+                              <WhatsappLogo size={14} weight="fill" /> Cobrar
+                            </a>
+                          )}
                           {!conta.quitado && (
                             <button
                               onClick={() => {
@@ -466,19 +501,41 @@ export default function Financas() {
                 <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">Por Cliente</h3>
               </div>
               <ul className="divide-y divide-line">
-                {saldoPorCliente.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                    <div className="min-w-0">
-                      <p className="truncate text-ink">{c.nome}</p>
-                      {c.telefone && (
-                        <p className="flex items-center gap-1 truncate text-[11px] text-ink-soft">
-                          <Phone size={11} className="shrink-0" /> {c.telefone}
-                        </p>
+                {saldoPorCliente.map((c) => {
+                  const whatsappUrl = buildWhatsAppChargeUrl({
+                    telefone: c.telefone,
+                    clienteNome: c.nome,
+                    valor: c.total,
+                    nomeNegocio: data.config?.nome,
+                  });
+                  return (
+                    <li key={c.id} className="py-2 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-ink">{c.nome}</p>
+                          {c.telefone && (
+                            <p className="flex items-center gap-1 truncate text-[11px] text-ink-soft">
+                              <Phone size={11} className="shrink-0" /> {c.telefone}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 font-ledger font-bold tabular-nums text-brass">{formatCurrency(c.total)}</span>
+                      </div>
+                      {whatsappUrl ? (
+                        <a
+                          href={whatsappUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#25D366]/15 px-2 py-1.5 text-xs font-bold text-[#128C4A] dark:text-[#55e781]"
+                        >
+                          <WhatsappLogo size={15} weight="fill" /> Cobrar via WhatsApp
+                        </a>
+                      ) : (
+                        <p className="mt-1 text-[11px] text-ink-soft">Cadastre o telefone para cobrar pelo WhatsApp.</p>
                       )}
-                    </div>
-                    <span className="shrink-0 font-ledger font-bold tabular-nums text-brass">{formatCurrency(c.total)}</span>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </div>

@@ -202,16 +202,21 @@ export default function FecharCaixa() {
             </div>
 
             <form className="min-w-0 space-y-4" onSubmit={salvarLancamento}>
-              <div className="grid grid-cols-2 rounded-xl bg-line/40 p-1">
+              <div
+                data-selected={tipoLancamento}
+                data-choice-position={tipoLancamento === 'saida' ? 'second' : 'first'}
+                className="sliding-choice entry-exit-choice grid grid-cols-2 rounded-xl bg-line/40 p-1"
+              >
                 {(['entrada', 'saida'] as const).map((tipo) => (
                   <button
                     key={tipo}
                     type="button"
+                    data-selected={tipoLancamento === tipo}
                     onClick={() => {
                       setTipoLancamento(tipo);
                       setErroLancamento(null);
                     }}
-                    className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    className={`choice-option flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${
                       tipoLancamento === tipo
                         ? tipo === 'entrada'
                           ? 'bg-paper-raised text-ledger-strong shadow-sm dark:text-ledger'
@@ -262,8 +267,9 @@ export default function FecharCaixa() {
                       <button
                         key={tipo.valor}
                         type="button"
+                        data-selected={tipoEntrada === tipo.valor}
                         onClick={() => setTipoEntrada(tipo.valor)}
-                        className={`rounded-lg border px-2 py-2 text-xs font-semibold ${tipoEntrada === tipo.valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
+                        className={`choice-option rounded-lg border px-2 py-2 text-xs font-semibold ${tipoEntrada === tipo.valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
                       >
                         {tipo.label}
                       </button>
@@ -296,8 +302,9 @@ export default function FecharCaixa() {
                     <button
                       key={valor}
                       type="button"
+                      data-selected={formaPagamento === valor}
                       onClick={() => setFormaPagamento(valor)}
-                      className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold ${formaPagamento === valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
+                      className={`choice-option flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold ${formaPagamento === valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
                     >
                       <Icon size={15} /> {label}
                     </button>

@@ -183,7 +183,8 @@ export default function Onboarding() {
                         key={ramo}
                         type="button"
                         onClick={() => setCategoria(ramo)}
-                        className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-3 text-center transition ${
+                        data-selected={selecionado}
+                        className={`choice-option flex flex-col items-center gap-2 rounded-2xl border-2 p-3 text-center ${
                           selecionado ? 'border-ledger bg-ledger/10' : 'border-line bg-paper'
                         }`}
                       >
@@ -211,7 +212,8 @@ export default function Onboarding() {
                     key={valor}
                     type="button"
                     onClick={() => selecionarOferta(valor)}
-                    className={`w-full rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition ${
+                    data-selected={oferta === valor}
+                    className={`choice-option w-full rounded-xl border-2 px-4 py-3 text-left text-sm font-medium ${
                       oferta === valor ? 'border-ledger bg-ledger/10 text-ledger-strong' : 'border-line bg-paper text-ink'
                     }`}
                   >
@@ -240,7 +242,8 @@ export default function Onboarding() {
                       type="button"
                       onClick={() => setNovaDespesaNome(sugestao)}
                       title={`Usar ${sugestao}`}
-                      className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition ${
+                      data-selected={novaDespesaNome === sugestao}
+                      className={`choice-option flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-semibold ${
                         novaDespesaNome === sugestao
                           ? 'border-ledger bg-ledger/10 text-ledger-strong'
                           : 'border-line bg-paper text-ink-soft hover:border-ledger/40 hover:text-ink'
@@ -282,7 +285,10 @@ export default function Onboarding() {
 
                 <fieldset>
                   <legend className="mb-2 text-[10px] font-bold uppercase tracking-wide text-ink-soft">Com que frequência?</legend>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div
+                    data-choice-position={novaDespesaRecorrencia === 'semanal' ? 'second' : 'first'}
+                    className="sliding-choice grid grid-cols-2 rounded-xl bg-line/40 p-1"
+                  >
                     {([
                       ['mensal', 'Todo mês'],
                       ['semanal', 'Toda semana'],
@@ -292,7 +298,7 @@ export default function Onboarding() {
                         type="button"
                         aria-pressed={novaDespesaRecorrencia === recorrencia}
                         onClick={() => setNovaDespesaRecorrencia(recorrencia)}
-                        className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                        className={`choice-option rounded-xl border px-3 py-2.5 text-xs font-semibold ${
                           novaDespesaRecorrencia === recorrencia
                             ? 'border-ledger bg-ledger/10 text-ledger-strong'
                             : 'border-line bg-paper-raised text-ink-soft'
@@ -366,11 +372,15 @@ export default function Onboarding() {
                 <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-ink-soft">
                   Painel Inicial mostra números de:
                 </label>
-                <div className="flex gap-2">
+                <div
+                  data-choice-position={viewPeriod === 'week' ? 'second' : 'first'}
+                  className="sliding-choice grid grid-cols-2 rounded-xl bg-line/40 p-1"
+                >
                   <button
                     type="button"
                     onClick={() => setViewPeriod('day')}
-                    className={`flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium transition ${
+                    data-selected={viewPeriod === 'day'}
+                    className={`choice-option flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium ${
                       viewPeriod === 'day' ? 'border-ledger bg-ledger/10 text-ledger-strong' : 'border-line bg-paper text-ink'
                     }`}
                   >
@@ -379,7 +389,8 @@ export default function Onboarding() {
                   <button
                     type="button"
                     onClick={() => setViewPeriod('week')}
-                    className={`flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium transition ${
+                    data-selected={viewPeriod === 'week'}
+                    className={`choice-option flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium ${
                       viewPeriod === 'week' ? 'border-ledger bg-ledger/10 text-ledger-strong' : 'border-line bg-paper text-ink'
                     }`}
                   >

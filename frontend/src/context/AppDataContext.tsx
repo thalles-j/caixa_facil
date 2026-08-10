@@ -87,7 +87,11 @@ interface AppDataContextValue {
     tipoDespesa?: TipoDespesa;
     movimentoCaixa?: TipoMovimentoCaixa;
   }) => Promise<void>;
-  resolverPendenciaNoBanco: (id: string, classificacao: TipoEntrada | TipoDespesa) => Promise<void>;
+  resolverPendenciaNoBanco: (
+    id: string,
+    classificacao: TipoEntrada | TipoDespesa,
+    produtoId?: string,
+  ) => Promise<void>;
   cadastrarClienteNoBanco: (cliente: Omit<Cliente, 'id'>) => Promise<Cliente>;
   baixarFiado: (id: string, forma: Exclude<FormaPagamento, 'fiado'>) => Promise<void>;
   baixarDespesaFixa: (id: string, forma: Exclude<FormaPagamento, 'fiado'>) => Promise<void>;
@@ -536,8 +540,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     aplicarDadosDoBanco(response.data);
   };
 
-  const resolverPendenciaNoBanco: AppDataContextValue['resolverPendenciaNoBanco'] = async (id, classificacao) => {
-    const response = await resolveTransactionIdentificationRequest(id, classificacao);
+  const resolverPendenciaNoBanco: AppDataContextValue['resolverPendenciaNoBanco'] = async (
+    id,
+    classificacao,
+    produtoId,
+  ) => {
+    const response = await resolveTransactionIdentificationRequest(id, classificacao, produtoId);
     aplicarDadosDoBanco(response.data);
   };
 

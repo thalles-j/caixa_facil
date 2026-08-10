@@ -46,6 +46,114 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Opções mutuamente exclusivas exibidas lado a lado. No tema escuro, o preto
+   sólido separa claramente a opção ativa do trilho e das opções inativas. */
+.choice-option {
+  transition:
+    background-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 260ms ease,
+    box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms ease;
+}
+
+.choice-option > * {
+  transition:
+    background-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 260ms ease,
+    opacity 260ms ease;
+}
+
+/* Trilho compartilhado pelos seletores binários. O fundo ativo é uma única
+   peça que percorre horizontalmente as duas opções. */
+.sliding-choice {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.sliding-choice::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  width: calc(50% - 0.25rem);
+  border-radius: 0.5rem;
+  background-color: var(--color-paper-raised);
+  box-shadow: 0 2px 8px rgba(36, 26, 18, 0.12);
+  transform: translateX(0);
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+.sliding-choice[data-choice-position='second']::before {
+  transform: translateX(100%);
+}
+
+.sliding-choice > .choice-option {
+  position: relative;
+  z-index: 1;
+}
+
+.sliding-choice > .choice-option[data-selected='true'],
+.sliding-choice > .choice-option[aria-pressed='true'] {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none;
+}
+
+.dark .sliding-choice::before {
+  background-color: #202020;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.dark .sliding-choice > .choice-option[data-selected='true'],
+.dark .sliding-choice > .choice-option[aria-pressed='true'] {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none;
+}
+
+.entry-exit-choice[data-selected='entrada']::before {
+  background-color: #1f6f4a;
+}
+
+.entry-exit-choice[data-selected='saida']::before {
+  background-color: #a53b32;
+}
+
+.entry-exit-choice > .choice-option[data-selected='true'] {
+  color: #fff !important;
+}
+
+.dark .entry-exit-choice[data-selected='entrada']::before {
+  background-color: #246b4e;
+}
+
+.dark .entry-exit-choice[data-selected='saida']::before {
+  background-color: #934038;
+}
+
+.dark .choice-option[data-selected='true'],
+.dark .choice-option[aria-pressed='true'],
+.dark .choice-option[aria-current='page'] {
+  background-color: #181818 !important;
+  border-color: #2a2a2a !important;
+  color: #fff !important;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.2);
+}
+
+.dark .choice-option[data-selected='true'] > *,
+.dark .choice-option[aria-pressed='true'] > *,
+.dark .choice-option[aria-current='page'] > * {
+  color: inherit !important;
+}
+
 /* Rolagem discreta e coerente com os fundos claro e escuro. */
 * {
   scrollbar-color: var(--color-scrollbar) transparent;
@@ -152,8 +260,29 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .choice-option {
+    transition: none;
+  }
+
+  .choice-option > * {
+    transition: none;
+  }
+
+  .sliding-choice::before {
+    transition: none;
+  }
+
   .privacy-nudge {
     animation: none;
+  }
+
+  .fade-in,
+  .modal-overlay.active {
+    animation: none;
+  }
+
+  .modal-content {
+    transition: none;
   }
 }
 

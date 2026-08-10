@@ -99,8 +99,9 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
             <button
               key={valorTipo}
               type="button"
+              data-selected={tipoItem === valorTipo}
               onClick={() => setTipoItem(valorTipo)}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+              className={`choice-option rounded-lg px-3 py-2 text-sm font-semibold ${
                 tipoItem === valorTipo ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft hover:text-ink'
               }`}
             >

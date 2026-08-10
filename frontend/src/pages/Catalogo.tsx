@@ -223,7 +223,8 @@ export default function Catalogo() {
             <button
               key={tipo}
               onClick={() => setTipoFiltro(tipo)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              data-selected={tipoFiltro === tipo}
+              className={`choice-option rounded-full px-4 py-1.5 text-sm font-medium ${
                 tipoFiltro === tipo ? 'bg-ledger text-paper' : 'border border-line bg-paper-raised text-ink-soft'
               }`}
             >
@@ -236,7 +237,8 @@ export default function Catalogo() {
       <div className="scrollbar-hide mb-4 -mx-4 flex gap-2 overflow-x-auto px-4 pb-2">
         <button
           onClick={() => setFiltro('todos')}
-          className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
+          data-selected={filtro === 'todos'}
+          className={`choice-option whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${
             filtro === 'todos' ? 'bg-ledger text-paper' : 'border border-line bg-paper-raised text-ink-soft'
           }`}
         >
@@ -244,7 +246,8 @@ export default function Catalogo() {
         </button>
         <button
           onClick={() => setFiltro('baixo')}
-          className={`flex items-center gap-1 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
+          data-selected={filtro === 'baixo'}
+          className={`choice-option flex items-center gap-1 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${
             filtro === 'baixo' ? 'bg-stamp text-paper' : 'border border-line bg-paper-raised text-ink-soft'
           }`}
         >
@@ -254,7 +257,8 @@ export default function Catalogo() {
           <button
             key={cat.id}
             onClick={() => setFiltro(cat.nome)}
-            className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
+            data-selected={filtro === cat.nome}
+            className={`choice-option whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${
               filtro === cat.nome ? 'bg-ledger text-paper' : 'border border-line bg-paper-raised text-ink-soft'
             }`}
           >
@@ -355,12 +359,16 @@ export default function Catalogo() {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-soft">Tipo</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div
+              data-choice-position={itemType === 'service' ? 'second' : 'first'}
+              className="sliding-choice grid grid-cols-2 rounded-xl bg-line/40 p-1"
+            >
               <button
                 type="button"
-                disabled={!permiteTrocarTipo || tipoPadrao === 'service'}
+                disabled={!permiteTrocarTipo && tipoPadrao !== 'product'}
                 onClick={() => setItemType('product')}
-                className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                data-selected={itemType === 'product'}
+                className={`choice-option rounded-2xl border px-4 py-3 text-sm font-semibold ${
                   itemType === 'product'
                     ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger'
                     : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
@@ -370,9 +378,10 @@ export default function Catalogo() {
               </button>
               <button
                 type="button"
-                disabled={!permiteTrocarTipo || tipoPadrao === 'product'}
+                disabled={!permiteTrocarTipo && tipoPadrao !== 'service'}
                 onClick={() => setItemType('service')}
-                className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                data-selected={itemType === 'service'}
+                className={`choice-option rounded-2xl border px-4 py-3 text-sm font-semibold ${
                   itemType === 'service'
                     ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger'
                     : 'border-line bg-paper text-ink-soft hover:border-ink-soft'

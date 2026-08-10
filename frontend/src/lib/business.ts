@@ -87,10 +87,14 @@ export function registerTransactionRequest(input: {
   return request<{ data: AppData }>('/transactions', { method: 'POST', body: JSON.stringify(input) });
 }
 
-export function resolveTransactionIdentificationRequest(id: string, classification: TipoEntrada | TipoDespesa) {
+export function resolveTransactionIdentificationRequest(
+  id: string,
+  classification: TipoEntrada | TipoDespesa,
+  productId?: string,
+) {
   return request<{ data: AppData }>(`/transactions/${id}/identification`, {
     method: 'PATCH',
-    body: JSON.stringify({ classification }),
+    body: JSON.stringify({ classification, productId }),
   });
 }
 
