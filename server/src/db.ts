@@ -1,18 +1,10 @@
-import { Pool } from 'pg';
 import { readFile } from 'node:fs/promises';
+import { Pool } from 'pg';
+import { validateDatabaseEnv, type DatabaseEnv } from './env.js';
 
 const schemaUrl = new URL('../sql/schema.sql', import.meta.url);
-const configuredDatabaseUrl = process.env.DATABASE_URL;
-
-if (!configuredDatabaseUrl) {
-  throw new Error('DATABASE_URL nao foi definida. Use a connection string pooled do Neon.');
-}
-const runtimeDatabaseUrl: string = configuredDatabaseUrl;
-
-function positiveInteger(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
+let runtimePool: Pool | null = null;
+let runtimePoolKey: string | null = null;
 
 function normalizeConnectionString(connectionString: string): string {
   try {
@@ -30,34 +22,66 @@ function normalizeConnectionString(connectionString: string): string {
   }
 }
 
-function createPool(connectionString: string, max: number) {
+function poolKey(config: DatabaseEnv): string {
+  return [
+    normalizeConnectionString(config.databaseUrl),
+    config.dbPoolMax,
+    config.dbIdleTimeoutMs,
+    config.dbConnectTimeoutMs,
+  ].join('|');
+}
+
+function createPool(config: DatabaseEnv) {
   return new Pool({
-    connectionString: normalizeConnectionString(connectionString),
-    max,
-    idleTimeoutMillis: positiveInteger(process.env.DB_IDLE_TIMEOUT_MS, 30_000),
-    connectionTimeoutMillis: positiveInteger(process.env.DB_CONNECT_TIMEOUT_MS, 10_000),
+    connectionString: normalizeConnectionString(config.databaseUrl),
+    max: config.dbPoolMax,
+    idleTimeoutMillis: config.dbIdleTimeoutMs,
+    connectionTimeoutMillis: config.dbConnectTimeoutMs,
     keepAlive: true,
     application_name: 'caixafacil-api',
   });
 }
 
-// No Neon, DATABASE_URL deve ser a URL pooled (host contendo "-pooler").
-export const pool = createPool(
-  runtimeDatabaseUrl,
-  positiveInteger(process.env.DB_POOL_MAX, 10),
-);
+export function getPool(config: DatabaseEnv = validateDatabaseEnv(process.env)) {
+  const key = poolKey(config);
+  if (runtimePool) {
+    if (runtimePoolKey !== key) {
+      throw new Error('Pool de banco ja foi inicializado com outra configuracao.');
+    }
+    return runtimePool;
+  }
 
-export async function ensureSchema() {
+  // No Neon, DATABASE_URL deve ser a URL pooled (host contendo "-pooler").
+  runtimePool = createPool(config);
+  runtimePoolKey = key;
+  return runtimePool;
+}
+
+export async function closePool() {
+  if (!runtimePool) return;
+
+  const pool = runtimePool;
+  runtimePool = null;
+  runtimePoolKey = null;
+  await pool.end();
+}
+
+export async function ensureSchema(config: DatabaseEnv = validateDatabaseEnv(process.env)) {
   const schema = await readFile(schemaUrl, 'utf8');
   // Se uma URL direta existir, ela e preferida para DDL. Caso contrario, o
   // mesmo pool do runtime e usado; DATABASE_URL_UNPOOLED nao e obrigatoria.
-  const migrationDatabaseUrl = process.env.DATABASE_URL_UNPOOLED ?? runtimeDatabaseUrl;
-  if (migrationDatabaseUrl === runtimeDatabaseUrl) {
-    await pool.query(schema);
+  const migrationDatabaseUrl = config.databaseUrlUnpooled ?? config.databaseUrl;
+  if (migrationDatabaseUrl === config.databaseUrl) {
+    await getPool(config).query(schema);
     return;
   }
 
-  const migrationPool = createPool(migrationDatabaseUrl, 1);
+  const migrationPool = createPool({
+    ...config,
+    databaseUrl: migrationDatabaseUrl,
+    databaseUrlUnpooled: undefined,
+    dbPoolMax: 1,
+  });
   try {
     await migrationPool.query(schema);
   } finally {
@@ -73,7 +97,7 @@ export async function withTenantTransaction<T>(
   userId: string,
   operation: (client: import('pg').PoolClient) => Promise<T>,
 ): Promise<T> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query('BEGIN');
     // neondb_owner possui BYPASSRLS. A role NOLOGIN criada pelo schema tem

@@ -1,6 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import crypto from 'node:crypto';
-import { pool } from '../db.js';
+import { getPool } from '../db.js';
 import { loadBootstrapData } from '../business/bootstrap.js';
 import { hashPassword, comparePassword } from './password.js';
 import { signRefreshToken, signToken, verifyRefreshToken, verifyToken } from './jwt.js';
@@ -70,7 +70,7 @@ authRouter.post('/register', asyncRoute(async (req, res) => {
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  const existing = await pool.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
+  const existing = await getPool().query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
   if (existing.rowCount) {
     return res.status(409).json({ error: 'Já existe uma conta com este e-mail.' });
   }
@@ -78,7 +78,7 @@ authRouter.post('/register', asyncRoute(async (req, res) => {
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
   try {
-    await pool.query('INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)', [
+    await getPool().query('INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)', [
       id,
       normalizedEmail,
       passwordHash,
@@ -103,13 +103,13 @@ authRouter.post('/forgot-password', asyncRoute(async (req, res) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const result = await pool.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
+  const result = await getPool().query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
   const user = result.rows[0];
   if (!user) return res.json({ message: RECOVERY_MESSAGE });
 
   const token = crypto.randomBytes(32).toString('hex');
   const tokenHash = hashResetToken(token);
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query('BEGIN');
     await client.query(
@@ -153,7 +153,7 @@ authRouter.post('/reset-password', asyncRoute(async (req, res) => {
 
   const passwordHash = await hashPassword(password);
   const tokenHash = hashResetToken(token);
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query('BEGIN');
     const tokenResult = await client.query(
@@ -195,7 +195,7 @@ authRouter.post('/login', asyncRoute(async (req, res) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const result = await pool.query('SELECT id, email, name, password_hash FROM users WHERE email = $1', [
+  const result = await getPool().query('SELECT id, email, name, password_hash FROM users WHERE email = $1', [
     normalizedEmail,
   ]);
   const user = result.rows[0];
@@ -221,7 +221,7 @@ authRouter.post('/refresh', asyncRoute(async (req, res) => {
     return res.status(401).json({ error: 'Sessão persistente inválida ou expirada.' });
   }
 
-  const result = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [payload.sub]);
+  const result = await getPool().query('SELECT id, email, name FROM users WHERE id = $1', [payload.sub]);
   const user = result.rows[0];
   if (!user) {
     res.clearCookie(REFRESH_COOKIE, refreshCookieOptions());
@@ -252,7 +252,7 @@ authRouter.get('/me', asyncRoute(async (req, res) => {
     return res.status(401).json({ error: 'Token inválido ou expirado.' });
   }
 
-  const result = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [payload.sub]);
+  const result = await getPool().query('SELECT id, email, name FROM users WHERE id = $1', [payload.sub]);
   const user = result.rows[0];
   if (!user) return res.status(401).json({ error: 'Usuário da sessão não existe mais.' });
 
