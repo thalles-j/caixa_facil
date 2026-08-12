@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { ensureSchema, pool } from '../db.js';
+import { closePool, ensureSchema } from '../db.js';
 
 try {
   await ensureSchema();
@@ -8,5 +8,5 @@ try {
   console.error('Falha ao aplicar o schema PostgreSQL:', error);
   process.exitCode = 1;
 } finally {
-  await pool.end();
+  await closePool();
 }

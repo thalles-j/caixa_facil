@@ -3,11 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.13.0 <23"
+  },
   "scripts": {
     "dev": "node --watch --import tsx src/index.ts",
     "db:schema": "tsx src/scripts/apply-schema.ts",
     "db:schema:prod": "node dist/scripts/apply-schema.js",
     "seed": "node scripts/seed.js",
+    "lint": "eslint .",
+    "test": "vitest run",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js"
   },
@@ -20,13 +25,20 @@
     "pg": "^8.13.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.7",
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.20.1",
     "@types/pg": "^8.11.10",
+    "@types/supertest": "^7.2.1",
+    "eslint": "10.8.0",
+    "globals": "17.9.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "~5.7.2",
+    "typescript-eslint": "8.66.0",
+    "vitest": "^4.1.10"
   }
 }

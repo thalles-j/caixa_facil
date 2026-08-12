@@ -6,17 +6,50 @@ on:
   pull_request:
 
 jobs:
-  build:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
-      - run: npm test
+      - name: Install frontend
+        run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Test frontend
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Audit frontend production dependencies
+        run: npm audit --omit=dev
+
+      - name: Install backend
+        working-directory: server
+        run: npm ci
+
+      - name: Lint backend
+        working-directory: server
+        run: npm run lint
+
+      - name: Test backend
+        working-directory: server
+        run: npm test
+
+      - name: Build backend
+        working-directory: server
+        run: npm run build
+
+      - name: Audit backend production dependencies
+        working-directory: server
+        run: npm audit --omit=dev

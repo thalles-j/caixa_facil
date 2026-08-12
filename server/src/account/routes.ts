@@ -1,5 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { pool, withTenantTransaction } from '../db.js';
+import { getPool, withTenantTransaction } from '../db.js';
 import { verifyToken } from '../auth/jwt.js';
 import { comparePassword, hashPassword } from '../auth/password.js';
 
@@ -66,7 +66,7 @@ accountRouter.patch('/password', asyncRoute(async (req, res) => {
     return res.status(400).json({ error: 'A confirmação da nova senha não confere.' });
   }
 
-  const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+  const result = await getPool().query('SELECT password_hash FROM users WHERE id = $1', [userId]);
   const account = result.rows[0];
   if (!account || !(await comparePassword(currentPassword, account.password_hash))) {
     return res.status(400).json({ error: 'A senha atual está incorreta.' });
@@ -76,7 +76,7 @@ accountRouter.patch('/password', asyncRoute(async (req, res) => {
   }
 
   const passwordHash = await hashPassword(newPassword);
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query('BEGIN');
     await client.query('UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2', [passwordHash, userId]);
