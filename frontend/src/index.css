@@ -1,0 +1,434 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: 'Anthropic Sans', 'Inter', ui-sans-serif, sans-serif;
+  --font-body: 'Anthropic Sans', 'Inter', ui-sans-serif, sans-serif;
+  --font-ledger: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --color-paper: #f7f1e4;
+  --color-paper-raised: #fffcf5;
+  --color-ink: #241a12;
+  --color-ink-soft: #6b5d4c;
+  --color-line: #e4d8c3;
+  --color-ledger: #1f6f4a;
+  --color-ledger-strong: #145033;
+  --color-stamp: #b23a2e;
+  --color-brass: #9c6b22;
+}
+
+:root {
+  color-scheme: light;
+  --color-scrollbar: #e9dfce;
+  --color-scrollbar-hover: #ddd0bb;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-paper: #1b1712;
+  --color-paper-raised: #262019;
+  --color-ink: #f3ead9;
+  --color-ink-soft: #b8a98f;
+  --color-line: #3a3226;
+  --color-ledger: #3fae7c;
+  --color-ledger-strong: #2c7e5c;
+  --color-stamp: #e2665a;
+  --color-brass: #d9a94f;
+  --color-scrollbar: #2a241c;
+  --color-scrollbar-hover: #393126;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Opções mutuamente exclusivas exibidas lado a lado. No tema escuro, o preto
+   sólido separa claramente a opção ativa do trilho e das opções inativas. */
+.choice-option {
+  transition:
+    background-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 260ms ease,
+    box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms ease;
+}
+
+.choice-option > * {
+  transition:
+    background-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 260ms ease,
+    opacity 260ms ease;
+}
+
+/* Trilho compartilhado pelos seletores binários. O fundo ativo é uma única
+   peça que percorre horizontalmente as duas opções. */
+.sliding-choice {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.sliding-choice::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  width: calc(50% - 0.25rem);
+  border-radius: 0.5rem;
+  background-color: var(--color-paper-raised);
+  box-shadow: 0 2px 8px rgba(36, 26, 18, 0.12);
+  transform: translateX(0);
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+.sliding-choice[data-choice-position='second']::before {
+  transform: translateX(100%);
+}
+
+.sliding-choice > .choice-option {
+  position: relative;
+  z-index: 1;
+}
+
+.sliding-choice > .choice-option[data-selected='true'],
+.sliding-choice > .choice-option[aria-pressed='true'] {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none;
+}
+
+.dark .sliding-choice::before {
+  background-color: #202020;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.dark .sliding-choice > .choice-option[data-selected='true'],
+.dark .sliding-choice > .choice-option[aria-pressed='true'] {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none;
+}
+
+.entry-exit-choice[data-selected='entrada']::before {
+  background-color: #1f6f4a;
+}
+
+.entry-exit-choice[data-selected='saida']::before {
+  background-color: #a53b32;
+}
+
+.entry-exit-choice > .choice-option[data-selected='true'] {
+  color: #fff !important;
+}
+
+.dark .entry-exit-choice[data-selected='entrada']::before {
+  background-color: #246b4e;
+}
+
+.dark .entry-exit-choice[data-selected='saida']::before {
+  background-color: #934038;
+}
+
+.catalog-type-choice[data-selected='product']::before {
+  background-color: #1f6f4a;
+}
+
+.catalog-type-choice[data-selected='service']::before {
+  background-color: #8a6024;
+}
+
+.catalog-type-choice > .choice-option[data-selected='true'] {
+  color: #fff !important;
+}
+
+.catalog-type-choice > .choice-option {
+  border: 0 !important;
+  border-radius: 0.5rem;
+}
+
+.dark .catalog-type-choice[data-selected='product']::before {
+  background-color: #245f47;
+}
+
+.dark .catalog-type-choice[data-selected='service']::before {
+  background-color: #745224;
+}
+
+.dark .choice-option[data-selected='true'],
+.dark .choice-option[aria-pressed='true'],
+.dark .choice-option[aria-current='page'] {
+  background-color: #181818 !important;
+  border-color: #2a2a2a !important;
+  color: #fff !important;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.2);
+}
+
+.dark .choice-option[data-selected='true'] > *,
+.dark .choice-option[aria-pressed='true'] > *,
+.dark .choice-option[aria-current='page'] > * {
+  color: inherit !important;
+}
+
+/* Rolagem discreta e coerente com os fundos claro e escuro. */
+* {
+  scrollbar-color: var(--color-scrollbar) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--color-scrollbar);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-scrollbar-hover);
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Etiqueta de status fixa e alinhada, compartilhada por Pago, Atrasado,
+   Vence hoje, Estoque baixo, Fiado e demais estados. */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-ledger);
+  font-weight: 600;
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.4rem;
+  border: 1.5px solid currentColor;
+  box-shadow: 0 0 0 1px currentColor inset;
+  transform: none;
+  white-space: nowrap;
+}
+
+/* Recibo — perforated/torn paper edge for the one hero card per screen. */
+.receipt-edge {
+  position: relative;
+}
+
+.receipt-edge::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 10px;
+  background-image: radial-gradient(circle at 8px 0, transparent 7px, var(--color-paper) 7.5px);
+  background-size: 16px 16px;
+  background-position: -4px 0;
+}
+
+/* Chama atenção discretamente para o controle de privacidade da demonstração. */
+@keyframes privacy-nudge {
+  0%, 6%, 12%, 18%, 100% {
+    transform: translateY(0);
+  }
+  3%, 9%, 15% {
+    transform: translateY(-5px);
+  }
+}
+
+.privacy-nudge {
+  animation: privacy-nudge 15s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choice-option {
+    transition: none;
+  }
+
+  .choice-option > * {
+    transition: none;
+  }
+
+  .sliding-choice::before {
+    transition: none;
+  }
+
+  .privacy-nudge {
+    animation: none;
+  }
+
+  .fade-in,
+  .modal-overlay.active,
+  .modal-content {
+    animation: none;
+  }
+}
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(20, 16, 12, 0.72);
+  z-index: 100;
+}
+
+.modal-overlay.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modal-overlay-in 180ms ease-out;
+}
+
+.modal-content {
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  border-radius: 1.5rem;
+  width: 92%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modal-content-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 25px 50px -12px rgba(36, 26, 18, 0.3);
+  border: 1px solid var(--color-line);
+}
+
+.modal-content input,
+.modal-content select,
+.modal-content textarea {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border-color: var(--color-line);
+}
+
+.modal-content label {
+  color: var(--color-ink-soft);
+}
+
+.modal-content h2,
+.modal-content h3,
+.modal-content h4 {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+}
+
+.modal-content input::placeholder,
+.modal-content textarea::placeholder {
+  color: var(--color-ink-soft);
+  opacity: 0.7;
+}
+
+.modal-overlay.active .modal-content {
+  transform: scale(1);
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body:has(.print-report) {
+    background: white;
+  }
+
+  .print-report {
+    color-scheme: light;
+    --color-paper: #f7f1e4;
+    --color-paper-raised: #fffcf5;
+    --color-ink: #241a12;
+    --color-ink-soft: #6b5d4c;
+    --color-line: #e4d8c3;
+    --color-ledger: #1f6f4a;
+    --color-ledger-strong: #145033;
+    --color-stamp: #b23a2e;
+    --color-brass: #9c6b22;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body:has(.print-report) nav,
+  body:has(.print-report) aside,
+  body:has(.print-report) header.sticky,
+  body:has(.print-report) button.fixed,
+  .print-report .no-print {
+    display: none !important;
+  }
+
+  body:has(.print-report) main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .print-report .report-sheet {
+    border: 0;
+    border-radius: 0;
+    background: white;
+    box-shadow: none;
+    color: #241a12;
+    padding: 0;
+  }
+
+  .print-report .break-inside-avoid {
+    break-inside: avoid;
+  }
+}

@@ -7,8 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
+node_modules/
+frontend/dist/
+backend/dist/
 dist-ssr
 *.local
 
@@ -16,9 +17,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
-server/node_modules
-server/dist
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
