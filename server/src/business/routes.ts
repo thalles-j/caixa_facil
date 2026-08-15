@@ -279,6 +279,8 @@ businessRouter.post('/transactions', asyncRoute(async (req, res) => {
 businessRouter.patch('/transactions/:id/identification', asyncRoute(async (req, res) => {
   const user = requireUser(req);
   const classification = String(req.body?.classification ?? '');
+  const productId = req.body?.productId ? String(req.body.productId) : null;
+  const requestedQuantity = req.body?.quantity === undefined ? 1 : Number(req.body.quantity);
 
   await withTenantTransaction(user.id, async (client) => {
     const transactionResult = await client.query(
@@ -299,13 +301,84 @@ businessRouter.patch('/transactions/:id/identification', asyncRoute(async (req, 
       if (!ENTRY_KINDS.has(classification)) {
         throw Object.assign(new Error('Selecione Produto, Serviço ou Gorjeta.'), { status: 400 });
       }
+
+      if (classification === 'gorjeta') {
+        if (productId) {
+          throw Object.assign(new Error('Gorjeta não pode ser vinculada a um produto ou serviço.'), { status: 400 });
+        }
+        await client.query(
+          `UPDATE transactions
+           SET entry_kind = 'gorjeta', identification_pending = false
+           WHERE user_id = $1 AND id = $2`,
+          [user.id, req.params.id],
+        );
+        return;
+      }
+
+      if (!productId) {
+        throw Object.assign(
+          new Error(`Selecione qual ${classification === 'produto' ? 'produto' : 'serviço'} originou a entrada.`),
+          { status: 400 },
+        );
+      }
+
+      const productResult = await client.query(
+        `SELECT id, kind, name, stock_quantity
+         FROM products
+         WHERE user_id = $1 AND id = $2 AND active
+         FOR UPDATE`,
+        [user.id, productId],
+      );
+      if (!productResult.rowCount) {
+        throw Object.assign(new Error('Produto ou serviço não encontrado no catálogo.'), { status: 404 });
+      }
+
+      const product = productResult.rows[0];
+      const expectedKind = classification === 'produto' ? 'product' : 'service';
+      if (product.kind !== expectedKind) {
+        throw Object.assign(
+          new Error(
+            classification === 'produto'
+              ? 'O item selecionado não é um produto.'
+              : 'O item selecionado não é um serviço.',
+          ),
+          { status: 400 },
+        );
+      }
+
+      const quantity = classification === 'produto' ? requestedQuantity : 1;
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw Object.assign(new Error('A quantidade deve ser um número inteiro maior que zero.'), { status: 400 });
+      }
+
+      if (classification === 'produto') {
+        const stockUpdate = await client.query(
+          `UPDATE products
+           SET stock_quantity = stock_quantity - $3
+           WHERE user_id = $1 AND id = $2 AND stock_quantity >= $3`,
+          [user.id, productId, quantity],
+        );
+        if (!stockUpdate.rowCount) {
+          throw Object.assign(new Error(`Estoque insuficiente para ${product.name}.`), { status: 409 });
+        }
+      }
+
       await client.query(
         `UPDATE transactions
-         SET entry_kind = $3, identification_pending = false
+         SET entry_kind = $3, description = $4, identification_pending = false
          WHERE user_id = $1 AND id = $2`,
-        [user.id, req.params.id, classification],
+        [
+          user.id,
+          req.params.id,
+          classification,
+          classification === 'produto' && quantity > 1 ? `${product.name} (${quantity} un.)` : product.name,
+        ],
       );
       return;
+    }
+
+    if (productId) {
+      throw Object.assign(new Error('Produto ou serviço só pode ser informado em uma entrada.'), { status: 400 });
     }
 
     if (!EXPENSE_KINDS.has(classification)) {

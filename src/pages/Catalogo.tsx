@@ -355,27 +355,33 @@ export default function Catalogo() {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-soft">Tipo</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div
+              data-selected={itemType}
+              data-choice-position={itemType === 'service' ? 'second' : 'first'}
+              className="segmented-slider segmented-slider-2 catalog-type-selector grid grid-cols-2 rounded-xl border border-line bg-line/40 p-1"
+            >
               <button
                 type="button"
-                disabled={!permiteTrocarTipo || tipoPadrao === 'service'}
+                disabled={!permiteTrocarTipo && tipoPadrao !== 'product'}
                 onClick={() => setItemType('product')}
-                className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                aria-pressed={itemType === 'product'}
+                className={`selection-option rounded-lg border-0 px-4 py-3 text-sm font-semibold ${
                   itemType === 'product'
-                    ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger'
-                    : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
+                    ? 'bg-ledger text-paper shadow-sm'
+                    : 'bg-transparent text-ink-soft hover:text-ink'
                 } ${!permiteTrocarTipo && tipoPadrao !== 'product' ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 Produto
               </button>
               <button
                 type="button"
-                disabled={!permiteTrocarTipo || tipoPadrao === 'product'}
+                disabled={!permiteTrocarTipo && tipoPadrao !== 'service'}
                 onClick={() => setItemType('service')}
-                className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                aria-pressed={itemType === 'service'}
+                className={`selection-option rounded-lg border-0 px-4 py-3 text-sm font-semibold ${
                   itemType === 'service'
-                    ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger'
-                    : 'border-line bg-paper text-ink-soft hover:border-ink-soft'
+                    ? 'bg-brass text-paper shadow-sm'
+                    : 'bg-transparent text-ink-soft hover:text-ink'
                 } ${!permiteTrocarTipo && tipoPadrao !== 'service' ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 Serviço

@@ -36,7 +36,7 @@ export default function Financas() {
     baixarDespesaFixa,
   } = useAppData();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const aba: TipoConta = searchParams.get('tab') === 'receber' ? 'receber' : 'pagar';
   const [modalAberto, setModalAberto] = useState(false);
   const [contaEditando, setContaEditando] = useState<Conta | null>(null);
@@ -191,29 +191,41 @@ export default function Financas() {
   const hoje = todayISO();
   const mostrarPainelClientes = aba === 'receber' && saldoPorCliente.length > 0;
 
+  const selecionarAba = (proximaAba: TipoConta) => {
+    if (proximaAba === aba) return;
+    setSearchParams({ tab: proximaAba }, { replace: true });
+  };
+
   return (
     <div className="fade-in">
       <h2 className="font-display text-2xl font-bold text-ink">Financeiro</h2>
       <p className="mt-1 text-sm text-ink-soft">Suas principais contas aqui!</p>
       <FinanceNav />
 
-      <div className="mb-6 flex rounded-xl bg-line/40 p-1">
-        <Link
-          to="/financas?tab=pagar"
-          className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+      <div
+        data-choice-position={aba === 'receber' ? 'second' : 'first'}
+        className="segmented-slider segmented-slider-2 financial-tabs-selector mb-6 grid grid-cols-2 rounded-xl border border-line bg-line/40 p-1"
+      >
+        <button
+          type="button"
+          onClick={() => selecionarAba('pagar')}
+          aria-pressed={aba === 'pagar'}
+          className={`selection-option rounded-lg border-0 py-2 text-center text-sm font-medium ${
             aba === 'pagar' ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft'
-          } text-center`}
+          }`}
         >
           A Pagar
-        </Link>
-        <Link
-          to="/financas?tab=receber"
-          className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+        </button>
+        <button
+          type="button"
+          onClick={() => selecionarAba('receber')}
+          aria-pressed={aba === 'receber'}
+          className={`selection-option rounded-lg border-0 py-2 text-center text-sm font-medium ${
             aba === 'receber' ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft'
-          } text-center`}
+          }`}
         >
           A Receber (Fiado)
-        </Link>
+        </button>
       </div>
 
       <div className="mb-4 flex items-end justify-between gap-3">

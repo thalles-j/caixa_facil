@@ -319,13 +319,18 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-line/40 p-1">
+        <div
+          data-selected={lancamentoTipo}
+          data-choice-position={lancamentoTipo === 'saida' ? 'second' : 'first'}
+          className="segmented-slider segmented-slider-2 entry-exit-selector mb-6 grid grid-cols-2 rounded-xl border border-line bg-line/40 p-1"
+        >
           <button
             type="button"
+            aria-pressed={lancamentoTipo === 'entrada'}
             onClick={() => {
               setLancamentoTipo('entrada');
             }}
-            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+            className={`selection-option flex items-center justify-center gap-2 rounded-lg border-0 px-3 py-2.5 text-sm font-semibold ${
               lancamentoTipo === 'entrada'
                 ? 'bg-paper-raised text-ledger-strong shadow-sm dark:text-ledger'
                 : 'text-ink-soft hover:text-ink'
@@ -335,10 +340,11 @@ export default function Dashboard() {
           </button>
           <button
             type="button"
+            aria-pressed={lancamentoTipo === 'saida'}
             onClick={() => {
               setLancamentoTipo('saida');
             }}
-            className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+            className={`selection-option flex items-center justify-center gap-2 rounded-lg border-0 px-3 py-2.5 text-sm font-semibold ${
               lancamentoTipo === 'saida'
                 ? 'bg-paper-raised text-stamp shadow-sm'
                 : 'text-ink-soft hover:text-ink'
@@ -382,8 +388,9 @@ export default function Dashboard() {
                     key={tipo}
                     type="button"
                     aria-pressed={lancamentoTipoEntrada === tipo}
+                    data-tone={tipo}
                     onClick={() => setLancamentoTipoEntrada(tipo)}
-                    className={`rounded-xl border px-2 py-3 text-xs font-semibold transition ${
+                    className={`selection-option rounded-xl border px-2 py-3 text-xs font-semibold ${
                       lancamentoTipoEntrada === tipo
                         ? 'border-ledger bg-ledger/10 text-ledger-strong ring-2 ring-ledger/15 dark:text-ledger'
                         : 'border-line bg-paper text-ink-soft hover:border-ink-soft hover:text-ink'
@@ -447,7 +454,7 @@ export default function Dashboard() {
                     type="button"
                     aria-pressed={selecionado}
                     onClick={() => setLancamentoPagamento(value)}
-                    className={`relative flex min-w-0 flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-semibold transition ${
+                    className={`selection-option relative flex min-w-0 flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-semibold ${
                       selecionado
                         ? 'border-ledger bg-ledger/10 text-ledger-strong ring-2 ring-ledger/15 dark:text-ledger'
                         : 'border-line bg-paper text-ink-soft hover:border-ink-soft hover:text-ink'

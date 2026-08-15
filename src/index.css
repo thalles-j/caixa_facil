@@ -46,6 +46,257 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Seletores segmentados: uma única peça percorre o trilho. Os botões não
+   recebem transform, evitando animações concorrentes em cliques rápidos. */
+.selection-option {
+  transition:
+    color 240ms ease,
+    background-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.selection-option > * {
+  transition: color 240ms ease;
+}
+
+.dark .selection-option[aria-pressed='true'] {
+  border-color: #4a3e30 !important;
+  background-color: #181512 !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.selection-option[data-tone='produto'][aria-pressed='true'] {
+  border-color: #2d805b !important;
+  background-color: #1f6f4a !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(31, 111, 74, 0.22);
+}
+
+.selection-option[data-tone='servico'][aria-pressed='true'] {
+  border-color: #b17d31 !important;
+  background-color: #8a6024 !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(138, 96, 36, 0.22);
+}
+
+.selection-option[data-tone='gorjeta'][aria-pressed='true'] {
+  border-color: #80674f !important;
+  background-color: #5e4a34 !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(94, 74, 52, 0.22);
+}
+
+.dark .selection-option[data-tone='produto'][aria-pressed='true'] {
+  border-color: #3b8d68 !important;
+  background-color: #245f47 !important;
+}
+
+.dark .selection-option[data-tone='servico'][aria-pressed='true'] {
+  border-color: #a77a3b !important;
+  background-color: #745224 !important;
+}
+
+.dark .selection-option[data-tone='gorjeta'][aria-pressed='true'] {
+  border-color: #80674f !important;
+  background-color: #382e24 !important;
+}
+
+.segmented-slider {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.segmented-slider::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  border-radius: 0.5rem;
+  background-color: var(--segment-color, var(--color-paper-raised));
+  box-shadow: 0 2px 8px rgba(36, 26, 18, 0.14);
+  transform: translateX(0);
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+.segmented-slider-2::before {
+  width: calc(50% - 0.25rem);
+}
+
+.segmented-slider-3::before {
+  width: calc(33.333333% - 0.166667rem);
+}
+
+.segmented-slider[data-choice-position='second']::before {
+  transform: translateX(100%);
+}
+
+.segmented-slider[data-choice-position='third']::before {
+  transform: translateX(200%);
+}
+
+.segmented-slider > .selection-option {
+  position: relative;
+  z-index: 1;
+}
+
+.segmented-slider > .selection-option[aria-pressed='true'] {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: none;
+}
+
+.collapsible-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease;
+}
+
+.collapsible-panel.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.collapsible-panel > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mini-cash-toggle {
+  transition:
+    background-color 280ms ease,
+    border-color 280ms ease,
+    color 240ms ease,
+    box-shadow 280ms ease;
+}
+
+.mini-cash-toggle.open {
+  border-color: color-mix(in srgb, var(--color-ledger) 35%, var(--color-line));
+  background-color: color-mix(in srgb, var(--color-ledger) 8%, transparent);
+  box-shadow: 0 4px 14px rgba(31, 111, 74, 0.08);
+}
+
+.dark .mini-cash-toggle.open {
+  border-color: #3d5747;
+  background-color: #202b24;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.18);
+}
+
+@keyframes pending-fields-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--pending-enter-x, 8px));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.pending-fields-enter {
+  animation: pending-fields-slide-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pending-fields-enter[data-kind='product'] {
+  --pending-enter-x: -10px;
+}
+
+.pending-fields-enter[data-kind='service'] {
+  --pending-enter-x: 10px;
+}
+
+.catalog-type-selector[data-selected='product'],
+.pending-type-selector[data-selected='produto'] {
+  --segment-color: #1f6f4a;
+}
+
+.catalog-type-selector[data-selected='service'],
+.pending-type-selector[data-selected='servico'] {
+  --segment-color: #8a6024;
+}
+
+.pending-type-selector[data-selected='gorjeta'] {
+  --segment-color: #5e4a34;
+}
+
+.dark .catalog-type-selector[data-selected='product'],
+.dark .pending-type-selector[data-selected='produto'] {
+  --segment-color: #245f47;
+}
+
+.dark .catalog-type-selector[data-selected='service'],
+.dark .pending-type-selector[data-selected='servico'] {
+  --segment-color: #745224;
+}
+
+.dark .pending-type-selector[data-selected='gorjeta'] {
+  --segment-color: #382e24;
+}
+
+.financial-tabs-selector {
+  --segment-color: var(--color-paper-raised);
+}
+
+.neutral-tabs-selector {
+  --segment-color: var(--color-paper-raised);
+}
+
+.entry-exit-selector[data-selected='entrada'] {
+  --segment-color: #1f6f4a;
+}
+
+.entry-exit-selector[data-selected='saida'] {
+  --segment-color: #a53b32;
+}
+
+.financial-tabs-selector > .selection-option[aria-pressed='true'] {
+  color: var(--color-ink) !important;
+}
+
+.neutral-tabs-selector > .selection-option[aria-pressed='true'] {
+  color: var(--color-ink) !important;
+}
+
+.dark .segmented-slider {
+  border-color: #4a3e30 !important;
+  background-color: #342c22 !important;
+}
+
+.dark .financial-tabs-selector {
+  --segment-color: #181512;
+}
+
+.dark .neutral-tabs-selector {
+  --segment-color: #181512;
+}
+
+.dark .financial-tabs-selector > .selection-option[aria-pressed='true'] {
+  color: #fff !important;
+}
+
+.dark .neutral-tabs-selector > .selection-option[aria-pressed='true'] {
+  color: #fff !important;
+}
+
+.dark .entry-exit-selector[data-selected='entrada'] {
+  --segment-color: #246b4e;
+}
+
+.dark .entry-exit-selector[data-selected='saida'] {
+  --segment-color: #934038;
+}
+
 /* Rolagem discreta e coerente com os fundos claro e escuro. */
 * {
   scrollbar-color: var(--color-scrollbar) transparent;
@@ -152,6 +403,18 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .selection-option,
+  .selection-option > *,
+  .segmented-slider::before,
+  .collapsible-panel,
+  .mini-cash-toggle {
+    transition: none;
+  }
+
+  .pending-fields-enter {
+    animation: none;
+  }
+
   .privacy-nudge {
     animation: none;
   }

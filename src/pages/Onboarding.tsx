@@ -292,7 +292,7 @@ export default function Onboarding() {
                         type="button"
                         aria-pressed={novaDespesaRecorrencia === recorrencia}
                         onClick={() => setNovaDespesaRecorrencia(recorrencia)}
-                        className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                        className={`selection-option rounded-xl border px-3 py-2.5 text-xs font-semibold ${
                           novaDespesaRecorrencia === recorrencia
                             ? 'border-ledger bg-ledger/10 text-ledger-strong'
                             : 'border-line bg-paper-raised text-ink-soft'
@@ -369,8 +369,9 @@ export default function Onboarding() {
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    aria-pressed={viewPeriod === 'day'}
                     onClick={() => setViewPeriod('day')}
-                    className={`flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium transition ${
+                    className={`selection-option flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium ${
                       viewPeriod === 'day' ? 'border-ledger bg-ledger/10 text-ledger-strong' : 'border-line bg-paper text-ink'
                     }`}
                   >
@@ -378,8 +379,9 @@ export default function Onboarding() {
                   </button>
                   <button
                     type="button"
+                    aria-pressed={viewPeriod === 'week'}
                     onClick={() => setViewPeriod('week')}
-                    className={`flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium transition ${
+                    className={`selection-option flex-1 rounded-xl border-2 px-4 py-2 text-sm font-medium ${
                       viewPeriod === 'week' ? 'border-ledger bg-ledger/10 text-ledger-strong' : 'border-line bg-paper text-ink'
                     }`}
                   >

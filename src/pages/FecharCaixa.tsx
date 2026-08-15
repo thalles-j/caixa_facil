@@ -4,11 +4,13 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  CaretDown,
   CheckCircle,
   CreditCard,
   ListBullets,
   LockKey,
   Money,
+  Plus,
   QrCode,
   Receipt,
   WarningCircle,
@@ -51,6 +53,7 @@ export default function FecharCaixa() {
   const [formaPagamento, setFormaPagamento] = useState<FormaLancamento>('dinheiro');
   const [salvandoLancamento, setSalvandoLancamento] = useState(false);
   const [erroLancamento, setErroLancamento] = useState<string | null>(null);
+  const [miniCaixaAberto, setMiniCaixaAberto] = useState(false);
 
   const [dinheiroContado, setDinheiroContado] = useState('');
   const [etapa, setEtapa] = useState<EtapaFechamento>('conferencia');
@@ -127,6 +130,7 @@ export default function FecharCaixa() {
       setDescricaoLancamento('');
       setTipoDespesa('');
       setEtapa('conferencia');
+      setMiniCaixaAberto(false);
     } catch (error) {
       setErroLancamento(error instanceof Error ? error.message : 'Não foi possível salvar o lançamento.');
     } finally {
@@ -196,22 +200,61 @@ export default function FecharCaixa() {
           </section>
 
           <section className="order-2 min-w-0 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5">
-            <div className="mb-4">
-              <h3 className="font-display text-lg font-bold text-ink">Mini caixa</h3>
-              <p className="mt-1 text-xs text-ink-soft">Adicione uma entrada ou despesa esquecida antes de concluir.</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setMiniCaixaAberto((aberto) => !aberto)}
+              aria-expanded={miniCaixaAberto}
+              aria-controls="formulario-mini-caixa"
+              className={`mini-cash-toggle flex w-full items-center justify-between gap-3 rounded-xl border border-transparent px-2 py-2 text-left text-ink hover:text-ledger-strong dark:hover:text-ledger ${
+                miniCaixaAberto ? 'open' : ''
+              }`}
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ledger/10 text-ledger-strong dark:text-ledger">
+                  <Plus
+                    size={20}
+                    weight="bold"
+                    className={`transition-transform duration-300 ${miniCaixaAberto ? 'rotate-45' : ''}`}
+                  />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-display text-lg font-bold">
+                    {miniCaixaAberto ? 'Fechar mini caixa' : 'Abrir mini caixa'}
+                  </span>
+                  <span className="mt-0.5 block text-xs font-normal text-ink-soft">
+                    Adicione uma entrada ou despesa esquecida.
+                  </span>
+                </span>
+              </span>
+              <CaretDown
+                size={19}
+                className={`shrink-0 text-ink-soft transition-transform duration-300 ${miniCaixaAberto ? 'rotate-180' : ''}`}
+              />
+            </button>
 
-            <form className="min-w-0 space-y-4" onSubmit={salvarLancamento}>
-              <div className="grid grid-cols-2 rounded-xl bg-line/40 p-1">
+            <div
+              id="formulario-mini-caixa"
+              aria-hidden={!miniCaixaAberto}
+              inert={!miniCaixaAberto}
+              className={`collapsible-panel ${miniCaixaAberto ? 'open' : ''}`}
+            >
+              <div>
+            <form className="min-w-0 space-y-4 pt-4" onSubmit={salvarLancamento}>
+              <div
+                data-selected={tipoLancamento}
+                data-choice-position={tipoLancamento === 'saida' ? 'second' : 'first'}
+                className="segmented-slider segmented-slider-2 entry-exit-selector grid grid-cols-2 rounded-xl border border-line bg-line/40 p-1"
+              >
                 {(['entrada', 'saida'] as const).map((tipo) => (
                   <button
                     key={tipo}
                     type="button"
+                    aria-pressed={tipoLancamento === tipo}
                     onClick={() => {
                       setTipoLancamento(tipo);
                       setErroLancamento(null);
                     }}
-                    className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    className={`selection-option flex items-center justify-center gap-1.5 rounded-lg border-0 px-3 py-2 text-sm font-semibold ${
                       tipoLancamento === tipo
                         ? tipo === 'entrada'
                           ? 'bg-paper-raised text-ledger-strong shadow-sm dark:text-ledger'
@@ -262,8 +305,10 @@ export default function FecharCaixa() {
                       <button
                         key={tipo.valor}
                         type="button"
+                        aria-pressed={tipoEntrada === tipo.valor}
+                        data-tone={tipo.valor}
                         onClick={() => setTipoEntrada(tipo.valor)}
-                        className={`rounded-lg border px-2 py-2 text-xs font-semibold ${tipoEntrada === tipo.valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
+                        className={`selection-option rounded-lg border px-2 py-2 text-xs font-semibold ${tipoEntrada === tipo.valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
                       >
                         {tipo.label}
                       </button>
@@ -296,8 +341,9 @@ export default function FecharCaixa() {
                     <button
                       key={valor}
                       type="button"
+                      aria-pressed={formaPagamento === valor}
                       onClick={() => setFormaPagamento(valor)}
-                      className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold ${formaPagamento === valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
+                      className={`selection-option flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold ${formaPagamento === valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
                     >
                       <Icon size={15} /> {label}
                     </button>
@@ -314,6 +360,8 @@ export default function FecharCaixa() {
                 {salvandoLancamento ? 'Salvando…' : `Adicionar ${tipoLancamento === 'entrada' ? 'entrada' : 'despesa'}`}
               </button>
             </form>
+              </div>
+            </div>
           </section>
 
           <section className="order-4 min-w-0 rounded-2xl border border-line bg-paper-raised p-4 shadow-sm sm:p-5 lg:order-3">

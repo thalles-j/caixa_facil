@@ -85,4 +85,28 @@ describe('requisições financeiras', () => {
     expect(fetchMock.mock.calls[1]?.[0]).toContain('/transactions/transaction-1/identification');
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ classification: 'fornecedor' });
   });
+
+  it('envia o item concreto do catálogo ao resolver uma entrada pendente', async () => {
+    const fetchMock = mockSuccess();
+
+    await resolveTransactionIdentificationRequest('transaction-2', 'servico', 'servico-1');
+
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('/transactions/transaction-2/identification');
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      classification: 'servico',
+      productId: 'servico-1',
+    });
+  });
+
+  it('envia a quantidade de produtos para baixa no estoque', async () => {
+    const fetchMock = mockSuccess();
+
+    await resolveTransactionIdentificationRequest('transaction-3', 'produto', 'produto-1', 3);
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      classification: 'produto',
+      productId: 'produto-1',
+      quantity: 3,
+    });
+  });
 });

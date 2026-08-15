@@ -90,7 +90,11 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
       <FinanceNav />
 
       {modo === 'vendas' && (
-        <div className="mb-4 grid grid-cols-3 rounded-xl bg-line/40 p-1" aria-label="Filtrar entradas por tipo">
+        <div
+          data-choice-position={tipoItem === 'product' ? 'second' : tipoItem === 'service' ? 'third' : 'first'}
+          className="segmented-slider segmented-slider-3 neutral-tabs-selector mb-4 grid grid-cols-3 rounded-xl border border-line bg-line/40 p-1"
+          aria-label="Filtrar entradas por tipo"
+        >
           {([
             ['geral', 'Geral'],
             ['product', 'Produtos'],
@@ -99,8 +103,9 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
             <button
               key={valorTipo}
               type="button"
+              aria-pressed={tipoItem === valorTipo}
               onClick={() => setTipoItem(valorTipo)}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+              className={`selection-option rounded-lg border-0 px-3 py-2 text-sm font-semibold ${
                 tipoItem === valorTipo ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft hover:text-ink'
               }`}
             >
