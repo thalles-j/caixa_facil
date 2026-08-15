@@ -1,14 +1,24 @@
-import { useMemo, useState, type FormEvent } from 'react';
-import { MagnifyingGlass, Package, Plus, WarningCircle, Wrench, Tag, PencilSimple, Trash } from '@phosphor-icons/react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { ArrowsDownUp, MagnifyingGlass, Package, Plus, WarningCircle, Wrench, Tag, PencilSimple, Trash } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney, sanitizeIntegerInput, sanitizeMoneyInput } from '../lib/format';
 import Modal from '../components/Modal';
 import Pagination from '../components/Pagination';
 import { paginateItems } from '../lib/pagination';
+import { sortCatalogItems, type OrdenacaoCatalogo } from '../lib/catalogSorting';
 import type { CategoriaProduto, Produto } from '../types';
 
 type TipoFiltro = 'todos' | 'product' | 'service';
 type Filtro = 'todos' | 'baixo' | string;
+const OPCOES_ORDENACAO: ReadonlyArray<{ valor: OrdenacaoCatalogo; label: string }> = [
+  { valor: 'recentes', label: 'Adicionados recentemente' },
+  { valor: 'maior-preco', label: 'Maior preço' },
+  { valor: 'menor-preco', label: 'Menor preço' },
+  { valor: 'az', label: 'Ordem alfabética A–Z' },
+  { valor: 'za', label: 'Ordem alfabética Z–A' },
+  { valor: 'mais-vendidos', label: 'Mais vendidos' },
+  { valor: 'menos-vendidos', label: 'Menos vendidos' },
+];
 
 export default function Catalogo() {
   const {
@@ -39,6 +49,7 @@ export default function Catalogo() {
   const [categoriaParaRemover, setCategoriaParaRemover] = useState<CategoriaProduto | null>(null);
   const [categoriaErro, setCategoriaErro] = useState<string | null>(null);
   const [pagina, setPagina] = useState(1);
+  const [ordenacao, setOrdenacao] = useState<OrdenacaoCatalogo>('recentes');
 
   // ajusta itemType quando tipoPadrao muda (ex: oferta do negócio foi alterada em
   // outra tela) — setState direto durante o render em vez de useEffect, seguindo
@@ -51,8 +62,22 @@ export default function Catalogo() {
 
   const categorias = data.categorias ?? [];
 
+  const vendasPorProduto = useMemo(() => {
+    const totais = new Map<string, number>();
+    data.vendas.forEach((venda) => {
+      if (!venda.produtoId) return;
+      totais.set(venda.produtoId, (totais.get(venda.produtoId) ?? 0) + venda.quantidade);
+    });
+    return totais;
+  }, [data.vendas]);
+
+  const quantidadeVendida = useCallback(
+    (item: Produto) => item.quantidadeVendida ?? vendasPorProduto.get(item.id) ?? 0,
+    [vendasPorProduto],
+  );
+
   const itensFiltrados = useMemo(() => {
-    return data.produtos.filter((item) => {
+    const filtrados = data.produtos.filter((item) => {
       if (tipoFiltro === 'product' && item.type !== 'product') return false;
       if (tipoFiltro === 'service' && item.type !== 'service') return false;
       if (filtro === 'baixo') {
@@ -62,7 +87,9 @@ export default function Catalogo() {
       if (!busca.trim()) return true;
       return item.nome.toLowerCase().includes(busca.trim().toLowerCase());
     });
-  }, [data.produtos, tipoFiltro, filtro, busca]);
+
+    return sortCatalogItems(filtrados, ordenacao, vendasPorProduto);
+  }, [busca, data.produtos, filtro, ordenacao, tipoFiltro, vendasPorProduto]);
   const itensPaginados = paginateItems(itensFiltrados, pagina);
 
   const abrirNovo = () => {
@@ -212,7 +239,7 @@ export default function Catalogo() {
         </div>
       </div>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+      <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_auto]">
         <div className="relative">
           <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
           <input
@@ -225,6 +252,23 @@ export default function Catalogo() {
             className="w-full rounded-2xl border border-line bg-paper-raised px-10 py-3 text-sm text-ink shadow-sm focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
           />
         </div>
+        <label className="flex min-w-0 items-center gap-2 rounded-xl border border-line bg-paper-raised px-3 py-2 text-ink shadow-sm">
+          <ArrowsDownUp size={17} className="shrink-0 text-ink-soft" />
+          <span className="sr-only">Ordenar catálogo</span>
+          <select
+            value={ordenacao}
+            onChange={(event) => {
+              setOrdenacao(event.target.value as OrdenacaoCatalogo);
+              setPagina(1);
+            }}
+            aria-label="Ordenar catálogo"
+            className="min-w-0 flex-1 cursor-pointer bg-transparent text-sm font-semibold text-ink outline-none"
+          >
+            {OPCOES_ORDENACAO.map((opcao) => (
+              <option key={opcao.valor} value={opcao.valor}>{opcao.label}</option>
+            ))}
+          </select>
+        </label>
         <div className="flex gap-2">
           {(['todos', 'product', 'service'] as TipoFiltro[]).map((tipo) => (
             <button
@@ -334,6 +378,9 @@ export default function Catalogo() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  <span className="stamp text-brass">
+                    {quantidadeVendida(item).toLocaleString('pt-BR')} vendido(s)
+                  </span>
                   {item.type === 'product' ? (
                     <span className={`stamp ${baixo ? 'text-stamp' : 'text-ink-soft'}`}>
                       {item.quantidade ?? 0} em estoque

@@ -17,9 +17,16 @@ export async function loadBootstrapData(user: UserIdentity) {
     // explícita evita sobrepor client.query(), comportamento depreciado no pg 8
     // e que será rejeitado no pg 9.
     const productsResult = await client.query(`
-          SELECT p.id, p.kind, p.name, p.sale_price, p.cost_price,
+          SELECT p.id, p.kind, p.name, p.sale_price, p.cost_price, p.created_at,
                  p.stock_quantity, p.minimum_quantity, p.service_duration::text,
-                 c.name AS category_name
+                 c.name AS category_name,
+                 COALESCE((
+                   SELECT SUM(si.quantity)
+                   FROM sale_items si
+                   JOIN sales s ON s.user_id = si.user_id AND s.id = si.sale_id
+                   WHERE si.user_id = p.user_id AND si.product_id = p.id
+                     AND s.status = 'completed'
+                 ), 0) AS sold_quantity
           FROM products p
           LEFT JOIN categories c ON c.user_id = p.user_id AND c.id = p.category_id
           WHERE p.user_id = $1 AND p.active
@@ -199,6 +206,8 @@ export async function loadBootstrapData(user: UserIdentity) {
         quantidade: product.kind === 'product' ? Number(product.stock_quantity ?? 0) : undefined,
         quantidadeMinima: product.kind === 'product' ? Number(product.minimum_quantity ?? 0) : undefined,
         duracao: product.kind === 'service' ? product.service_duration ?? undefined : undefined,
+        createdAt: new Date(product.created_at).toISOString(),
+        quantidadeVendida: Number(product.sold_quantity),
       })),
       categorias: categoriesResult.rows.map((category) => ({
         id: category.id,

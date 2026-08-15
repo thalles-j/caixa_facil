@@ -371,7 +371,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const addProduto = (produto: Omit<Produto, 'id'>) => {
-    setData((prev) => ({ ...prev, produtos: [...prev.produtos, { ...produto, id: uid() }] }));
+    setData((prev) => ({
+      ...prev,
+      produtos: [
+        ...prev.produtos,
+        {
+          ...produto,
+          id: uid(),
+          createdAt: produto.createdAt ?? new Date().toISOString(),
+          quantidadeVendida: produto.quantidadeVendida ?? 0,
+        },
+      ],
+    }));
   };
 
   const atualizarProduto = (id: string, patch: Partial<Omit<Produto, 'id'>>) => {

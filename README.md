@@ -87,6 +87,15 @@ npm run db:seed -- --reset
 Esse modo remove dados do banco apontado por `DATABASE_URL`; use somente em
 desenvolvimento.
 
+Cada uma das três contas de demonstração recebe um catálogo com 30 itens,
+clientes, fiados em diferentes situações, despesas fixas, movimentações e mais
+de 15 fechamentos. Também são criados dados históricos de janeiro a abril para
+testar filtros, paginação e relatórios. As credenciais são:
+
+- `thalles@gmail.com` / `123456`;
+- `gustavo@gmail.com` / `123456`;
+- `marco@gmail.com` / `123456`.
+
 As operações autenticadas usam `withTenantTransaction` em
 `backend/src/db.ts`, mantendo o tenant dentro da transação e garantindo as
 políticas de RLS no pool do Neon.
