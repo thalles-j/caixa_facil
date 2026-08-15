@@ -25,6 +25,7 @@ import {
   QrCode,
   CreditCard,
   CheckCircle,
+  Bank,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import Modal from '../components/Modal';
@@ -292,8 +293,8 @@ export default function Dashboard() {
           }}
         />
         <QuickAction
-          icon={HandCoins}
-          label="Suprimento"
+          icon={Bank}
+          label="Open Finance"
           badge="Em breve"
           disabled
         />
@@ -1001,15 +1002,17 @@ function QuickAction({
         <Icon size={18} />
       </div>
       <span className="text-[10px] font-medium">{label}</span>
-      {badge && (
-        <span className="rounded-full bg-brass/10 px-1.5 py-0.5 font-ledger text-[8px] font-bold uppercase tracking-wide text-brass">
-          {badge}
-        </span>
-      )}
+      <span className="flex h-4 items-center justify-center" aria-hidden={!badge}>
+        {badge && (
+          <span className="rounded-full bg-brass/10 px-1.5 py-0.5 font-ledger text-[8px] font-bold uppercase tracking-wide text-brass">
+            {badge}
+          </span>
+        )}
+      </span>
     </>
   );
 
-  const className = `flex flex-col items-center gap-1 rounded-xl py-1.5 transition ${
+  const className = `grid min-h-[86px] w-full grid-rows-[2.25rem_1rem_1rem] place-items-center gap-1 rounded-xl py-1.5 transition ${
     disabled ? 'cursor-default text-ink-soft/50' : 'text-ink-soft hover:bg-line/40 hover:text-ink'
   }`;
 
