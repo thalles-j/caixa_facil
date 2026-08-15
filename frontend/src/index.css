@@ -150,12 +150,20 @@ body {
   width: calc(33.333333% - 0.166667rem);
 }
 
+.segmented-slider-4::before {
+  width: calc(25% - 0.125rem);
+}
+
 .segmented-slider[data-choice-position='second']::before {
   transform: translateX(100%);
 }
 
 .segmented-slider[data-choice-position='third']::before {
   transform: translateX(200%);
+}
+
+.segmented-slider[data-choice-position='fourth']::before {
+  transform: translateX(300%);
 }
 
 .segmented-slider > .selection-option {

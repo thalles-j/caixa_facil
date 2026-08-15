@@ -13,9 +13,10 @@ import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate } from '../lib/format';
 import { formaPagamentoLabel, obterMovimentacoesFinanceiras, obterVendas } from '../lib/movements';
 import { paginateItems } from '../lib/pagination';
-import type { FormaPagamento } from '../types';
+import type { FormaPagamento, TipoEntrada } from '../types';
 
 export type ModoMovimentacoes = 'todas' | 'vendas' | 'saidas';
+type FiltroTipoEntrada = 'todas' | TipoEntrada;
 
 const configuracao = {
   todas: {
@@ -41,7 +42,7 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
   const [dataInicial, setDataInicial] = useState('');
   const [dataFinal, setDataFinal] = useState('');
   const [formaPagamento, setFormaPagamento] = useState<'todas' | FormaPagamento>('todas');
-  const [tipoItem, setTipoItem] = useState<'geral' | 'product' | 'service'>('geral');
+  const [tipoEntrada, setTipoEntrada] = useState<FiltroTipoEntrada>('todas');
   const [filtrosMobileAbertos, setFiltrosMobileAbertos] = useState(false);
   const [pagina, setPagina] = useState(1);
   const texto = configuracao[modo];
@@ -61,10 +62,11 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
       const correspondeFim = !dataFinal || movimento.data <= dataFinal;
       const correspondePagamento =
         modo !== 'vendas' || formaPagamento === 'todas' || movimento.formaPagamento === formaPagamento;
-      const correspondeTipoItem = modo !== 'vendas' || tipoItem === 'geral' || movimento.itemType === tipoItem;
-      return correspondeBusca && correspondeInicio && correspondeFim && correspondePagamento && correspondeTipoItem;
+      const correspondeTipoEntrada =
+        modo !== 'vendas' || tipoEntrada === 'todas' || movimento.tipoEntrada === tipoEntrada;
+      return correspondeBusca && correspondeInicio && correspondeFim && correspondePagamento && correspondeTipoEntrada;
     });
-  }, [busca, data, dataFinal, dataInicial, formaPagamento, modo, tipoItem]);
+  }, [busca, data, dataFinal, dataInicial, formaPagamento, modo, tipoEntrada]);
 
   const total = movimentacoes.reduce(
     (soma, movimento) => soma + (modo === 'todas' && movimento.tipo === 'saida' ? -movimento.valor : movimento.valor),
@@ -77,15 +79,16 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
     setDataInicial('');
     setDataFinal('');
     setFormaPagamento('todas');
-    setTipoItem('geral');
+    setTipoEntrada('todas');
     setPagina(1);
   };
 
   const filtrosAtivos = Boolean(
-    busca || dataInicial || dataFinal || formaPagamento !== 'todas' || tipoItem !== 'geral',
+    busca || dataInicial || dataFinal || formaPagamento !== 'todas' || tipoEntrada !== 'todas',
   );
   const quantidadeFiltrosAvancados =
-    Number(Boolean(dataInicial)) + Number(Boolean(dataFinal)) + Number(formaPagamento !== 'todas');
+    Number(Boolean(dataInicial)) + Number(Boolean(dataFinal)) + Number(formaPagamento !== 'todas') +
+    Number(tipoEntrada !== 'todas');
 
   return (
     <div className="fade-in">
@@ -94,45 +97,12 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
 
       <FinanceNav />
 
-      {modo === 'vendas' && (
-        <div
-          data-choice-position={tipoItem === 'product' ? 'second' : tipoItem === 'service' ? 'third' : 'first'}
-          className="segmented-slider segmented-slider-3 neutral-tabs-selector mb-4 grid grid-cols-3 rounded-xl border border-line bg-line/40 p-1"
-          aria-label="Filtrar entradas por tipo"
-        >
-          {([
-            ['geral', 'Geral'],
-            ['product', 'Produtos'],
-            ['service', 'Serviços'],
-          ] as const).map(([valorTipo, label]) => (
-            <button
-              key={valorTipo}
-              type="button"
-              aria-pressed={tipoItem === valorTipo}
-              onClick={() => {
-                setTipoItem(valorTipo);
-                setPagina(1);
-              }}
-              className={`selection-option rounded-lg border-0 px-3 py-2 text-sm font-semibold ${
-                tipoItem === valorTipo ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft hover:text-ink'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-
       <section className="mb-4 rounded-2xl border border-line bg-paper-raised p-3 shadow-sm md:p-4">
-        <div className="mb-3 flex items-center justify-between gap-3 text-ink-soft">
-          <div className="flex items-center gap-2">
-            <MagnifyingGlass size={17} />
-            <h3 className="text-xs font-bold uppercase tracking-wide">Pesquisar</h3>
-          </div>
+        <div className="mb-3 flex justify-end text-ink-soft md:hidden">
           <button
             type="button"
             onClick={() => setFiltrosMobileAbertos((aberto) => !aberto)}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold md:hidden ${
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
               filtrosMobileAbertos || quantidadeFiltrosAvancados > 0
                 ? 'bg-ledger/10 text-ledger-strong dark:text-ledger'
                 : 'bg-line/40 text-ink-soft'
@@ -147,6 +117,43 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
             )}
           </button>
         </div>
+        {modo === 'vendas' && (
+          <div
+            data-choice-position={
+              tipoEntrada === 'produto'
+                ? 'second'
+                : tipoEntrada === 'servico'
+                  ? 'third'
+                  : tipoEntrada === 'gorjeta'
+                    ? 'fourth'
+                    : 'first'
+            }
+            className="segmented-slider segmented-slider-4 neutral-tabs-selector mb-3 grid grid-cols-4 rounded-xl border border-line bg-line/40 p-1"
+            aria-label="Filtrar entradas por tipo"
+          >
+            {([
+              ['todas', 'Todas'],
+              ['produto', 'Produtos'],
+              ['servico', 'Serviços'],
+              ['gorjeta', 'Gorjetas'],
+            ] as const).map(([valorTipo, label]) => (
+              <button
+                key={valorTipo}
+                type="button"
+                aria-pressed={tipoEntrada === valorTipo}
+                onClick={() => {
+                  setTipoEntrada(valorTipo);
+                  setPagina(1);
+                }}
+                className={`selection-option min-w-0 rounded-lg border-0 px-1 py-2 text-xs font-semibold sm:px-3 sm:text-sm ${
+                  tipoEntrada === valorTipo ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft hover:text-ink'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <div
           className={`grid gap-3 ${
             modo === 'vendas'
