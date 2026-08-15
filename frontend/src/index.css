@@ -46,6 +46,22 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* O popup de <select> é renderizado pelo navegador e precisa receber o tema
+   explicitamente para não permanecer branco no modo escuro. */
+.catalog-sort-select,
+.catalog-sort-select option {
+  color-scheme: light;
+  background-color: var(--color-paper-raised);
+  color: var(--color-ink);
+}
+
+.dark .catalog-sort-select,
+.dark .catalog-sort-select option {
+  color-scheme: dark;
+  background-color: #262019;
+  color: #f3ead9;
+}
+
 /* Seletores segmentados: uma única peça percorre o trilho. Os botões não
    recebem transform, evitando animações concorrentes em cliques rápidos. */
 .selection-option {

@@ -257,7 +257,7 @@ export default function Catalogo() {
               setPagina(1);
             }}
             aria-label="Ordenar catálogo"
-            className="min-w-0 flex-1 cursor-pointer bg-transparent text-sm font-semibold text-ink outline-none"
+            className="catalog-sort-select min-w-0 flex-1 cursor-pointer bg-transparent text-sm font-semibold text-ink outline-none"
           >
             {OPCOES_ORDENACAO.map((opcao) => (
               <option key={opcao.valor} value={opcao.valor}>{opcao.label}</option>
