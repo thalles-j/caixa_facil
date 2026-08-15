@@ -148,3 +148,10 @@ export function closeCashSessionRequest(id: string, countedCash: number, allowPe
     body: JSON.stringify({ countedCash, allowPending }),
   });
 }
+
+export function reopenCashSessionRequest(id: string) {
+  return request<{ data: AppData }>(`/cash-sessions/${id}/reopen`, {
+    method: 'POST',
+    body: JSON.stringify({ confirm: true }),
+  });
+}

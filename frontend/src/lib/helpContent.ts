@@ -466,7 +466,7 @@ export const helpTopics: HelpTopic[] = [
       },
       {
         title: 'Confirme o fechamento',
-        description: 'Revise o resumo e toque em Confirmar fechamento. Depois disso, essa sessão não aceitará novas vendas.',
+        description: 'Revise o resumo e toque em Confirmar fechamento. Se perceber um erro antes de abrir outro caixa, acesse Fechamentos e reabra somente o fechamento mais recente para corrigir e fechar novamente.',
         location: 'Conferência final · Confirmar fechamento',
       },
     ],

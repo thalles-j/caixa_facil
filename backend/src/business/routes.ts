@@ -550,3 +550,52 @@ businessRouter.post('/cash-sessions/:id/close', asyncRoute(async (req, res) => {
 
   return res.json({ data: await responseData(user) });
 }));
+
+businessRouter.post('/cash-sessions/:id/reopen', asyncRoute(async (req, res) => {
+  const user = requireUser(req);
+  if (req.body?.confirm !== true) {
+    throw Object.assign(new Error('Confirme a reabertura do caixa para continuar.'), { status: 400 });
+  }
+
+  await withTenantTransaction(user.id, async (client) => {
+    const latestResult = await client.query(
+      `SELECT id, status
+       FROM cash_sessions
+       WHERE user_id = $1
+       ORDER BY opened_at DESC, created_at DESC, id DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [user.id],
+    );
+    const latestSession = latestResult.rows[0] as { id: string; status: string } | undefined;
+
+    if (!latestSession) {
+      throw Object.assign(new Error('Nenhum fechamento foi encontrado.'), { status: 404 });
+    }
+    if (latestSession.status === 'open') {
+      throw Object.assign(new Error('Já existe um caixa aberto. Finalize-o antes de corrigir outro fechamento.'), {
+        status: 409,
+        code: 'CASH_ALREADY_OPEN',
+      });
+    }
+    if (latestSession.id !== req.params.id) {
+      throw Object.assign(new Error('Somente o fechamento mais recente pode ser corrigido.'), {
+        status: 409,
+        code: 'NOT_LATEST_CASH_SESSION',
+      });
+    }
+
+    await client.query(
+      `UPDATE cash_sessions
+       SET status = 'open',
+           closed_at = NULL,
+           closing_balance = NULL,
+           expected_balance = NULL,
+           notes = concat_ws(E'\\n', NULLIF(notes, ''), '[correção] Fechamento reaberto em ' || now()::text)
+       WHERE user_id = $1 AND id = $2 AND status = 'closed'`,
+      [user.id, req.params.id],
+    );
+  });
+
+  return res.json({ data: await responseData(user) });
+}));

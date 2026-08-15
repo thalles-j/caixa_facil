@@ -2,7 +2,12 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TOKEN_KEY } from './auth';
-import { registerSaleRequest, registerTransactionRequest, resolveTransactionIdentificationRequest } from './business';
+import {
+  registerSaleRequest,
+  registerTransactionRequest,
+  reopenCashSessionRequest,
+  resolveTransactionIdentificationRequest,
+} from './business';
 
 function fakeToken(): string {
   const encode = (value: object) =>
@@ -108,5 +113,15 @@ describe('requisições financeiras', () => {
       productId: 'produto-1',
       quantity: 3,
     });
+  });
+
+  it('exige confirmação explícita ao solicitar a correção do último fechamento', async () => {
+    const fetchMock = mockSuccess();
+
+    await reopenCashSessionRequest('caixa-1');
+
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('/cash-sessions/caixa-1/reopen');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ confirm: true });
   });
 });

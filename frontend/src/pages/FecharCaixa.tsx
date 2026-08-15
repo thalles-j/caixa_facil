@@ -435,8 +435,10 @@ export default function FecharCaixa() {
                 <div className="flex items-start gap-2">
                   <LockKey size={21} className="shrink-0 text-stamp" weight="fill" />
                   <div>
-                    <p className="text-sm font-semibold text-stamp">Confirmar fechamento definitivo?</p>
-                    <p className="mt-1 text-xs text-ink-soft">Depois disso, novas vendas e movimentações não poderão ser registradas neste caixa.</p>
+                    <p className="text-sm font-semibold text-stamp">Confirmar fechamento?</p>
+                    <p className="mt-1 text-xs text-ink-soft">
+                      Revise o dinheiro contado. Se ainda encontrar um erro, somente este último fechamento poderá ser reaberto antes da abertura de outro caixa.
+                    </p>
                   </div>
                 </div>
                 <div className="mt-3 flex flex-col gap-2 min-[400px]:flex-row">

@@ -24,6 +24,7 @@ import {
   registerFixedExpenseRequest,
   registerSaleRequest,
   registerTransactionRequest,
+  reopenCashSessionRequest,
   resolveTransactionIdentificationRequest,
   type SaleItemInput,
 } from '../lib/business';
@@ -104,6 +105,7 @@ interface AppDataContextValue {
   removerDespesaFixaNoBanco: (id: string) => Promise<void>;
   abrirCaixa: (valorInicial: number, responsavel?: string) => Promise<void>;
   fecharCaixa: (dinheiroContado: number, permitirPendencias?: boolean) => Promise<void>;
+  reabrirCaixa: (id: string) => Promise<void>;
   resetData: () => void;
   saldoCaixa: number;
   vendasHoje: number;
@@ -592,6 +594,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     aplicarDadosDoBanco(response.data);
   };
 
+  const reabrirCaixa = async (id: string) => {
+    const response = await reopenCashSessionRequest(id);
+    aplicarDadosDoBanco(response.data);
+  };
+
   const resetData = () => {
     setData({ ...emptyData });
   };
@@ -790,6 +797,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     removerDespesaFixaNoBanco,
     abrirCaixa,
     fecharCaixa,
+    reabrirCaixa,
     resetData,
     saldoCaixa,
     vendasHoje,
