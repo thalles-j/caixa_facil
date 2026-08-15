@@ -270,10 +270,11 @@ export default function Dashboard() {
         id="dashboard-action-buttons"
         className="grid grid-cols-4 gap-2 rounded-2xl border border-line bg-paper-raised p-3 shadow-sm"
       >
-        <QuickAction icon={Calculator} label="Caixa" to="/caixa" />
+        <QuickAction icon={Calculator} label="Caixa" tone="caixa" to="/caixa" />
         <QuickAction
           icon={ArrowUpRight}
           label="Entradas"
+          tone="entrada"
           disabled={!data.caixaAtual}
           onClick={() => {
             setLancamentoTipo('entrada');
@@ -284,6 +285,7 @@ export default function Dashboard() {
         <QuickAction
           icon={ArrowDownRight}
           label="Despesa"
+          tone="saida"
           disabled={!data.caixaAtual}
           onClick={() => {
             setLancamentoTipo('saida');
@@ -984,6 +986,7 @@ function QuickAction({
   onClick,
   disabled,
   badge,
+  tone = 'neutro',
 }: {
   icon: typeof Calculator;
   label: string;
@@ -991,29 +994,45 @@ function QuickAction({
   onClick?: () => void;
   disabled?: boolean;
   badge?: string;
+  tone?: 'caixa' | 'entrada' | 'saida' | 'neutro';
 }) {
+  const toneClasses = {
+    caixa: {
+      icon: 'bg-sky-500/15 text-sky-700 group-hover:bg-white group-hover:text-sky-700 dark:bg-sky-400/15 dark:text-sky-300 dark:group-hover:bg-white dark:group-hover:text-sky-600',
+      action: 'text-sky-700 hover:bg-sky-700 hover:text-white dark:text-sky-300 dark:hover:bg-sky-600 dark:hover:text-white',
+    },
+    entrada: {
+      icon: 'bg-ledger/15 text-ledger-strong group-hover:bg-white group-hover:text-ledger-strong dark:text-ledger dark:group-hover:bg-white dark:group-hover:text-ledger-strong',
+      action: 'text-ledger-strong hover:bg-ledger-strong hover:text-white dark:text-ledger dark:hover:bg-ledger-strong dark:hover:text-white',
+    },
+    saida: {
+      icon: 'bg-stamp/15 text-stamp group-hover:bg-white group-hover:text-stamp dark:group-hover:bg-white dark:group-hover:text-[#a9433a]',
+      action: 'text-stamp hover:bg-stamp hover:text-white dark:hover:bg-[#a9433a] dark:hover:text-white',
+    },
+    neutro: {
+      icon: 'bg-line/30 text-ink-soft/60',
+      action: 'cursor-default text-ink-soft/50',
+    },
+  }[tone];
+
   const content = (
     <>
       <div
-        className={`flex h-9 w-9 items-center justify-center rounded-full ${
-          disabled ? 'bg-line/30' : 'bg-ledger/10 text-ledger-strong dark:text-ledger'
-        }`}
+        className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${disabled ? 'bg-line/30 text-ink-soft/60' : toneClasses.icon}`}
       >
         <Icon size={18} />
       </div>
       <span className="text-[10px] font-medium">{label}</span>
-      <span className="flex h-4 items-center justify-center" aria-hidden={!badge}>
-        {badge && (
-          <span className="rounded-full bg-brass/10 px-1.5 py-0.5 font-ledger text-[8px] font-bold uppercase tracking-wide text-brass">
-            {badge}
-          </span>
-        )}
-      </span>
+      {badge && (
+        <span className="absolute bottom-1.5 rounded-full bg-brass/10 px-1.5 py-0.5 font-ledger text-[8px] font-bold uppercase tracking-wide text-brass">
+          {badge}
+        </span>
+      )}
     </>
   );
 
-  const className = `grid min-h-[86px] w-full grid-rows-[2.25rem_1rem_1rem] place-items-center gap-1 rounded-xl py-1.5 transition ${
-    disabled ? 'cursor-default text-ink-soft/50' : 'text-ink-soft hover:bg-line/40 hover:text-ink'
+  const className = `group relative flex min-h-[86px] w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 transition-colors ${
+    disabled ? 'cursor-default text-ink-soft/50' : toneClasses.action
   }`;
 
   return to ? (
