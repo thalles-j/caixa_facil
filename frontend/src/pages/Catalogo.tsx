@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { ArrowsDownUp, MagnifyingGlass, Package, Plus, WarningCircle, Wrench, Tag, PencilSimple, Trash } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney, sanitizeIntegerInput, sanitizeMoneyInput } from '../lib/format';
@@ -70,11 +70,6 @@ export default function Catalogo() {
     });
     return totais;
   }, [data.vendas]);
-
-  const quantidadeVendida = useCallback(
-    (item: Produto) => item.quantidadeVendida ?? vendasPorProduto.get(item.id) ?? 0,
-    [vendasPorProduto],
-  );
 
   const itensFiltrados = useMemo(() => {
     const filtrados = data.produtos.filter((item) => {
@@ -378,9 +373,6 @@ export default function Catalogo() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="stamp text-brass">
-                    {quantidadeVendida(item).toLocaleString('pt-BR')} vendido(s)
-                  </span>
                   {item.type === 'product' ? (
                     <span className={`stamp ${baixo ? 'text-stamp' : 'text-ink-soft'}`}>
                       {item.quantidade ?? 0} em estoque
