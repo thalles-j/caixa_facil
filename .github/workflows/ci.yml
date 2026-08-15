@@ -17,6 +17,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: npm run prisma:validate --workspace backend
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/caixafacil
       - run: npm run lint
       - run: npm run build
       - run: npm test

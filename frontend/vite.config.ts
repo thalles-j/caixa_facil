@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      // Deve acompanhar PORT em server/.env.
+      // Deve acompanhar PORT em backend/.env.
       '/api': 'http://localhost:3000',
     },
   },

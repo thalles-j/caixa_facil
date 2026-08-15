@@ -15,11 +15,11 @@ outro projeto React. A funcionalidade mantém o usuário na tela atual e oferece
 
 O código de referência está nestes arquivos:
 
-- `src/components/HelpCenter.tsx` — interface e comportamento;
-- `src/lib/helpContent.ts` — textos, exemplos, passos e busca;
-- `src/components/Layout.tsx` — integração do botão no cabeçalho;
-- `src/components/HelpCenter.test.tsx` — testes do painel;
-- `src/lib/helpContent.test.ts` — testes do conteúdo e da busca.
+- `frontend/src/components/HelpCenter.tsx` — interface e comportamento;
+- `frontend/src/lib/helpContent.ts` — textos, exemplos, passos e busca;
+- `frontend/src/components/Layout.tsx` — integração do botão no cabeçalho;
+- `frontend/src/components/HelpCenter.test.tsx` — testes do painel;
+- `frontend/src/lib/helpContent.test.ts` — testes do conteúdo e da busca.
 
 ## 2. Resultado visual e posição
 

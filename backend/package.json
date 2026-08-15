@@ -1,5 +1,5 @@
 {
-  "name": "caixafacil-server",
+  "name": "@caixafacil/backend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -7,11 +7,17 @@
     "dev": "node --watch --import tsx src/index.ts",
     "db:schema": "tsx src/scripts/apply-schema.ts",
     "db:schema:prod": "node dist/scripts/apply-schema.js",
-    "seed": "node scripts/seed.js",
+    "seed": "prisma db seed",
+    "prisma:validate": "prisma validate",
+    "lint": "tsc -p tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
+    "@prisma/client": "^6.16.3",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -26,6 +32,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
+    "prisma": "^6.16.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

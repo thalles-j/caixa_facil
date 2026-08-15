@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { readFile } from 'node:fs/promises';
 
-const schemaUrl = new URL('../sql/schema.sql', import.meta.url);
+const schemaUrl = new URL('../prisma/migrations/0001_init/migration.sql', import.meta.url);
 const configuredDatabaseUrl = process.env.DATABASE_URL;
 
 if (!configuredDatabaseUrl) {

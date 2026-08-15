@@ -1,5 +1,8 @@
 # Relatório de Auditoria do Projeto
 
+> Nota de estrutura: as referências `src/...` deste relatório apontam para
+> `frontend/src/...` após a reorganização do monorepo.
+
 ## 1. Resumo executivo
 
 O projeto é um app de gestão financeira/operacional para pequenos negócios (padaria, loja, salão, oficina), 100% client-side: React + localStorage, sem backend, sem banco, sem API. O código tem uma base razoável (TypeScript estrito, modelo de domínio coerente, boa separação `lib/context/pages`), e recebeu recentemente um redesign visual completo. Porém a auditoria encontrou **dois bugs de dados críticos no núcleo financeiro** (parsing de valores monetários e cálculo de "hoje"), **ausência total de edição/exclusão de lançamentos** (uma vez lançado, um erro de digitação é permanente), **zero testes, zero CI, script de lint quebrado**, e **nenhuma camada de autenticação real** (a tela de login é decorativa, por decisão de produto, mas o efeito prático é que qualquer pessoa com acesso ao navegador acessa tudo).

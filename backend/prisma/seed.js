@@ -7,7 +7,7 @@ const { Pool } = pg;
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL nao foi definida em server/.env.');
+  throw new Error('DATABASE_URL nao foi definida em backend/.env.');
 }
 
 const normalizedDatabaseUrl = new URL(databaseUrl);
@@ -52,7 +52,7 @@ function money(value, factor) {
 }
 
 async function applySchema() {
-  const schema = await readFile(new URL('../sql/schema.sql', import.meta.url), 'utf8');
+  const schema = await readFile(new URL('./migrations/0001_init/migration.sql', import.meta.url), 'utf8');
   await pool.query(schema);
 }
 

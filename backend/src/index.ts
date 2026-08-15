@@ -7,7 +7,7 @@ import { accountRouter } from './account/routes.js';
 import { businessRouter } from './business/routes.js';
 
 const app = express();
-const PORT = process.env.PORT ?? 3001;
+const PORT = process.env.PORT ?? 3000;
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
   .split(',')
