@@ -21,6 +21,8 @@ import { useDarkMode } from '../lib/theme';
 import { RAMOS_ATUACAO } from '../types';
 import type { AppData, FrequenciaRelatorio, Oferta, Recorrencia, ViewPeriod } from '../types';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
+import { paginateItems } from '../lib/pagination';
 
 export default function Configuracoes() {
   const { data, setConfig, resetData, cadastrarDespesaFixaNoBanco, removerDespesaFixaNoBanco } = useAppData();
@@ -44,7 +46,10 @@ export default function Configuracoes() {
   const [senhaSalvando, setSenhaSalvando] = useState(false);
   const [senhaErro, setSenhaErro] = useState<string | null>(null);
   const [senhaSucesso, setSenhaSucesso] = useState<string | null>(null);
+  const [paginaDespesasFixas, setPaginaDespesasFixas] = useState(1);
   const arquivoInputRef = useRef<HTMLInputElement>(null);
+
+  const despesasFixasPaginadas = paginateItems(config?.despesasFixas ?? [], paginaDespesasFixas);
 
   if (!config) return null;
 
@@ -383,7 +388,7 @@ export default function Configuracoes() {
             {config.despesasFixas.length === 0 && (
               <p className="text-sm text-ink-soft">Nenhuma despesa fixa cadastrada.</p>
             )}
-            {config.despesasFixas.map((d) => (
+            {despesasFixasPaginadas.items.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-2 rounded-lg bg-paper p-2 text-sm">
                 <span className="min-w-0 truncate text-ink">
                   {d.nome} <span className="text-ink-soft">({d.recorrencia})</span>
@@ -397,7 +402,13 @@ export default function Configuracoes() {
               </li>
             ))}
           </ul>
-          <form onSubmit={adicionarDespesaFixa} className="space-y-2">
+          <Pagination
+            currentPage={despesasFixasPaginadas.currentPage}
+            totalItems={config.despesasFixas.length}
+            onPageChange={setPaginaDespesasFixas}
+            itemLabel="despesas fixas"
+          />
+          <form onSubmit={adicionarDespesaFixa} className="mt-4 space-y-2">
             <input
               type="text"
               value={novaDespesaNome}

@@ -16,12 +16,14 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react';
 import PendingIdentificationList from '../components/PendingIdentificationList';
+import Pagination from '../components/Pagination';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney, sanitizeMoneyInput, todayISO } from '../lib/format';
 import { obterMovimentacoesFinanceiras, obterVendas } from '../lib/movements';
 import { TIPOS_DESPESA } from '../types';
 import type { FormaPagamento, TipoDespesa, TipoEntrada } from '../types';
 import type { Movimentacao } from '../lib/movements';
+import { paginateItems } from '../lib/pagination';
 
 type FormaLancamento = Exclude<FormaPagamento, 'fiado' | 'cartao_debito'>;
 type EtapaFechamento = 'conferencia' | 'pendencias' | 'confirmacao';
@@ -477,6 +479,9 @@ function MovimentosDoDia({
   movimentacoes: Movimentacao[];
   totais: { entradas: number; saidas: number; fiado: number };
 }) {
+  const [pagina, setPagina] = useState(1);
+  const movimentacoesPaginadas = paginateItems(movimentacoes, pagina);
+
   return (
     <aside className="order-3 min-w-0 rounded-2xl border border-line bg-paper-raised shadow-sm lg:order-none lg:sticky lg:top-20">
       <div className="border-b border-line p-4 sm:p-5">
@@ -500,8 +505,9 @@ function MovimentosDoDia({
           <p className="text-sm font-medium text-ink">Nenhuma movimentação hoje.</p>
         </div>
       ) : (
+        <>
         <ul className="divide-y divide-line lg:max-h-[calc(100vh-18rem)] lg:overflow-y-auto">
-          {movimentacoes.map((movimento, index) => {
+          {movimentacoesPaginadas.items.map((movimento, index) => {
             const fiado = movimento.formaPagamento === 'fiado';
             const entrada = movimento.tipo === 'entrada';
             const detalhe = movimento.origem === 'conta' && !entrada
@@ -526,6 +532,15 @@ function MovimentosDoDia({
             );
           })}
         </ul>
+        <div className="px-3 pb-3">
+          <Pagination
+            currentPage={movimentacoesPaginadas.currentPage}
+            totalItems={movimentacoes.length}
+            onPageChange={setPagina}
+            itemLabel="movimentações"
+          />
+        </div>
+        </>
       )}
     </aside>
   );

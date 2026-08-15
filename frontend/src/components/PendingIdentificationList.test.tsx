@@ -91,4 +91,25 @@ describe('PendingIdentificationList', () => {
     expect(seletor.textContent).toContain('Entrega');
     expect(seletor.textContent).not.toContain('Café');
   });
+
+  it('mostra no máximo 15 pendências por página', () => {
+    const lancamentos = Array.from({ length: 16 }, (_, index) => ({
+      id: `pendencia-${index + 1}`,
+      data: '2026-08-15',
+      tipo: 'saida' as const,
+      descricao: `Pendência ${index + 1}`,
+      valor: index + 1,
+      formaPagamento: 'dinheiro' as const,
+      identificacaoPendente: true,
+    }));
+
+    render(<PendingIdentificationList lancamentos={lancamentos} />);
+
+    expect(screen.getByText('Pendência 1')).toBeTruthy();
+    expect(screen.queryByText('Pendência 16')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
+    expect(screen.getByText('Pendência 16')).toBeTruthy();
+    expect(screen.queryByText('Pendência 1')).toBeNull();
+  });
 });

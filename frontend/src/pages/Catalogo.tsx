@@ -3,6 +3,8 @@ import { MagnifyingGlass, Package, Plus, WarningCircle, Wrench, Tag, PencilSimpl
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney, sanitizeIntegerInput, sanitizeMoneyInput } from '../lib/format';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
+import { paginateItems } from '../lib/pagination';
 import type { CategoriaProduto, Produto } from '../types';
 
 type TipoFiltro = 'todos' | 'product' | 'service';
@@ -36,6 +38,7 @@ export default function Catalogo() {
   const [nomeCategoriaEditando, setNomeCategoriaEditando] = useState('');
   const [categoriaParaRemover, setCategoriaParaRemover] = useState<CategoriaProduto | null>(null);
   const [categoriaErro, setCategoriaErro] = useState<string | null>(null);
+  const [pagina, setPagina] = useState(1);
 
   // ajusta itemType quando tipoPadrao muda (ex: oferta do negócio foi alterada em
   // outra tela) — setState direto durante o render em vez de useEffect, seguindo
@@ -60,6 +63,7 @@ export default function Catalogo() {
       return item.nome.toLowerCase().includes(busca.trim().toLowerCase());
     });
   }, [data.produtos, tipoFiltro, filtro, busca]);
+  const itensPaginados = paginateItems(itensFiltrados, pagina);
 
   const abrirNovo = () => {
     setProdutoEditando(null);
@@ -213,7 +217,10 @@ export default function Catalogo() {
           <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
           <input
             value={busca}
-            onChange={(event) => setBusca(event.target.value)}
+            onChange={(event) => {
+              setBusca(event.target.value);
+              setPagina(1);
+            }}
             placeholder="Buscar por nome..."
             className="w-full rounded-2xl border border-line bg-paper-raised px-10 py-3 text-sm text-ink shadow-sm focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
           />
@@ -222,7 +229,10 @@ export default function Catalogo() {
           {(['todos', 'product', 'service'] as TipoFiltro[]).map((tipo) => (
             <button
               key={tipo}
-              onClick={() => setTipoFiltro(tipo)}
+              onClick={() => {
+                setTipoFiltro(tipo);
+                setPagina(1);
+              }}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 tipoFiltro === tipo ? 'bg-ledger text-paper' : 'border border-line bg-paper-raised text-ink-soft'
               }`}
@@ -235,7 +245,10 @@ export default function Catalogo() {
 
       <div className="scrollbar-hide mb-4 -mx-4 flex gap-2 overflow-x-auto px-4 pb-2">
         <button
-          onClick={() => setFiltro('todos')}
+          onClick={() => {
+            setFiltro('todos');
+            setPagina(1);
+          }}
           className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
             filtro === 'todos' ? 'bg-ledger text-paper' : 'border border-line bg-paper-raised text-ink-soft'
           }`}
@@ -243,7 +256,10 @@ export default function Catalogo() {
           Todos
         </button>
         <button
-          onClick={() => setFiltro('baixo')}
+          onClick={() => {
+            setFiltro('baixo');
+            setPagina(1);
+          }}
           className={`flex items-center gap-1 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
             filtro === 'baixo' ? 'bg-stamp text-paper' : 'border border-line bg-paper-raised text-ink-soft'
           }`}
@@ -253,7 +269,10 @@ export default function Catalogo() {
         {categorias.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setFiltro(cat.nome)}
+            onClick={() => {
+              setFiltro(cat.nome);
+              setPagina(1);
+            }}
             className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
               filtro === cat.nome ? 'bg-ledger text-paper' : 'border border-line bg-paper-raised text-ink-soft'
             }`}
@@ -286,7 +305,7 @@ export default function Catalogo() {
         )
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {itensFiltrados.map((item) => {
+          {itensPaginados.items.map((item) => {
             const baixo = quantidadeBaixa(item);
             return (
               <div
@@ -350,6 +369,13 @@ export default function Catalogo() {
           })}
         </div>
       )}
+
+      <Pagination
+        currentPage={itensPaginados.currentPage}
+        totalItems={itensFiltrados.length}
+        onPageChange={setPagina}
+        itemLabel="itens"
+      />
 
       <Modal open={modalAberto} onClose={() => setModalAberto(false)} title={produtoEditando ? 'Editar item' : 'Novo item'}>
         <form className="space-y-4" onSubmit={handleSubmit}>

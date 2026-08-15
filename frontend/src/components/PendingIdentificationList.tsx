@@ -4,6 +4,8 @@ import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, sanitizeIntegerInput } from '../lib/format';
 import { TIPOS_DESPESA } from '../types';
 import type { LancamentoManual, TipoDespesa, TipoEntrada } from '../types';
+import Pagination from './Pagination';
+import { paginateItems } from '../lib/pagination';
 
 const TIPOS_ENTRADA: ReadonlyArray<{ valor: TipoEntrada; label: string }> = [
   { valor: 'produto', label: 'Produto' },
@@ -25,6 +27,8 @@ export default function PendingIdentificationList({ lancamentos }: { lancamentos
   const [quantidades, setQuantidades] = useState<Record<string, string>>({});
   const [resolvendoId, setResolvendoId] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [pagina, setPagina] = useState(1);
+  const lancamentosPaginados = paginateItems(lancamentos, pagina);
 
   const resolver = async (lancamento: LancamentoManual) => {
     const classificacao = (
@@ -86,7 +90,7 @@ export default function PendingIdentificationList({ lancamentos }: { lancamentos
 
   return (
     <div className="space-y-3">
-      {lancamentos.map((lancamento) => {
+      {lancamentosPaginados.items.map((lancamento) => {
         const entrada = lancamento.tipo === 'entrada';
         const Icon = entrada ? ArrowUp : ArrowDown;
         const classificacao = (
@@ -266,6 +270,12 @@ export default function PendingIdentificationList({ lancamentos }: { lancamentos
           <WarningCircle size={15} className="mt-0.5 shrink-0" /> {erro}
         </p>
       )}
+      <Pagination
+        currentPage={lancamentosPaginados.currentPage}
+        totalItems={lancamentos.length}
+        onPageChange={setPagina}
+        itemLabel="pendências"
+      />
     </div>
   );
 }

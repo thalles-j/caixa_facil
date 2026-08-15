@@ -9,8 +9,10 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
+import Pagination from '../components/Pagination';
 import { formatCurrency, formatDate } from '../lib/format';
 import { dataLocalISO } from '../lib/reporting';
+import { paginateItems } from '../lib/pagination';
 import type { SessaoCaixa } from '../types';
 
 function somar(sessoes: SessaoCaixa[], campo: keyof SessaoCaixa): number {
@@ -23,6 +25,7 @@ export default function Fechamentos() {
   const [confirmandoCorrecao, setConfirmandoCorrecao] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
   const [erroCorrecao, setErroCorrecao] = useState<string | null>(null);
+  const [pagina, setPagina] = useState(1);
 
   const ultimoFechamento = useMemo(
     () =>
@@ -45,6 +48,7 @@ export default function Fechamentos() {
       .map(([dia, sessoes]) => ({ dia, sessoes }))
       .sort((a, b) => b.dia.localeCompare(a.dia));
   }, [data.fechamentosCaixa]);
+  const diasPaginados = paginateItems(dias, pagina);
 
   const confirmarReabertura = async () => {
     if (!ultimoFechamento || data.caixaAtual) return;
@@ -143,7 +147,7 @@ export default function Fechamentos() {
         </section>
       ) : (
         <div className="space-y-4">
-          {dias.map(({ dia, sessoes }) => {
+          {diasPaginados.items.map(({ dia, sessoes }) => {
             const entradas =
               somar(sessoes, 'vendasDinheiro') +
               somar(sessoes, 'vendasPix') +
@@ -201,6 +205,12 @@ export default function Fechamentos() {
           })}
         </div>
       )}
+      <Pagination
+        currentPage={diasPaginados.currentPage}
+        totalItems={dias.length}
+        onPageChange={setPagina}
+        itemLabel="dias de fechamento"
+      />
     </div>
   );
 }

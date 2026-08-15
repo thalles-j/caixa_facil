@@ -16,8 +16,10 @@ import {
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate, parseMoney, sanitizeMoneyInput, todayISO } from '../lib/format';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
 import type { Cliente, Conta, FormaPagamento, LancamentoManual, TipoConta } from '../types';
 import FinanceNav from '../components/FinanceNav';
+import { getPagination, paginateItems } from '../lib/pagination';
 
 type ItemParaExcluir = { tipo: 'conta' | 'lancamento'; id: string; label: string };
 type BaixaPendente = { tipo: 'fiado' | 'fixa'; id: string; nome: string; valor: number };
@@ -46,6 +48,8 @@ export default function Financas() {
   const [formaBaixa, setFormaBaixa] = useState<Exclude<FormaPagamento, 'fiado'>>('dinheiro');
   const [baixando, setBaixando] = useState(false);
   const [baixaErro, setBaixaErro] = useState<string | null>(null);
+  const [pagina, setPagina] = useState(1);
+  const [paginaClientes, setPaginaClientes] = useState(1);
 
   const mesAtual = todayISO().slice(0, 7);
   const gastosFixos = useMemo(() => data.config?.despesasFixas ?? [], [data.config?.despesasFixas]);
@@ -73,6 +77,19 @@ export default function Financas() {
         .sort((a, b) => b.data.localeCompare(a.data)),
     [data.lancamentosManuais, aba],
   );
+
+  const quantidadeFixosNaLista = aba === 'pagar' ? gastosFixos.length : 0;
+  const totalItensNaLista = quantidadeFixosNaLista + contasDaAba.length + lancamentosDaAba.length;
+  const paginacao = getPagination(totalItensNaLista, pagina);
+  const gastosFixosPaginados =
+    aba === 'pagar' ? gastosFixos.slice(paginacao.startIndex, paginacao.endIndex) : [];
+  const inicioContas = Math.max(0, paginacao.startIndex - quantidadeFixosNaLista);
+  const fimContas = Math.max(0, paginacao.endIndex - quantidadeFixosNaLista);
+  const contasPaginadas = contasDaAba.slice(inicioContas, fimContas);
+  const deslocamentoLancamentos = quantidadeFixosNaLista + contasDaAba.length;
+  const inicioLancamentos = Math.max(0, paginacao.startIndex - deslocamentoLancamentos);
+  const fimLancamentos = Math.max(0, paginacao.endIndex - deslocamentoLancamentos);
+  const lancamentosPaginados = lancamentosDaAba.slice(inicioLancamentos, fimLancamentos);
 
   const totalMes = useMemo(
     () =>
@@ -190,9 +207,12 @@ export default function Financas() {
 
   const hoje = todayISO();
   const mostrarPainelClientes = aba === 'receber' && saldoPorCliente.length > 0;
+  const clientesPaginados = paginateItems(saldoPorCliente, paginaClientes);
 
   const selecionarAba = (proximaAba: TipoConta) => {
     if (proximaAba === aba) return;
+    setPagina(1);
+    setPaginaClientes(1);
     setSearchParams({ tab: proximaAba }, { replace: true });
   };
 
@@ -307,7 +327,7 @@ export default function Financas() {
             ) : (
               <ul className="divide-y divide-line">
                 {aba === 'pagar' &&
-                  gastosFixos.map((gasto) => (
+                  gastosFixosPaginados.map((gasto) => (
                     <li key={`fixo-${gasto.id}`} className="flex items-center justify-between gap-3 bg-brass/[0.03] p-4">
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <div className="shrink-0 rounded-lg bg-brass/10 p-2 text-brass">
@@ -335,7 +355,7 @@ export default function Financas() {
                       </div>
                     </li>
                   ))}
-                {contasDaAba.map((conta) => {
+                {contasPaginadas.map((conta) => {
                   const venceHoje = conta.vencimento === hoje && !conta.quitado;
                   const atrasada = !conta.quitado && conta.vencimento < hoje;
                   const cliente = conta.clienteId ? clientesPorId.get(conta.clienteId) : undefined;
@@ -434,7 +454,7 @@ export default function Financas() {
                     </li>
                   );
                 })}
-                {lancamentosDaAba.map((lanc) => (
+                {lancamentosPaginados.map((lanc) => (
                   <li key={lanc.id} className="flex items-center justify-between gap-3 p-4">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-ink">{lanc.descricao}</p>
@@ -468,6 +488,12 @@ export default function Financas() {
               </ul>
             )}
           </div>
+          <Pagination
+            currentPage={paginacao.currentPage}
+            totalItems={totalItensNaLista}
+            onPageChange={setPagina}
+            itemLabel={aba === 'pagar' ? 'contas e despesas' : 'contas a receber'}
+          />
         </div>
 
         {mostrarPainelClientes && (
@@ -478,7 +504,7 @@ export default function Financas() {
                 <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">Por Cliente</h3>
               </div>
               <ul className="divide-y divide-line">
-                {saldoPorCliente.map((c) => (
+                {clientesPaginados.items.map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <div className="min-w-0">
                       <p className="truncate text-ink">{c.nome}</p>
@@ -492,6 +518,12 @@ export default function Financas() {
                   </li>
                 ))}
               </ul>
+              <Pagination
+                currentPage={clientesPaginados.currentPage}
+                totalItems={saldoPorCliente.length}
+                onPageChange={setPaginaClientes}
+                itemLabel="clientes"
+              />
             </div>
           </div>
         )}
