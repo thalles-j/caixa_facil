@@ -181,7 +181,7 @@ export default function Landing() {
                   title={valoresDemonstracaoVisiveis ? 'Ocultar informações' : 'Mostrar informações'}
                   className="privacy-nudge flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f7f1e4]/10 transition hover:bg-[#f7f1e4]/20"
                 >
-                  {valoresDemonstracaoVisiveis ? <EyeSlash size={18} /> : <Eye size={18} />}
+                  {valoresDemonstracaoVisiveis ? <Eye size={18} /> : <EyeSlash size={18} />}
                 </button>
               </div>
               <div className="flex gap-3">

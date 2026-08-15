@@ -220,7 +220,7 @@ export default function Dashboard() {
             aria-label={informacoesVisiveis ? 'Ocultar informações' : 'Mostrar informações'}
             title={informacoesVisiveis ? 'Ocultar informações sensíveis' : 'Mostrar informações sensíveis'}
           >
-            {informacoesVisiveis ? <EyeSlash size={18} /> : <Eye size={18} />}
+            {informacoesVisiveis ? <Eye size={18} /> : <EyeSlash size={18} />}
           </button>
         </div>
 
