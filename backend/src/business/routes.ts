@@ -89,6 +89,26 @@ async function responseData(user: AuthenticatedUser) {
   return loadBootstrapData({ id: user.id, email: user.email, name: null });
 }
 
+async function refreshClosedCashSnapshot(
+  client: import('pg').PoolClient,
+  userId: string,
+  cashSessionId: string | null,
+) {
+  if (!cashSessionId) return;
+  await client.query(
+    `UPDATE cash_sessions cs
+     SET expected_balance = cs.opening_balance + COALESCE((
+       SELECT SUM(CASE WHEN t.type = 'entrada' THEN t.amount ELSE -t.amount END)
+       FROM transactions t
+       WHERE t.user_id = cs.user_id
+         AND t.cash_session_id = cs.id
+         AND t.payment_method = 'dinheiro'
+     ), 0)
+     WHERE cs.user_id = $1 AND cs.id = $2 AND cs.status = 'closed'`,
+    [userId, cashSessionId],
+  );
+}
+
 businessRouter.get('/data', asyncRoute(async (req, res) => {
   const user = requireUser(req);
   return res.json({ data: await responseData(user) });
@@ -281,10 +301,13 @@ businessRouter.patch('/transactions/:id/identification', asyncRoute(async (req, 
   const classification = String(req.body?.classification ?? '');
   const productId = req.body?.productId ? String(req.body.productId) : null;
   const requestedQuantity = req.body?.quantity === undefined ? 1 : Number(req.body.quantity);
+  const correctedAmount = req.body?.correctedAmount === undefined
+    ? null
+    : positiveMoney(req.body.correctedAmount, 'Valor corrigido');
 
   await withTenantTransaction(user.id, async (client) => {
     const transactionResult = await client.query(
-      `SELECT id, type
+      `SELECT id, type, cash_session_id
        FROM transactions
        WHERE user_id = $1 AND id = $2
          AND source IN ('ajuste', 'despesa_avulsa')
@@ -308,10 +331,11 @@ businessRouter.patch('/transactions/:id/identification', asyncRoute(async (req, 
         }
         await client.query(
           `UPDATE transactions
-           SET entry_kind = 'gorjeta', identification_pending = false
+           SET entry_kind = 'gorjeta', amount = COALESCE($3, amount), identification_pending = false
            WHERE user_id = $1 AND id = $2`,
-          [user.id, req.params.id],
+          [user.id, req.params.id, correctedAmount],
         );
+        await refreshClosedCashSnapshot(client, user.id, transaction.cash_session_id);
         return;
       }
 
@@ -365,15 +389,17 @@ businessRouter.patch('/transactions/:id/identification', asyncRoute(async (req, 
 
       await client.query(
         `UPDATE transactions
-         SET entry_kind = $3, description = $4, identification_pending = false
+         SET entry_kind = $3, description = $4, amount = COALESCE($5, amount), identification_pending = false
          WHERE user_id = $1 AND id = $2`,
         [
           user.id,
           req.params.id,
           classification,
           classification === 'produto' && quantity > 1 ? `${product.name} (${quantity} un.)` : product.name,
+          correctedAmount,
         ],
       );
+      await refreshClosedCashSnapshot(client, user.id, transaction.cash_session_id);
       return;
     }
 
@@ -386,10 +412,11 @@ businessRouter.patch('/transactions/:id/identification', asyncRoute(async (req, 
     }
     await client.query(
       `UPDATE transactions
-       SET expense_kind = $3, identification_pending = false
+       SET expense_kind = $3, amount = COALESCE($4, amount), identification_pending = false
        WHERE user_id = $1 AND id = $2`,
-      [user.id, req.params.id, classification],
+      [user.id, req.params.id, classification, correctedAmount],
     );
+    await refreshClosedCashSnapshot(client, user.id, transaction.cash_session_id);
   });
 
   return res.json({ data: await responseData(user) });

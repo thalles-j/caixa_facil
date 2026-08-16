@@ -93,6 +93,7 @@ interface AppDataContextValue {
     classificacao: TipoEntrada | TipoDespesa,
     produtoId?: string,
     quantidade?: number,
+    valorCorrigido?: number,
   ) => Promise<void>;
   cadastrarClienteNoBanco: (cliente: Omit<Cliente, 'id'>) => Promise<Cliente>;
   baixarFiado: (id: string, forma: Exclude<FormaPagamento, 'fiado'>) => Promise<void>;
@@ -553,8 +554,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     classificacao,
     produtoId,
     quantidade,
+    valorCorrigido,
   ) => {
-    const response = await resolveTransactionIdentificationRequest(id, classificacao, produtoId, quantidade);
+    const response = await resolveTransactionIdentificationRequest(
+      id,
+      classificacao,
+      produtoId,
+      quantidade,
+      valorCorrigido,
+    );
     aplicarDadosDoBanco(response.data);
   };
 

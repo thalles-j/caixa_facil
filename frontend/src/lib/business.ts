@@ -92,10 +92,11 @@ export function resolveTransactionIdentificationRequest(
   classification: TipoEntrada | TipoDespesa,
   productId?: string,
   quantity?: number,
+  correctedAmount?: number,
 ) {
   return request<{ data: AppData }>(`/transactions/${id}/identification`, {
     method: 'PATCH',
-    body: JSON.stringify({ classification, productId, quantity }),
+    body: JSON.stringify({ classification, productId, quantity, correctedAmount }),
   });
 }
 

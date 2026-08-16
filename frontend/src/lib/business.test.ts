@@ -116,6 +116,19 @@ describe('requisições financeiras', () => {
     });
   });
 
+  it('envia o valor corrigido somente após a revisão da pendência', async () => {
+    const fetchMock = mockSuccess();
+
+    await resolveTransactionIdentificationRequest('transaction-4', 'produto', 'produto-1', 3, 36);
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      classification: 'produto',
+      productId: 'produto-1',
+      quantity: 3,
+      correctedAmount: 36,
+    });
+  });
+
   it('exige confirmação explícita ao solicitar a correção do último fechamento', async () => {
     const fetchMock = mockSuccess();
 

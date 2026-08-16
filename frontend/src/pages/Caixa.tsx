@@ -17,6 +17,7 @@ import {
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, parseMoney, sanitizeIntegerInput, sanitizeMoneyInput } from '../lib/format';
+import { catalogTypesForOffer } from '../lib/offering';
 import type { Cliente, FormaPagamento } from '../types';
 import Modal from '../components/Modal';
 
@@ -66,12 +67,18 @@ export default function Caixa() {
   const [erroOperacao, setErroOperacao] = useState<string | null>(null);
   const [modalAbertura, setModalAbertura] = useState(false);
   const [valorInicial, setValorInicial] = useState('');
+  const tiposCatalogoPermitidos = useMemo(
+    () => catalogTypesForOffer(data.config?.oferta),
+    [data.config?.oferta],
+  );
 
   const resultados = useMemo(() => {
     if (!busca.trim()) return [];
     const termo = busca.trim().toLowerCase();
-    return data.produtos.filter((p) => p.nome.toLowerCase().includes(termo)).slice(0, 6);
-  }, [busca, data.produtos]);
+    return data.produtos
+      .filter((p) => tiposCatalogoPermitidos.includes(p.type) && p.nome.toLowerCase().includes(termo))
+      .slice(0, 6);
+  }, [busca, data.produtos, tiposCatalogoPermitidos]);
 
   const clientesFiltrados = useMemo(() => {
     const termo = buscaCliente.trim().toLowerCase();
@@ -84,7 +91,9 @@ export default function Caixa() {
   const quantidadeProdutoSelecionada = Math.max(1, Number(quantidadeProduto) || 1);
 
   const adicionarProduto = (produtoId: string) => {
-    const produto = data.produtos.find((p) => p.id === produtoId);
+    const produto = data.produtos.find(
+      (p) => p.id === produtoId && tiposCatalogoPermitidos.includes(p.type),
+    );
     if (!produto) return;
 
     const jaNoCarrinho = carrinho.find((i) => i.produtoId === produtoId)?.quantidade ?? 0;
@@ -304,12 +313,18 @@ export default function Caixa() {
                 type="text"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar produto..."
+                placeholder={
+                  tiposCatalogoPermitidos.length > 1
+                    ? 'Buscar produto ou serviço...'
+                    : tiposCatalogoPermitidos[0] === 'service'
+                      ? 'Buscar serviço...'
+                      : 'Buscar produto...'
+                }
                 className="w-full rounded-xl border border-line bg-paper py-3 pl-10 pr-3 text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
               />
             </div>
             <label className="relative">
-              <span className="sr-only">Quantidade de unidades</span>
+              <span className="sr-only">Quantidade de itens</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -319,7 +334,7 @@ export default function Caixa() {
                 onBlur={() => {
                   if (!quantidadeProduto || Number(quantidadeProduto) < 1) setQuantidadeProduto('1');
                 }}
-                aria-label="Quantidade de unidades"
+                aria-label="Quantidade de itens"
                 className="w-full rounded-xl border border-line bg-paper py-3 pl-2 pr-7 text-center font-ledger text-sm font-bold tabular-nums text-ink focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ledger"
               />
               <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold uppercase text-ink-soft">

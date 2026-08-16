@@ -13,6 +13,7 @@ import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate } from '../lib/format';
 import { formaPagamentoLabel, obterMovimentacoesFinanceiras, obterVendas } from '../lib/movements';
 import { paginateItems } from '../lib/pagination';
+import { entryTypeOptionsForOffer } from '../lib/offering';
 import type { FormaPagamento, TipoEntrada } from '../types';
 
 export type ModoMovimentacoes = 'todas' | 'vendas' | 'saidas';
@@ -46,6 +47,16 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
   const [filtrosMobileAbertos, setFiltrosMobileAbertos] = useState(false);
   const [pagina, setPagina] = useState(1);
   const texto = configuracao[modo];
+  const opcoesFiltroEntrada: ReadonlyArray<{ valor: FiltroTipoEntrada; label: string }> = [
+    { valor: 'todas', label: 'Todas' },
+    ...entryTypeOptionsForOffer(data.config?.oferta).map((opcao) => ({
+      valor: opcao.valor,
+      label: `${opcao.label}s`,
+    })),
+  ];
+  const tipoEntradaEfetivo = opcoesFiltroEntrada.some((opcao) => opcao.valor === tipoEntrada)
+    ? tipoEntrada
+    : 'todas';
 
   const movimentacoes = useMemo(() => {
     const base = modo === 'vendas' ? obterVendas(data) : obterMovimentacoesFinanceiras(data);
@@ -63,10 +74,10 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
       const correspondePagamento =
         modo !== 'vendas' || formaPagamento === 'todas' || movimento.formaPagamento === formaPagamento;
       const correspondeTipoEntrada =
-        modo !== 'vendas' || tipoEntrada === 'todas' || movimento.tipoEntrada === tipoEntrada;
+        modo !== 'vendas' || tipoEntradaEfetivo === 'todas' || movimento.tipoEntrada === tipoEntradaEfetivo;
       return correspondeBusca && correspondeInicio && correspondeFim && correspondePagamento && correspondeTipoEntrada;
     });
-  }, [busca, data, dataFinal, dataInicial, formaPagamento, modo, tipoEntrada]);
+  }, [busca, data, dataFinal, dataInicial, formaPagamento, modo, tipoEntradaEfetivo]);
 
   const total = movimentacoes.reduce(
     (soma, movimento) => soma + (modo === 'todas' && movimento.tipo === 'saida' ? -movimento.valor : movimento.valor),
@@ -84,11 +95,11 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
   };
 
   const filtrosAtivos = Boolean(
-    busca || dataInicial || dataFinal || formaPagamento !== 'todas' || tipoEntrada !== 'todas',
+    busca || dataInicial || dataFinal || formaPagamento !== 'todas' || tipoEntradaEfetivo !== 'todas',
   );
   const quantidadeFiltrosAvancados =
     Number(Boolean(dataInicial)) + Number(Boolean(dataFinal)) + Number(formaPagamento !== 'todas') +
-    Number(tipoEntrada !== 'todas');
+    Number(tipoEntradaEfetivo !== 'todas');
 
   return (
     <div className="fade-in">
@@ -120,33 +131,28 @@ export default function Movimentacoes({ modo }: { modo: ModoMovimentacoes }) {
         {modo === 'vendas' && (
           <div
             data-choice-position={
-              tipoEntrada === 'produto'
-                ? 'second'
-                : tipoEntrada === 'servico'
-                  ? 'third'
-                  : tipoEntrada === 'gorjeta'
-                    ? 'fourth'
-                    : 'first'
+              ['first', 'second', 'third', 'fourth'][
+                Math.max(0, opcoesFiltroEntrada.findIndex((opcao) => opcao.valor === tipoEntradaEfetivo))
+              ]
             }
-            className="segmented-slider segmented-slider-4 neutral-tabs-selector mb-3 grid grid-cols-4 rounded-xl border border-line bg-line/40 p-1"
+            className={`segmented-slider neutral-tabs-selector mb-3 grid rounded-xl border border-line bg-line/40 p-1 ${
+              opcoesFiltroEntrada.length === 3
+                ? 'segmented-slider-3 grid-cols-3'
+                : 'segmented-slider-4 grid-cols-4'
+            }`}
             aria-label="Filtrar entradas por tipo"
           >
-            {([
-              ['todas', 'Todas'],
-              ['produto', 'Produtos'],
-              ['servico', 'Serviços'],
-              ['gorjeta', 'Gorjetas'],
-            ] as const).map(([valorTipo, label]) => (
+            {opcoesFiltroEntrada.map(({ valor: valorTipo, label }) => (
               <button
                 key={valorTipo}
                 type="button"
-                aria-pressed={tipoEntrada === valorTipo}
+                aria-pressed={tipoEntradaEfetivo === valorTipo}
                 onClick={() => {
                   setTipoEntrada(valorTipo);
                   setPagina(1);
                 }}
                 className={`selection-option min-w-0 rounded-lg border-0 px-1 py-2 text-xs font-semibold sm:px-3 sm:text-sm ${
-                  tipoEntrada === valorTipo ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft hover:text-ink'
+                  tipoEntradaEfetivo === valorTipo ? 'bg-paper-raised text-ink shadow-sm' : 'text-ink-soft hover:text-ink'
                 }`}
               >
                 {label}

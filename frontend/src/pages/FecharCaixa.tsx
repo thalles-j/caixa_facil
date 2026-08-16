@@ -24,6 +24,7 @@ import { TIPOS_DESPESA } from '../types';
 import type { FormaPagamento, TipoDespesa, TipoEntrada } from '../types';
 import type { Movimentacao } from '../lib/movements';
 import { paginateItems } from '../lib/pagination';
+import { defaultEntryType, entryTypeOptionsForOffer } from '../lib/offering';
 
 type FormaLancamento = Exclude<FormaPagamento, 'fiado' | 'cartao_debito'>;
 type EtapaFechamento = 'conferencia' | 'pendencias' | 'confirmacao';
@@ -34,23 +35,20 @@ const FORMAS: ReadonlyArray<{ valor: FormaLancamento; label: string; Icon: typeo
   { valor: 'cartao_credito', label: 'Cartão', Icon: CreditCard },
 ];
 
-const TIPOS_ENTRADA: ReadonlyArray<{ valor: TipoEntrada; label: string }> = [
-  { valor: 'produto', label: 'Produto' },
-  { valor: 'servico', label: 'Serviço' },
-  { valor: 'gorjeta', label: 'Gorjeta' },
-];
-
 const horario = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 export default function FecharCaixa() {
   const navigate = useNavigate();
   const { data, registrarLancamentoNoBanco, fecharCaixa } = useAppData();
   const caixa = data.caixaAtual;
+  const oferta = data.config?.oferta ?? 'ambos';
+  const opcoesTipoEntrada = entryTypeOptionsForOffer(oferta);
+  const tipoEntradaPadrao = defaultEntryType(oferta);
 
   const [tipoLancamento, setTipoLancamento] = useState<'entrada' | 'saida'>('entrada');
   const [valorLancamento, setValorLancamento] = useState('');
   const [descricaoLancamento, setDescricaoLancamento] = useState('');
-  const [tipoEntrada, setTipoEntrada] = useState<TipoEntrada>('produto');
+  const [tipoEntrada, setTipoEntrada] = useState<TipoEntrada>(tipoEntradaPadrao);
   const [tipoDespesa, setTipoDespesa] = useState<TipoDespesa | ''>('');
   const [formaPagamento, setFormaPagamento] = useState<FormaLancamento>('dinheiro');
   const [salvandoLancamento, setSalvandoLancamento] = useState(false);
@@ -61,6 +59,9 @@ export default function FecharCaixa() {
   const [etapa, setEtapa] = useState<EtapaFechamento>('conferencia');
   const [fechando, setFechando] = useState(false);
   const [erroFechamento, setErroFechamento] = useState<string | null>(null);
+  const tipoEntradaEfetivo = opcoesTipoEntrada.some((opcao) => opcao.valor === tipoEntrada)
+    ? tipoEntrada
+    : tipoEntradaPadrao;
 
   const hoje = todayISO();
   const pendencias = useMemo(
@@ -124,13 +125,14 @@ export default function FecharCaixa() {
         descricao,
         valor,
         formaPagamento,
-        tipoEntrada: tipoLancamento === 'entrada' ? tipoEntrada : undefined,
+        tipoEntrada: tipoLancamento === 'entrada' ? tipoEntradaEfetivo : undefined,
         tipoDespesa: tipoLancamento === 'saida' ? tipoDespesa || undefined : undefined,
         movimentoCaixa: 'regular',
       });
       setValorLancamento('');
       setDescricaoLancamento('');
       setTipoDespesa('');
+      setTipoEntrada(tipoEntradaPadrao);
       setEtapa('conferencia');
       setMiniCaixaAberto(false);
     } catch (error) {
@@ -292,7 +294,15 @@ export default function FecharCaixa() {
                     value={descricaoLancamento}
                     onChange={(event) => setDescricaoLancamento(event.target.value)}
                     type="text"
-                    placeholder={tipoLancamento === 'entrada' ? 'Ex: Venda rápida' : 'Ex: Compra emergencial'}
+                    placeholder={
+                      tipoLancamento === 'entrada'
+                        ? tipoEntradaEfetivo === 'servico'
+                          ? 'Ex: Atendimento realizado'
+                          : tipoEntradaEfetivo === 'gorjeta'
+                            ? 'Ex: Gorjeta recebida'
+                            : 'Ex: Venda rápida'
+                        : 'Ex: Compra emergencial'
+                    }
                     required={tipoLancamento === 'entrada' || !tipoDespesa}
                     className="w-full rounded-xl border border-line bg-paper px-3 py-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ledger/30"
                   />
@@ -302,22 +312,24 @@ export default function FecharCaixa() {
               {tipoLancamento === 'entrada' ? (
                 <fieldset>
                   <legend className="mb-2 text-[10px] font-bold uppercase tracking-wide text-ink-soft">Tipo da entrada</legend>
-                  <div className="grid grid-cols-3 gap-2">
-                    {TIPOS_ENTRADA.map((tipo) => (
+                  <div className={`grid gap-2 ${opcoesTipoEntrada.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {opcoesTipoEntrada.map((tipo) => (
                       <button
                         key={tipo.valor}
                         type="button"
-                        aria-pressed={tipoEntrada === tipo.valor}
+                        aria-pressed={tipoEntradaEfetivo === tipo.valor}
                         data-tone={tipo.valor}
                         onClick={() => setTipoEntrada(tipo.valor)}
-                        className={`selection-option rounded-lg border px-2 py-2 text-xs font-semibold ${tipoEntrada === tipo.valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
+                        className={`selection-option rounded-lg border px-2 py-2 text-xs font-semibold ${tipoEntradaEfetivo === tipo.valor ? 'border-ledger bg-ledger/10 text-ledger-strong dark:text-ledger' : 'border-line text-ink-soft'}`}
                       >
                         {tipo.label}
                       </button>
                     ))}
                   </div>
-                  <p className={`mt-2 text-xs ${tipoEntrada === 'gorjeta' ? 'text-ledger-strong dark:text-ledger' : 'text-brass'}`}>
-                    {tipoEntrada === 'gorjeta' ? 'Gorjeta entra sem pendência.' : 'Produto ou serviço ficará pendente até a confirmação.'}
+                  <p className={`mt-2 text-xs ${tipoEntradaEfetivo === 'gorjeta' ? 'text-ledger-strong dark:text-ledger' : 'text-brass'}`}>
+                    {tipoEntradaEfetivo === 'gorjeta'
+                      ? 'Gorjeta entra sem pendência.'
+                      : `${tipoEntradaEfetivo === 'produto' ? 'Produto' : 'Serviço'} ficará pendente até a confirmação.`}
                   </p>
                 </fieldset>
               ) : (
