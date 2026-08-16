@@ -47,11 +47,12 @@ app.use(
       return callback(error);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
     maxAge: 600,
   }),
 );
+app.use('/api/account/backup', express.json({ limit: '10mb', strict: true }));
 app.use(express.json({ limit: '32kb', strict: true }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

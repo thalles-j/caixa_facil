@@ -25,7 +25,6 @@ import {
   QrCode,
   CreditCard,
   CheckCircle,
-  Bank,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import Modal from '../components/Modal';
@@ -277,7 +276,7 @@ export default function Dashboard() {
       {/* Ações rápidas */}
       <div
         id="dashboard-action-buttons"
-        className="grid grid-cols-4 gap-2 rounded-2xl border border-line bg-paper-raised p-3 shadow-sm"
+        className="grid grid-cols-3 gap-2 rounded-2xl border border-line bg-paper-raised p-3 shadow-sm"
       >
         <QuickAction icon={Calculator} label="Caixa" tone="caixa" to="/caixa" />
         <QuickAction
@@ -303,12 +302,6 @@ export default function Dashboard() {
             setLancamentoErro(null);
             setLancamentoModalAberto(true);
           }}
-        />
-        <QuickAction
-          icon={Bank}
-          label="Open Finance"
-          badge="Em breve"
-          disabled
         />
       </div>
 

@@ -51,6 +51,8 @@ export default function Catalogo() {
   const [nomeCategoriaEditando, setNomeCategoriaEditando] = useState('');
   const [categoriaParaRemover, setCategoriaParaRemover] = useState<CategoriaProduto | null>(null);
   const [categoriaErro, setCategoriaErro] = useState<string | null>(null);
+  const [catalogoErro, setCatalogoErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
   const [pagina, setPagina] = useState(1);
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCatalogo>('recentes');
   const itemTypeEfetivo = tiposPermitidos.includes(itemType) ? itemType : tipoPadrao;
@@ -92,12 +94,14 @@ export default function Catalogo() {
   const abrirNovo = () => {
     setProdutoEditando(null);
     setItemType(tipoPadrao);
+    setCatalogoErro(null);
     setModalAberto(true);
   };
 
   const abrirEdicao = (produto: Produto) => {
     setProdutoEditando(produto);
     setItemType(produto.type);
+    setCatalogoErro(null);
     setModalAberto(true);
   };
 
@@ -111,20 +115,34 @@ export default function Catalogo() {
     setConfirmarRemocaoAberto(false);
   };
 
-  const confirmarRemocao = () => {
+  const confirmarRemocao = async () => {
     if (!produtoParaRemover) return;
-    removerProduto(produtoParaRemover.id);
-    fecharConfirmarRemocao();
+    setSalvando(true);
+    try {
+      await removerProduto(produtoParaRemover.id);
+      fecharConfirmarRemocao();
+    } catch (error) {
+      setCatalogoErro(error instanceof Error ? error.message : 'Não foi possível excluir o item.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
-  const cadastrarCategoria = (event: FormEvent<HTMLFormElement>) => {
+  const cadastrarCategoria = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!addCategoria(novaCategoria)) {
-      setCategoriaErro('Informe um nome diferente das categorias existentes.');
-      return;
+    setSalvando(true);
+    try {
+      if (!(await addCategoria(novaCategoria))) {
+        setCategoriaErro('Informe um nome diferente das categorias existentes.');
+        return;
+      }
+      setNovaCategoria('');
+      setCategoriaErro(null);
+    } catch (error) {
+      setCategoriaErro(error instanceof Error ? error.message : 'Não foi possível criar a categoria.');
+    } finally {
+      setSalvando(false);
     }
-    setNovaCategoria('');
-    setCategoriaErro(null);
   };
 
   const iniciarEdicaoCategoria = (categoria: CategoriaProduto) => {
@@ -133,27 +151,41 @@ export default function Catalogo() {
     setCategoriaErro(null);
   };
 
-  const salvarEdicaoCategoria = () => {
+  const salvarEdicaoCategoria = async () => {
     if (!categoriaEditando) return;
     const nomeAnterior = categoriaEditando.nome;
-    if (!editarCategoria(categoriaEditando.id, nomeCategoriaEditando)) {
-      setCategoriaErro('Informe um nome diferente das categorias existentes.');
-      return;
+    setSalvando(true);
+    try {
+      if (!(await editarCategoria(categoriaEditando.id, nomeCategoriaEditando))) {
+        setCategoriaErro('Informe um nome diferente das categorias existentes.');
+        return;
+      }
+      if (filtro === nomeAnterior) setFiltro(nomeCategoriaEditando.trim());
+      setCategoriaEditando(null);
+      setNomeCategoriaEditando('');
+      setCategoriaErro(null);
+    } catch (error) {
+      setCategoriaErro(error instanceof Error ? error.message : 'Não foi possível atualizar a categoria.');
+    } finally {
+      setSalvando(false);
     }
-    if (filtro === nomeAnterior) setFiltro(nomeCategoriaEditando.trim());
-    setCategoriaEditando(null);
-    setNomeCategoriaEditando('');
-    setCategoriaErro(null);
   };
 
-  const confirmarRemocaoCategoria = () => {
+  const confirmarRemocaoCategoria = async () => {
     if (!categoriaParaRemover) return;
-    if (filtro === categoriaParaRemover.nome) setFiltro('todos');
-    removerCategoria(categoriaParaRemover.id);
-    setCategoriaParaRemover(null);
+    setSalvando(true);
+    try {
+      await removerCategoria(categoriaParaRemover.id);
+      if (filtro === categoriaParaRemover.nome) setFiltro('todos');
+      setCategoriaParaRemover(null);
+    } catch (error) {
+      setCategoriaErro(error instanceof Error ? error.message : 'Não foi possível excluir a categoria.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const nome = String(form.get('nome') ?? '').trim();
@@ -162,10 +194,17 @@ export default function Catalogo() {
     const custo = custoRaw ? parseMoney(custoRaw) : undefined;
     const categoriaRaw = String(form.get('categoria') ?? '').trim();
     const categoria = categoriaRaw || undefined;
+    const codigoBarras = String(form.get('codigoBarras') ?? '').trim() || undefined;
 
-    if (!nome || precoVenda <= 0) return;
+    if (!nome || precoVenda <= 0) {
+      setCatalogoErro('Informe um nome e um preço de venda válido.');
+      return;
+    }
 
-    if (itemTypeEfetivo === 'product') {
+    setSalvando(true);
+    setCatalogoErro(null);
+    try {
+      if (itemTypeEfetivo === 'product') {
       const quantidade = Math.max(0, Number(form.get('quantidade') ?? 0));
       const quantidadeMinima = Math.max(0, Number(form.get('quantidadeMinima') ?? 0));
       const payload: Omit<Produto, 'id'> = {
@@ -173,19 +212,23 @@ export default function Catalogo() {
         nome,
         precoVenda,
         categoria,
+        codigoBarras,
         custo,
         quantidade,
         quantidadeMinima,
       };
 
       if (produtoEditando) {
-        atualizarProduto(produtoEditando.id, payload);
+        await atualizarProduto(produtoEditando.id, payload);
       } else {
-        addProduto(payload);
+        await addProduto(payload);
       }
-    } else {
+      } else {
       const duracao = String(form.get('duracao') ?? '').trim();
-      if (!duracao) return;
+      if (!duracao) {
+        setCatalogoErro('Informe a duração estimada do serviço.');
+        return;
+      }
       const payload: Omit<Produto, 'id'> = {
         type: 'service',
         nome,
@@ -196,14 +239,19 @@ export default function Catalogo() {
       };
 
       if (produtoEditando) {
-        atualizarProduto(produtoEditando.id, payload);
+        await atualizarProduto(produtoEditando.id, payload);
       } else {
-        addProduto(payload);
+        await addProduto(payload);
       }
-    }
+      }
 
-    setModalAberto(false);
-    setProdutoEditando(null);
+      setModalAberto(false);
+      setProdutoEditando(null);
+    } catch (error) {
+      setCatalogoErro(error instanceof Error ? error.message : 'Não foi possível salvar o item.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const quantidadeBaixa = (item: Produto) => {
@@ -537,7 +585,20 @@ export default function Catalogo() {
           </div>
 
           {itemTypeEfetivo === 'product' ? (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-ink-soft">Código de barras (opcional)</label>
+                <input
+                  name="codigoBarras"
+                  type="text"
+                  inputMode="numeric"
+                  defaultValue={produtoEditando?.codigoBarras}
+                  maxLength={64}
+                  placeholder="Digite ou use um leitor USB/Bluetooth"
+                  className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-ink-soft">Quantidade</label>
                 <input
@@ -566,6 +627,7 @@ export default function Catalogo() {
                   className="w-full rounded-lg border border-line bg-paper p-2 text-sm text-ink focus:border-ledger focus:outline-none focus:ring-2 focus:ring-ledger/30"
                 />
               </div>
+              </div>
             </div>
           ) : (
             <div>
@@ -581,8 +643,9 @@ export default function Catalogo() {
             </div>
           )}
 
-          <button type="submit" className="w-full rounded-lg bg-ledger px-4 py-2 text-sm font-semibold text-paper transition hover:bg-ledger-strong">
-            Salvar
+          {catalogoErro && <p role="alert" className="text-xs font-medium text-stamp">{catalogoErro}</p>}
+          <button disabled={salvando} type="submit" className="w-full rounded-lg bg-ledger px-4 py-2 text-sm font-semibold text-paper transition hover:bg-ledger-strong disabled:cursor-wait disabled:opacity-60">
+            {salvando ? 'Salvando…' : 'Salvar'}
           </button>
         </form>
       </Modal>
@@ -608,6 +671,7 @@ export default function Catalogo() {
             />
             <button
               type="submit"
+              disabled={salvando}
               className="flex shrink-0 items-center gap-1 rounded-lg bg-ledger px-3 py-2 text-sm font-semibold text-paper transition hover:bg-ledger-strong"
             >
               <Plus size={16} /> Criar
@@ -638,7 +702,8 @@ export default function Catalogo() {
                         />
                         <button
                           type="button"
-                          onClick={salvarEdicaoCategoria}
+                          onClick={() => void salvarEdicaoCategoria()}
+                          disabled={salvando}
                           className="rounded-lg bg-ledger px-3 py-2 text-xs font-bold text-paper"
                         >
                           Salvar
@@ -713,7 +778,8 @@ export default function Catalogo() {
             </button>
             <button
               type="button"
-              onClick={confirmarRemocaoCategoria}
+              onClick={() => void confirmarRemocaoCategoria()}
+              disabled={salvando}
               className="flex-1 rounded-lg bg-stamp px-4 py-2.5 text-sm font-bold text-paper transition hover:bg-stamp/90"
             >
               Excluir categoria
@@ -736,7 +802,8 @@ export default function Catalogo() {
               Cancelar
             </button>
             <button
-              onClick={confirmarRemocao}
+              onClick={() => void confirmarRemocao()}
+              disabled={salvando}
               className="flex-1 rounded-lg bg-stamp px-4 py-2 text-sm font-semibold text-paper transition hover:bg-stamp/90"
             >
               Excluir

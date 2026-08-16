@@ -17,6 +17,7 @@ Aplicação organizada como um monorepo npm, com frontend e backend independente
 │   │   ├── account/
 │   │   ├── auth/
 │   │   ├── business/
+│   │   ├── email.ts
 │   │   └── scripts/
 │   ├── .env.example
 │   ├── package.json
@@ -107,10 +108,10 @@ O link gerado é válido por 30 minutos e só pode ser usado uma vez. Ao conclui
 a troca, as sessões persistentes anteriores são revogadas.
 
 Em desenvolvimento, a própria API devolve o token e a tela avança diretamente
-para a definição da nova senha. Em produção, o endpoint já cria e protege o
-token, mas o envio da URL por e-mail precisa ser conectado a um provedor no
-bloco indicado em `backend/src/auth/routes.ts`. Nunca habilite a devolução do
-token de desenvolvimento com `NODE_ENV=production`.
+para a definição da nova senha. Em produção, configure `FRONTEND_URL`,
+`EMAIL_WEBHOOK_URL`, `EMAIL_WEBHOOK_TOKEN` e `EMAIL_FROM`. O webhook recebe
+`{ from, to, subject, text, html? }` e deve encaminhar a mensagem pelo provedor
+escolhido. Nunca habilite a devolução do token com `NODE_ENV=production`.
 
 Antes de publicar esta versão, aplique o schema para criar os campos de
 revogação de sessão:
@@ -130,3 +131,20 @@ npm run prisma:validate --workspace backend
 
 Não há configuração de Docker local. O banco é remoto e gerenciado pelo fluxo
 Prisma + Neon.
+
+## Hospedagem separada
+
+Frontend e backend não dependem de execução no mesmo servidor:
+
+1. publique `backend/` como serviço Node, execute `npm run build --workspace backend`
+   na raiz e inicie com `npm start --workspace backend`;
+2. defina no backend `CORS_ORIGIN=https://seu-front.example`,
+   `FRONTEND_URL=https://seu-front.example` e `REFRESH_COOKIE_SAME_SITE=none`;
+3. gere o frontend com `VITE_API_URL=https://sua-api.example/api`;
+4. mantenha HTTPS nas duas origens, exigido pelo cookie `SameSite=None; Secure`;
+5. aplique `npm run db:schema` no deploy ou habilite
+   `RUN_DB_MIGRATIONS_ON_STARTUP=true` quando a plataforma garantir apenas uma
+   instância executando a migração.
+
+A API expõe `GET /api/health` para health checks. O frontend é um build estático
+e não precisa acessar diretamente o PostgreSQL.

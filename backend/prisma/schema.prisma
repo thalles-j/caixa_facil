@@ -31,6 +31,22 @@ model password_reset_tokens {
   @@index([user_id, created_at(sort: Desc)], map: "idx_password_reset_tokens_user_created")
 }
 
+model business_settings {
+  user_id              String   @id @db.Uuid
+  business_name        String
+  business_category    String
+  offering             String   @default("ambos")
+  controls_stock       Boolean  @default(true)
+  daily_sales_goal     Decimal? @db.Decimal(14, 2)
+  report_frequency     String   @default("nenhum")
+  report_by_email      Boolean  @default(false)
+  report_email         String?  @db.Citext
+  view_period          String   @default("day")
+  onboarding_completed Boolean  @default(false)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @default(now()) @db.Timestamptz(6)
+}
+
 model categories {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id    String   @default(dbgenerated("app_current_user_id()")) @db.Uuid
@@ -47,6 +63,7 @@ model products {
   category_id      String?                  @db.Uuid
   kind             String                   @default("product")
   name             String
+  barcode          String?
   sale_price       Decimal                  @default(0) @db.Decimal(14, 2)
   cost_price       Decimal                  @default(0) @db.Decimal(14, 2)
   stock_quantity   Decimal?                 @db.Decimal(14, 3)
@@ -59,6 +76,7 @@ model products {
   @@unique([user_id, id], map: "uq_products_tenant_id")
   @@index([user_id, active], map: "idx_products_user_active")
   @@index([user_id, category_id], map: "idx_products_user_category")
+  @@unique([user_id, barcode], map: "uq_products_user_barcode")
 }
 
 model customers {

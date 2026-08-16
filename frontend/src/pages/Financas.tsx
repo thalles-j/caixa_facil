@@ -12,6 +12,7 @@ import {
   Trash,
   Phone,
   ArrowsClockwise,
+  WhatsappLogo,
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { formatCurrency, formatDate, parseMoney, sanitizeMoneyInput, todayISO } from '../lib/format';
@@ -20,6 +21,7 @@ import Pagination from '../components/Pagination';
 import type { Cliente, Conta, FormaPagamento, LancamentoManual, TipoConta } from '../types';
 import FinanceNav from '../components/FinanceNav';
 import { getPagination, paginateItems } from '../lib/pagination';
+import { whatsappChargeUrl } from '../lib/whatsapp';
 
 type ItemParaExcluir = { tipo: 'conta' | 'lancamento'; id: string; label: string };
 type BaixaPendente = { tipo: 'fiado' | 'fixa'; id: string; nome: string; valor: number };
@@ -416,6 +418,17 @@ export default function Financas() {
                           {formatCurrency(conta.valor)}
                         </p>
                         <div className="flex items-center gap-1">
+                          {!conta.quitado && conta.tipo === 'receber' && whatsappChargeUrl(cliente?.telefone, cliente?.nome ?? 'cliente', conta.valor) && (
+                            <a
+                              href={whatsappChargeUrl(cliente?.telefone, cliente?.nome ?? 'cliente', conta.valor) ?? undefined}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              aria-label={`Cobrar ${cliente?.nome ?? 'cliente'} pelo WhatsApp`}
+                              className="rounded bg-[#25D366]/15 p-1.5 text-[#128C4A] transition hover:bg-[#25D366]/25 dark:text-[#56e48d]"
+                            >
+                              <WhatsappLogo size={15} weight="fill" />
+                            </a>
+                          )}
                           {!conta.quitado && (
                             <button
                               onClick={() => {
@@ -514,7 +527,20 @@ export default function Financas() {
                         </p>
                       )}
                     </div>
-                    <span className="shrink-0 font-ledger font-bold tabular-nums text-brass">{formatCurrency(c.total)}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {whatsappChargeUrl(c.telefone, c.nome, c.total) && (
+                        <a
+                          href={whatsappChargeUrl(c.telefone, c.nome, c.total) ?? undefined}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          aria-label={`Cobrar ${c.nome} pelo WhatsApp`}
+                          className="rounded-lg bg-[#25D366]/15 p-2 text-[#128C4A] transition hover:bg-[#25D366]/25 dark:text-[#56e48d]"
+                        >
+                          <WhatsappLogo size={16} weight="fill" />
+                        </a>
+                      )}
+                      <span className="font-ledger font-bold tabular-nums text-brass">{formatCurrency(c.total)}</span>
+                    </div>
                   </li>
                 ))}
               </ul>

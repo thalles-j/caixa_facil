@@ -146,10 +146,10 @@ async function seedCatalog(client, factor) {
     const id = await insertReturningId(
       client,
       `INSERT INTO products
-         (category_id, kind, name, sale_price, cost_price, stock_quantity, minimum_quantity, created_at)
-       VALUES ($1, 'product', $2, $3, $4, $5, $6, $7)
+         (category_id, kind, name, barcode, sale_price, cost_price, stock_quantity, minimum_quantity, created_at)
+       VALUES ($1, 'product', $2, $3, $4, $5, $6, $7, $8)
        RETURNING id`,
-      [categories.get(category), name, price, cost, stock, minimum, minutesAgo((totalItems - index) * 1440)],
+      [categories.get(category), name, String(7891000000000 + index), price, cost, stock, minimum, minutesAgo((totalItems - index) * 1440)],
     );
     catalog.set(key, { id, key, kind: 'product', name, price, cost });
   }
@@ -418,6 +418,13 @@ async function seedTenant(client, user, passwordHash) {
       [user.email, passwordHash, user.name],
     );
     await client.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
+    await client.query(
+      `INSERT INTO business_settings
+        (user_id, business_name, business_category, offering, controls_stock,
+         daily_sales_goal, report_frequency, report_by_email, view_period, onboarding_completed)
+       VALUES ($1, $2, 'Alimentação (Mercado, Padaria...)', 'ambos', true, $3, 'ambos', false, 'day', true)`,
+      [userId, `${user.name} — Demonstração`, money(500, user.factor)],
+    );
     const catalog = await seedCatalog(client, user.factor);
     const customers = await seedCustomers(client, user);
     const fixedExpenses = await seedFixedExpenses(client, user.factor);

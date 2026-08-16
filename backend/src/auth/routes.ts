@@ -5,6 +5,7 @@ import { loadBootstrapData } from '../business/bootstrap.js';
 import { hashPassword, comparePassword, passwordValidationError } from './password.js';
 import { signRefreshToken, signToken, verifyRefreshToken, verifyToken } from './jwt.js';
 import { rateLimit } from '../security.js';
+import { sendEmail } from '../email.js';
 
 export const authRouter = Router();
 
@@ -14,10 +15,16 @@ const REFRESH_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
 
 function refreshCookieOptions() {
+  const configuredSameSite = process.env.REFRESH_COOKIE_SAME_SITE?.toLowerCase();
+  const sameSite = configuredSameSite === 'none' || configuredSameSite === 'strict'
+    ? configuredSameSite
+    : configuredSameSite === 'lax'
+      ? 'lax'
+      : process.env.NODE_ENV === 'production' ? 'none' : 'lax';
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production' || sameSite === 'none',
+    sameSite: sameSite as 'lax' | 'none' | 'strict',
     path: '/api/auth',
   };
 }
@@ -144,8 +151,24 @@ authRouter.post('/forgot-password', forgotPasswordLimit, asyncRoute(async (req, 
     return res.json({ message: RECOVERY_MESSAGE, resetToken: token });
   }
 
-  // Em producao, conecte aqui o provedor de e-mail e envie uma URL contendo o
-  // token. A resposta continua generica para nao revelar contas cadastradas.
+  const frontendUrl = (process.env.FRONTEND_URL ?? '').replace(/\/$/, '');
+  if (!frontendUrl) {
+    console.error('FRONTEND_URL ausente: recuperação de senha não enviada.');
+    return res.json({ message: RECOVERY_MESSAGE });
+  }
+  try {
+    const resetUrl = `${frontendUrl}/recuperar-conta?token=${encodeURIComponent(token)}`;
+    await sendEmail({
+      to: normalizedEmail,
+      subject: 'Recupere sua senha do CaixaFácil',
+      text: `Use este link para criar uma nova senha. Ele expira em 30 minutos: ${resetUrl}`,
+      html: `<p>Use o link abaixo para criar uma nova senha. Ele expira em 30 minutos.</p><p><a href="${resetUrl}">Criar nova senha</a></p>`,
+    });
+  } catch (error) {
+    // Não muda a resposta para evitar enumeração de contas. O erro fica nos
+    // logs operacionais para alertas do provedor.
+    console.error('Falha ao enviar recuperação de senha:', error);
+  }
   return res.json({ message: RECOVERY_MESSAGE });
 }));
 

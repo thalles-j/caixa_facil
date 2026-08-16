@@ -1,5 +1,13 @@
 import { ensureStoredAccessToken } from './auth';
-import type { AppData, FormaPagamento, TipoDespesa, TipoEntrada, TipoMovimentoCaixa } from '../types';
+import type {
+  AppData,
+  CompanyConfig,
+  FormaPagamento,
+  Produto,
+  TipoDespesa,
+  TipoEntrada,
+  TipoMovimentoCaixa,
+} from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -59,6 +67,53 @@ export type SaleItemInput = {
   quantity: number;
   unitPrice: number;
 };
+
+export function saveSettingsRequest(config: CompanyConfig) {
+  return request<{ data: AppData }>('/settings', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+}
+
+export function sendReportEmailRequest() {
+  return request<{ message: string }>('/reports/email', { method: 'POST' });
+}
+
+export function createCategoryRequest(name: string) {
+  return request<{ data: AppData }>('/categories', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function updateCategoryRequest(id: string, name: string) {
+  return request<{ data: AppData }>(`/categories/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteCategoryRequest(id: string) {
+  return request<{ data: AppData }>(`/categories/${id}`, { method: 'DELETE' });
+}
+
+export function createProductRequest(product: Omit<Produto, 'id'>) {
+  return request<{ data: AppData }>('/products', {
+    method: 'POST',
+    body: JSON.stringify(product),
+  });
+}
+
+export function updateProductRequest(id: string, patch: Partial<Omit<Produto, 'id'>>) {
+  return request<{ data: AppData }>(`/products/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteProductRequest(id: string) {
+  return request<{ data: AppData }>(`/products/${id}`, { method: 'DELETE' });
+}
 
 export function registerSaleRequest(
   items: SaleItemInput[],

@@ -104,20 +104,19 @@ export default function Onboarding() {
         ? 'mensal'
         : 'nenhum';
 
-    setConfig({
-      nome: nome.trim(),
-      categoria,
-      oferta,
-      controlaEstoque: oferta !== 'servicos',
-      despesasFixas,
-      relatorio: { frequencia, porEmail: false },
-      viewPeriod,
-      onboardingConcluido: true,
-    });
-
     setConcluindo(true);
     setConclusaoErro(null);
     try {
+      await setConfig({
+        nome: nome.trim(),
+        categoria,
+        oferta,
+        controlaEstoque: oferta !== 'servicos',
+        despesasFixas: [],
+        relatorio: { frequencia, porEmail: false },
+        viewPeriod,
+        onboardingConcluido: true,
+      });
       for (const despesa of despesasFixas) {
         await cadastrarDespesaFixaNoBanco({
           nome: despesa.nome,

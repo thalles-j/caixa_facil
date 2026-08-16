@@ -93,6 +93,25 @@ CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expiry
 COMMENT ON TABLE password_reset_tokens IS
   'Tokens de uso unico e curta duracao para recuperar senhas sem expor se um e-mail possui conta.';
 
+CREATE TABLE IF NOT EXISTS business_settings (
+  user_id               UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  business_name         TEXT NOT NULL CHECK (btrim(business_name) <> ''),
+  business_category     TEXT NOT NULL CHECK (btrim(business_category) <> ''),
+  offering              TEXT NOT NULL DEFAULT 'ambos' CHECK (offering IN ('produtos', 'servicos', 'ambos')),
+  controls_stock        BOOLEAN NOT NULL DEFAULT true,
+  daily_sales_goal      NUMERIC(14,2) CHECK (daily_sales_goal IS NULL OR daily_sales_goal >= 0),
+  report_frequency      TEXT NOT NULL DEFAULT 'nenhum' CHECK (report_frequency IN ('semanal', 'mensal', 'ambos', 'nenhum')),
+  report_by_email       BOOLEAN NOT NULL DEFAULT false,
+  report_email          CITEXT,
+  view_period           TEXT NOT NULL DEFAULT 'day' CHECK (view_period IN ('day', 'week')),
+  onboarding_completed  BOOLEAN NOT NULL DEFAULT false,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE business_settings IS
+  'Preferencias e configuracoes do negocio, persistidas por conta no servidor.';
+
 -- ============================================================
 -- CATEGORIAS E PRODUTOS
 -- ============================================================
@@ -120,6 +139,7 @@ CREATE TABLE IF NOT EXISTS products (
   kind              TEXT NOT NULL DEFAULT 'product'
                     CHECK (kind IN ('product', 'service')),
   name              TEXT NOT NULL CHECK (btrim(name) <> ''),
+  barcode           TEXT,
   sale_price        NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (sale_price >= 0),
   cost_price        NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (cost_price >= 0),
   stock_quantity    NUMERIC(14,3) CHECK (stock_quantity IS NULL OR stock_quantity >= 0),
@@ -138,6 +158,8 @@ CREATE TABLE IF NOT EXISTS products (
   )
 );
 
+ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT;
+
 COMMENT ON TABLE products IS
   'Catalogo de produtos e servicos; estoque e precos pertencem sempre ao tenant.';
 COMMENT ON COLUMN products.category_id IS
@@ -149,6 +171,8 @@ CREATE INDEX IF NOT EXISTS idx_products_user_category
   ON products (user_id, category_id);
 CREATE INDEX IF NOT EXISTS idx_products_user_name
   ON products (user_id, lower(name));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_products_user_barcode
+  ON products (user_id, barcode) WHERE barcode IS NOT NULL;
 
 -- ============================================================
 -- CLIENTES
@@ -501,7 +525,7 @@ DECLARE
   table_name TEXT;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY[
-    'users', 'categories', 'products', 'customers', 'cash_sessions',
+    'users', 'business_settings', 'categories', 'products', 'customers', 'cash_sessions',
     'sales', 'fixed_expenses', 'credit_sales'
   ]
   LOOP
@@ -768,7 +792,7 @@ DECLARE
   table_name TEXT;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY[
-    'categories', 'products', 'customers', 'cash_sessions', 'sales',
+    'business_settings', 'categories', 'products', 'customers', 'cash_sessions', 'sales',
     'sale_items', 'fixed_expenses', 'credit_sales', 'transactions'
   ]
   LOOP
@@ -861,7 +885,7 @@ COMMENT ON VIEW credit_receivables IS
 -- Privilegios minimos da role usada pela API depois de autenticar o usuario.
 GRANT USAGE ON SCHEMA public TO mnb_app_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
-  categories, products, customers, cash_sessions, sales, sale_items,
+  business_settings, categories, products, customers, cash_sessions, sales, sale_items,
   fixed_expenses, credit_sales, transactions
 TO mnb_app_runtime;
 GRANT SELECT ON daily_balance, cash_session_report, credit_receivables TO mnb_app_runtime;
