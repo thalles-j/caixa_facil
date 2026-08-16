@@ -5,14 +5,19 @@ import { ensureSchema } from './db.js';
 import { authRouter } from './auth/routes.js';
 import { accountRouter } from './account/routes.js';
 import { businessRouter } from './business/routes.js';
+import { securityHeaders } from './security.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isDevelopment = process.env.NODE_ENV === 'development';
 const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+app.disable('x-powered-by');
+if (!isDevelopment) app.set('trust proxy', 1);
+app.use(securityHeaders);
 
 function isAllowedDevelopmentOrigin(origin: string | undefined): boolean {
   if (!isDevelopment || !origin) return false;
@@ -42,9 +47,12 @@ app.use(
       return callback(error);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    maxAge: 600,
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: '32kb', strict: true }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRouter);
@@ -92,7 +100,7 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const prepareDatabase =
-  process.env.NODE_ENV !== 'production' || process.env.RUN_DB_MIGRATIONS_ON_STARTUP === 'true'
+  isDevelopment || process.env.RUN_DB_MIGRATIONS_ON_STARTUP === 'true'
     ? ensureSchema()
     : Promise.resolve();
 

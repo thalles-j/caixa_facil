@@ -15,6 +15,7 @@ import {
 } from '@phosphor-icons/react';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
+import { PASSWORD_HINT, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordPolicyError } from '../lib/passwordPolicy';
 import { formatCurrency, parseMoney, sanitizeMoneyInput, todayISO } from '../lib/format';
 import { isValidAppData, loadData, saveData } from '../lib/storage';
 import { useDarkMode } from '../lib/theme';
@@ -173,8 +174,9 @@ export default function Configuracoes() {
     event.preventDefault();
     setSenhaErro(null);
     setSenhaSucesso(null);
-    if (novaSenha.length < 6) {
-      setSenhaErro('A nova senha deve ter pelo menos 6 caracteres.');
+    const senhaInvalida = passwordPolicyError(novaSenha);
+    if (senhaInvalida) {
+      setSenhaErro(senhaInvalida);
       return;
     }
     if (novaSenha !== confirmarNovaSenha) {
@@ -248,6 +250,7 @@ export default function Configuracoes() {
                 <input
                   type="password"
                   autoComplete="current-password"
+                  maxLength={PASSWORD_MAX_LENGTH}
                   value={senhaAtual}
                   onChange={(event) => setSenhaAtual(event.target.value)}
                   placeholder="Digite sua senha atual"
@@ -261,10 +264,11 @@ export default function Configuracoes() {
               <input
                 type="password"
                 autoComplete="new-password"
-                minLength={6}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
                 value={novaSenha}
                 onChange={(event) => setNovaSenha(event.target.value)}
-                placeholder="Mínimo de 6 caracteres"
+                placeholder={PASSWORD_HINT}
                 required
                 className={inputClasses}
               />
@@ -274,7 +278,8 @@ export default function Configuracoes() {
               <input
                 type="password"
                 autoComplete="new-password"
-                minLength={6}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
                 value={confirmarNovaSenha}
                 onChange={(event) => setConfirmarNovaSenha(event.target.value)}
                 placeholder="Digite novamente"

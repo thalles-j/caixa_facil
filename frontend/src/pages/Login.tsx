@@ -50,6 +50,7 @@ export default function Login() {
             <input
               type="email"
               required
+              maxLength={254}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="voce@seunegocio.com"
@@ -66,6 +67,7 @@ export default function Login() {
             <input
               type="password"
               required
+              maxLength={72}
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               placeholder="••••••••"

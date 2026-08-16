@@ -1,6 +1,16 @@
 import type { AppData } from '../types';
 
+/** Chave legada, mantida apenas para remover tokens gravados por versões antigas. */
 export const TOKEN_KEY = 'mnb-auth-token';
+let accessTokenInMemory: string | null = null;
+
+function removeLegacyStoredToken() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // A sessão HTTP-only continua funcionando quando o armazenamento é bloqueado.
+  }
+}
 
 export type TokenPayload = {
   sub: string;
@@ -26,15 +36,20 @@ export function isTokenValid(token: string | null): token is string {
 }
 
 export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  // O refresh token HTTP-only restaura a sessão após recarregar a página.
+  // O access token não precisa ficar acessível em armazenamento persistente.
+  removeLegacyStoredToken();
+  return accessTokenInMemory;
 }
 
 export function setStoredToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token);
+  accessTokenInMemory = token;
+  removeLegacyStoredToken();
 }
 
 export function clearStoredToken() {
-  localStorage.removeItem(TOKEN_KEY);
+  accessTokenInMemory = null;
+  removeLegacyStoredToken();
 }
 
 let refreshInFlight: Promise<AuthResponse> | null = null;

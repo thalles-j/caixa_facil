@@ -28,7 +28,7 @@ import {
   resolveTransactionIdentificationRequest,
   type SaleItemInput,
 } from '../lib/business';
-import { decodeToken, getStoredToken, TOKEN_KEY } from '../lib/auth';
+import { decodeToken, getStoredToken } from '../lib/auth';
 import {
   APP_DATA_CHANGED_EVENT,
   emptyData,
@@ -235,12 +235,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.storageArea !== localStorage) return;
       const userId = getAuthenticatedUserId();
-      if (event.key === TOKEN_KEY) {
-        activeUserIdRef.current = userId;
-        setLoadedUserId(userId);
-        setData(userId ? loadData(userId) : emptyData);
-        return;
-      }
       if (event.key !== null && event.key !== storageKeyForUser(userId)) return;
       setData(loadData(userId));
     };

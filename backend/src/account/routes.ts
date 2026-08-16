@@ -1,9 +1,11 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { pool, withTenantTransaction } from '../db.js';
 import { verifyToken } from '../auth/jwt.js';
-import { comparePassword, hashPassword } from '../auth/password.js';
+import { comparePassword, hashPassword, passwordValidationError } from '../auth/password.js';
+import { rateLimit } from '../security.js';
 
 export const accountRouter = Router();
+const sensitiveAccountLimit = rateLimit('account-sensitive', 10, 15 * 60 * 1000);
 
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
 
@@ -24,7 +26,7 @@ function authenticatedUserId(req: Request): string | null {
   }
 }
 
-accountRouter.delete('/data', asyncRoute(async (req, res) => {
+accountRouter.delete('/data', sensitiveAccountLimit, asyncRoute(async (req, res) => {
   const userId = authenticatedUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token inválido ou expirado.' });
 
@@ -51,7 +53,7 @@ accountRouter.delete('/data', asyncRoute(async (req, res) => {
   return res.status(204).send();
 }));
 
-accountRouter.patch('/password', asyncRoute(async (req, res) => {
+accountRouter.patch('/password', sensitiveAccountLimit, asyncRoute(async (req, res) => {
   const userId = authenticatedUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token inválido ou expirado.' });
 
@@ -59,9 +61,8 @@ accountRouter.patch('/password', asyncRoute(async (req, res) => {
   if (typeof currentPassword !== 'string' || !currentPassword) {
     return res.status(400).json({ error: 'Informe sua senha atual.' });
   }
-  if (typeof newPassword !== 'string' || newPassword.length < 6) {
-    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
-  }
+  const passwordError = passwordValidationError(newPassword);
+  if (passwordError) return res.status(400).json({ error: passwordError });
   if (newPassword !== confirmPassword) {
     return res.status(400).json({ error: 'A confirmação da nova senha não confere.' });
   }

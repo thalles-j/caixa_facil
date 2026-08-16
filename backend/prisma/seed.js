@@ -19,7 +19,7 @@ const pool = new Pool({
   application_name: 'caixafacil-seed',
 });
 
-const DEMO_PASSWORD = '123456';
+const DEMO_PASSWORD = 'Teste123@';
 const RESET_DATABASE = process.argv.includes('--reset');
 const DEMO_USERS = [
   { name: 'Thalles', email: 'thalles@gmail.com', factor: 1 },
@@ -447,7 +447,11 @@ async function main() {
   try {
     for (const user of DEMO_USERS) {
       if (await userExists(client, user.email)) {
-        console.log(`Conta ${user.email} ja existe; dados preservados. Use --reset para recriar a demonstracao ampliada.`);
+        await client.query(
+          'UPDATE users SET password_hash = $1, token_version = token_version + 1, updated_at = now() WHERE email = $2',
+          [passwordHash, user.email],
+        );
+        console.log(`Conta ${user.email} ja existe; senha de demonstracao atualizada e dados preservados. Use --reset para recriar os dados.`);
         continue;
       }
       const summary = await seedTenant(client, user, passwordHash);

@@ -92,13 +92,32 @@ clientes, fiados em diferentes situações, despesas fixas, movimentações e ma
 de 15 fechamentos. Também são criados dados históricos de janeiro a abril para
 testar filtros, paginação e relatórios. As credenciais são:
 
-- `thalles@gmail.com` / `123456`;
-- `gustavo@gmail.com` / `123456`;
-- `marco@gmail.com` / `123456`.
+- `thalles@gmail.com` / `Teste123@`;
+- `gustavo@gmail.com` / `Teste123@`;
+- `marco@gmail.com` / `Teste123@`.
 
 As operações autenticadas usam `withTenantTransaction` em
 `backend/src/db.ts`, mantendo o tenant dentro da transação e garantindo as
 políticas de RLS no pool do Neon.
+
+## Recuperação de conta
+
+Na tela de login, escolha **Esqueci minha senha** e informe o e-mail da conta.
+O link gerado é válido por 30 minutos e só pode ser usado uma vez. Ao concluir
+a troca, as sessões persistentes anteriores são revogadas.
+
+Em desenvolvimento, a própria API devolve o token e a tela avança diretamente
+para a definição da nova senha. Em produção, o endpoint já cria e protege o
+token, mas o envio da URL por e-mail precisa ser conectado a um provedor no
+bloco indicado em `backend/src/auth/routes.ts`. Nunca habilite a devolução do
+token de desenvolvimento com `NODE_ENV=production`.
+
+Antes de publicar esta versão, aplique o schema para criar os campos de
+revogação de sessão:
+
+```bash
+npm run db:schema
+```
 
 ## Validação
 

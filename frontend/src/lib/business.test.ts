@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TOKEN_KEY } from './auth';
+import { clearStoredToken, setStoredToken } from './auth';
 import {
   registerSaleRequest,
   registerTransactionRequest,
@@ -29,7 +29,8 @@ describe('requisições financeiras', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
-    localStorage.setItem(TOKEN_KEY, fakeToken());
+    clearStoredToken();
+    setStoredToken(fakeToken());
   });
 
   it('nunca vincula cliente a uma venda comum, mesmo que um id seja informado por engano', async () => {

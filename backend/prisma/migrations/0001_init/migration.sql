@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS users (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email         CITEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
+  token_version INTEGER NOT NULL DEFAULT 0 CONSTRAINT ck_users_token_version CHECK (token_version >= 0),
   name          TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -58,6 +59,15 @@ ALTER TABLE users ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE users ALTER COLUMN email TYPE CITEXT USING email::CITEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_users_token_version') THEN
+    ALTER TABLE users ADD CONSTRAINT ck_users_token_version CHECK (token_version >= 0);
+  END IF;
+END;
+$$;
 
 COMMENT ON TABLE users IS
   'Contas autenticaveis. O hash e produzido pela API com bcrypt/argon2; senhas nunca sao armazenadas.';

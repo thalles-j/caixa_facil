@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   clearStoredToken,
-  decodeToken,
   ensureStoredAccessToken,
   getStoredToken,
   isTokenValid,
@@ -12,7 +11,6 @@ import {
   resetAccountDataRequest,
   sessionRequest,
   setStoredToken,
-  TOKEN_KEY,
   changePasswordRequest,
 } from '../lib/auth';
 import { APP_DATA_CHANGED_EVENT } from '../lib/storage';
@@ -34,12 +32,6 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function userFromToken(token: string | null): AuthUser | null {
-  if (!isTokenValid(token)) return null;
-  const payload = decodeToken(token);
-  return payload ? { id: payload.sub, email: payload.email } : null;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -104,22 +96,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [user]);
 
-  useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.storageArea !== localStorage) return;
-      if (event.key !== null && event.key !== TOKEN_KEY) return;
-      setUser(userFromToken(getStoredToken()));
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
   const login = async (email: string, password: string) => {
-    const tempoMinimoDeCarregamento = new Promise<void>((resolve) => window.setTimeout(resolve, 900));
+    const tempoMinimoDeCarregamento = new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+    const paginasPrincipaisCarregadas = Promise.all([
+      import('../components/Layout'),
+      import('../pages/Dashboard'),
+    ]);
     const { token, user: loggedUser, data } = await loginRequest(email, password);
     setStoredToken(token);
     window.dispatchEvent(new CustomEvent(APP_DATA_CHANGED_EVENT, { detail: data }));
-    await tempoMinimoDeCarregamento;
+    await Promise.all([tempoMinimoDeCarregamento, paginasPrincipaisCarregadas]);
     setUser(loggedUser);
   };
 
