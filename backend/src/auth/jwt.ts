@@ -29,6 +29,7 @@ export type TokenPayload = {
   sub: string;
   email: string;
   ver: number;
+  role: 'client' | 'admin';
 };
 
 function assertTokenPayload(payload: string | jwt.JwtPayload): TokenPayload {
@@ -36,11 +37,12 @@ function assertTokenPayload(payload: string | jwt.JwtPayload): TokenPayload {
     typeof payload === 'string' ||
     typeof payload.sub !== 'string' ||
     typeof payload.email !== 'string' ||
-    typeof payload.ver !== 'number'
+    typeof payload.ver !== 'number' ||
+    (payload.role !== 'client' && payload.role !== 'admin')
   ) {
     throw new jwt.JsonWebTokenError('Token sem os campos obrigatórios.');
   }
-  return { sub: payload.sub, email: payload.email, ver: payload.ver };
+  return { sub: payload.sub, email: payload.email, ver: payload.ver, role: payload.role };
 }
 
 export function signToken(payload: TokenPayload) {

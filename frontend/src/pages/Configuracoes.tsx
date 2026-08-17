@@ -1,7 +1,10 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import {
+  ArrowRight,
   DownloadSimple,
   EnvelopeSimple,
+  Headset,
   Key,
   Moon,
   PaperPlaneTilt,
@@ -427,6 +430,26 @@ export default function Configuracoes() {
               className="h-5 w-5 accent-ledger"
             />
           </label>
+        </section>
+
+        <section className="rounded-2xl border border-line bg-paper-raised p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="rounded-xl bg-ledger/10 p-2.5 text-ledger-strong dark:text-ledger">
+              <Headset size={20} weight="duotone" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-ink-soft">Ajuda e suporte</h3>
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                Está com problema no acesso, caixa ou configurações? Envie uma mensagem para a equipe.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/suporte"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-ledger/25 bg-ledger/10 px-4 py-2.5 text-sm font-bold text-ledger-strong transition hover:border-ledger/40 hover:bg-ledger/20 dark:text-ledger"
+          >
+            Falar com o suporte <ArrowRight size={17} weight="bold" />
+          </Link>
         </section>
 
         <section className="rounded-2xl border border-line bg-paper-raised p-4 shadow-sm">

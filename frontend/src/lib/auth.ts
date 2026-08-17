@@ -17,6 +17,7 @@ export type TokenPayload = {
   email: string;
   iat: number;
   exp: number;
+  role: 'client' | 'admin';
 };
 
 export function decodeToken(token: string): TokenPayload | null {
@@ -77,7 +78,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 export type AuthResponse = {
   token: string;
-  user: { id: string; email: string };
+  user: { id: string; email: string; role: 'client' | 'admin' };
   data?: AppData | null;
 };
 export type SessionResponse = Omit<AuthResponse, 'token'>;

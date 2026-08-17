@@ -29,8 +29,8 @@ function refreshCookieOptions() {
   };
 }
 
-function setRefreshCookie(res: Response, user: { id: string; email: string; tokenVersion: number }) {
-  res.cookie(REFRESH_COOKIE, signRefreshToken({ sub: user.id, email: user.email, ver: user.tokenVersion }), {
+function setRefreshCookie(res: Response, user: { id: string; email: string; tokenVersion: number; role: 'client' | 'admin' }) {
+  res.cookie(REFRESH_COOKIE, signRefreshToken({ sub: user.id, email: user.email, ver: user.tokenVersion, role: user.role }), {
     ...refreshCookieOptions(),
     maxAge: REFRESH_MAX_AGE_MS,
   });
@@ -108,9 +108,9 @@ authRouter.post('/register', registerLimit, asyncRoute(async (req, res) => {
     throw error;
   }
 
-  const token = signToken({ sub: id, email: normalizedEmail, ver: 0 });
-  setRefreshCookie(res, { id, email: normalizedEmail, tokenVersion: 0 });
-  res.status(201).json({ token, user: { id, email: normalizedEmail } });
+  const token = signToken({ sub: id, email: normalizedEmail, ver: 0, role: 'client' });
+  setRefreshCookie(res, { id, email: normalizedEmail, tokenVersion: 0, role: 'client' });
+  res.status(201).json({ token, user: { id, email: normalizedEmail, role: 'client' } });
 }));
 
 authRouter.post('/forgot-password', forgotPasswordLimit, asyncRoute(async (req, res) => {
@@ -230,18 +230,25 @@ authRouter.post('/login', loginLimit, asyncRoute(async (req, res) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const result = await pool.query('SELECT id, email, name, password_hash, token_version FROM users WHERE email = $1', [
+  const result = await pool.query('SELECT id, email, name, password_hash, token_version, role, status FROM users WHERE email = $1', [
     normalizedEmail,
   ]);
   const user = result.rows[0];
   if (!user || !(await comparePassword(password, user.password_hash))) {
     return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
   }
+  if (user.status !== 'active') {
+    return res.status(403).json({
+      error: 'Esta conta está suspensa. Entre em contato com o suporte.',
+      code: 'ACCOUNT_SUSPENDED',
+    });
+  }
 
-  const data = await loadBootstrapData({ id: user.id, email: user.email, name: user.name });
-  const token = signToken({ sub: user.id, email: user.email, ver: Number(user.token_version) });
-  setRefreshCookie(res, { id: user.id, email: user.email, tokenVersion: Number(user.token_version) });
-  res.json({ token, user: { id: user.id, email: user.email }, data });
+  const role = user.role as 'client' | 'admin';
+  const data = role === 'client' ? await loadBootstrapData({ id: user.id, email: user.email, name: user.name }) : null;
+  const token = signToken({ sub: user.id, email: user.email, ver: Number(user.token_version), role });
+  setRefreshCookie(res, { id: user.id, email: user.email, tokenVersion: Number(user.token_version), role });
+  res.json({ token, user: { id: user.id, email: user.email, role }, data });
 }));
 
 authRouter.post('/refresh', authReadLimit, asyncRoute(async (req, res) => {
@@ -256,17 +263,18 @@ authRouter.post('/refresh', authReadLimit, asyncRoute(async (req, res) => {
     return res.status(401).json({ error: 'Sessão persistente inválida ou expirada.' });
   }
 
-  const result = await pool.query('SELECT id, email, name, token_version FROM users WHERE id = $1', [payload.sub]);
+  const result = await pool.query('SELECT id, email, name, token_version, role, status FROM users WHERE id = $1', [payload.sub]);
   const user = result.rows[0];
-  if (!user || Number(user.token_version) !== payload.ver) {
+  if (!user || user.status !== 'active' || user.role !== payload.role || Number(user.token_version) !== payload.ver) {
     res.clearCookie(REFRESH_COOKIE, refreshCookieOptions());
     return res.status(401).json({ error: 'Usuário da sessão não existe mais.' });
   }
 
-  const data = await loadBootstrapData({ id: user.id, email: user.email, name: user.name });
-  const token = signToken({ sub: user.id, email: user.email, ver: Number(user.token_version) });
-  setRefreshCookie(res, { id: user.id, email: user.email, tokenVersion: Number(user.token_version) });
-  return res.json({ token, user: { id: user.id, email: user.email }, data });
+  const role = user.role as 'client' | 'admin';
+  const data = role === 'client' ? await loadBootstrapData({ id: user.id, email: user.email, name: user.name }) : null;
+  const token = signToken({ sub: user.id, email: user.email, ver: Number(user.token_version), role });
+  setRefreshCookie(res, { id: user.id, email: user.email, tokenVersion: Number(user.token_version), role });
+  return res.json({ token, user: { id: user.id, email: user.email, role }, data });
 }));
 
 authRouter.post('/logout', (_req, res) => {
@@ -287,15 +295,16 @@ authRouter.get('/me', authReadLimit, asyncRoute(async (req, res) => {
     return res.status(401).json({ error: 'Token inválido ou expirado.' });
   }
 
-  const result = await pool.query('SELECT id, email, name, token_version FROM users WHERE id = $1', [payload.sub]);
+  const result = await pool.query('SELECT id, email, name, token_version, role, status FROM users WHERE id = $1', [payload.sub]);
   const user = result.rows[0];
-  if (!user || Number(user.token_version) !== payload.ver) {
+  if (!user || user.status !== 'active' || user.role !== payload.role || Number(user.token_version) !== payload.ver) {
     return res.status(401).json({ error: 'Sessão revogada. Entre novamente.' });
   }
 
-  const data = await loadBootstrapData({ id: user.id, email: user.email, name: user.name });
+  const role = user.role as 'client' | 'admin';
+  const data = role === 'client' ? await loadBootstrapData({ id: user.id, email: user.email, name: user.name }) : null;
   // Faz upgrade transparente de sessões antigas: um access token ainda válido
   // passa a receber o cookie persistente sem exigir novo login.
-  setRefreshCookie(res, { id: user.id, email: user.email, tokenVersion: Number(user.token_version) });
-  return res.json({ user: { id: user.id, email: user.email }, data });
+  setRefreshCookie(res, { id: user.id, email: user.email, tokenVersion: Number(user.token_version), role });
+  return res.json({ user: { id: user.id, email: user.email, role }, data });
 }));

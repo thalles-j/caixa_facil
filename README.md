@@ -11,6 +11,8 @@ Aplicação organizada como um monorepo npm, com frontend e backend independente
 ├── backend/
 │   ├── prisma/
 │   │   ├── migrations/0001_init/migration.sql
+│   │   ├── migrations/0002_admin_panel/migration.sql
+│   │   ├── migrations/0003_admin_account_management/migration.sql
 │   │   ├── schema.prisma
 │   │   └── seed.js
 │   ├── src/
@@ -97,6 +99,24 @@ testar filtros, paginação e relatórios. As credenciais são:
 - `gustavo@gmail.com` / `Teste123@`;
 - `marco@gmail.com` / `Teste123@`.
 
+O seed também cria três contas administrativas puras, sem catálogo, clientes,
+vendas, fiado ou caixas de demonstração:
+
+- `thalles@admin.com` / `Admin123@`;
+- `gustavo@admin.com` / `Admin123@`;
+- `marco@admin.com` / `Admin123@`.
+
+Contas com papel `admin` entram em `/admin`. O painel lista somente metadados e
+contagens agregadas das contas `client`; administradores não recebem acesso às
+transações individuais dos tenants. Suspensões e exclusões são registradas em
+`admin_audit_logs`, e a suspensão incrementa `token_version` para revogar as
+sessões existentes.
+
+No detalhe de cada cliente, o administrador pode alterar o nome, redefinir a
+senha, ativar, suspender ou excluir a conta. Todas as ações exigem digitar o
+nome exibido no modal, são confirmadas novamente pelo backend e deixam registro
+de auditoria. O próprio admin altera seu nome e senha em `/admin/configuracoes`.
+
 As operações autenticadas usam `withTenantTransaction` em
 `backend/src/db.ts`, mantendo o tenant dentro da transação e garantindo as
 políticas de RLS no pool do Neon.
@@ -145,6 +165,16 @@ Frontend e backend não dependem de execução no mesmo servidor:
 5. aplique `npm run db:schema` no deploy ou habilite
    `RUN_DB_MIGRATIONS_ON_STARTUP=true` quando a plataforma garantir apenas uma
    instância executando a migração.
+
+## Suporte
+
+A página pública `/suporte` pode ser acessada antes do login. Usuários com
+sessão também encontram **Falar com o suporte** em Configurações. O formulário
+usa o mesmo adaptador de e-mail da recuperação de conta, tem limite por IP e
+encaminha a resposta para o endereço configurado em `SUPPORT_EMAIL`.
+
+Defina também `VITE_SUPPORT_EMAIL` no frontend para exibir um link direto de
+e-mail caso o provedor esteja temporariamente indisponível.
 
 A API expõe `GET /api/health` para health checks. O frontend é um build estático
 e não precisa acessar diretamente o PostgreSQL.

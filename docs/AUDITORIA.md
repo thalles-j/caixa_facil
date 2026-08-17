@@ -19,6 +19,9 @@ frontend.
 ## Funcionalidades verificadas
 
 - Cadastro, login, logout, troca e recuperação de senha com token de uso único.
+- Painel `/admin` protegido por papel, com gestão de contas de clientes,
+  alteração de nome, redefinição de senha, suspensão, exclusão, estatísticas
+  agregadas e log de auditoria. Ações sensíveis exigem redigitar o nome alvo.
 - Onboarding para produtos, serviços ou ambos.
 - Catálogo com categorias, estoque, código de barras, ordenação e paginação.
 - Caixa, vendas à vista/fiado, baixa de estoque, clientes e fechamento corrigível.
@@ -37,6 +40,11 @@ frontend.
   dados, dentro de uma transação.
 - Frontend e backend podem ser hospedados em origens diferentes com CORS
   explícito, HTTPS e refresh cookie `SameSite=None; Secure`.
+- O papel admin não altera as policies RLS e não é aceito nas rotas de negócio;
+  consultas administrativas são limitadas a metadados e agregações definidas.
+- Administradores gerenciam o próprio nome e senha em uma rota exclusiva; as
+  rotas de conta dos tenants rejeitam o papel admin para evitar caminhos de
+  alteração sem confirmação e auditoria.
 
 ## Dependências externas e limites conhecidos
 

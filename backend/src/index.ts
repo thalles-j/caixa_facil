@@ -6,6 +6,8 @@ import { authRouter } from './auth/routes.js';
 import { accountRouter } from './account/routes.js';
 import { businessRouter } from './business/routes.js';
 import { securityHeaders } from './security.js';
+import { adminRouter } from './admin/routes.js';
+import { supportRouter } from './support/routes.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -57,8 +59,10 @@ app.use(express.json({ limit: '32kb', strict: true }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRouter);
+app.use('/api/support', supportRouter);
 app.use('/api/account', accountRouter);
 app.use('/api/business', businessRouter);
+app.use('/api/admin', adminRouter);
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Erro ao processar requisicao:', error);

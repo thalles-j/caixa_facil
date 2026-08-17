@@ -18,13 +18,14 @@ import { APP_DATA_CHANGED_EVENT } from '../lib/storage';
 interface AuthUser {
   id: string;
   email: string;
+  role: 'client' | 'admin';
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isInitializing: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   register: (email: string, password: string, confirmPassword: string) => Promise<void>;
   resetAccountData: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<string>;
@@ -98,15 +99,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const tempoMinimoDeCarregamento = new Promise<void>((resolve) => window.setTimeout(resolve, 100));
-    const paginasPrincipaisCarregadas = Promise.all([
-      import('../components/Layout'),
-      import('../pages/Dashboard'),
-    ]);
     const { token, user: loggedUser, data } = await loginRequest(email, password);
+    const paginasPrincipaisCarregadas = loggedUser.role === 'admin'
+      ? Promise.all([import('../components/AdminLayout'), import('../pages/admin/AdminClients')])
+      : Promise.all([import('../components/Layout'), import('../pages/Dashboard')]);
     setStoredToken(token);
     window.dispatchEvent(new CustomEvent(APP_DATA_CHANGED_EVENT, { detail: data }));
     await Promise.all([tempoMinimoDeCarregamento, paginasPrincipaisCarregadas]);
     setUser(loggedUser);
+    return loggedUser;
   };
 
   const register = async (email: string, password: string, confirmPassword: string) => {

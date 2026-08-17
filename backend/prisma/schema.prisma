@@ -15,9 +15,23 @@ model users {
   email         String   @unique @db.Citext
   password_hash String
   token_version Int      @default(0)
+  role          String   @default("client")
+  status        String   @default("active")
   name          String?
   created_at    DateTime @default(now()) @db.Timestamptz(6)
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model admin_audit_logs {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  admin_user_id String?  @db.Uuid
+  target_user_id String  @db.Uuid
+  action        String
+  details       Json     @default("{}")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([admin_user_id, created_at(sort: Desc)], map: "idx_admin_audit_admin_created")
+  @@index([target_user_id, created_at(sort: Desc)], map: "idx_admin_audit_target_created")
 }
 
 model password_reset_tokens {

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Storefront, UserPlus } from '@phosphor-icons/react';
+import { ArrowLeft, Headset, Storefront, UserPlus } from '@phosphor-icons/react';
 import { useAuth } from '../context/AuthContext';
 import { PASSWORD_HINT, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordPolicyError } from '../lib/passwordPolicy';
 
@@ -111,6 +111,9 @@ export default function Cadastro() {
           </Link>
         </p>
       </div>
+      <Link to="/suporte" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-soft transition hover:text-ink">
+        <Headset size={17} /> Precisa de ajuda? Fale com o suporte
+      </Link>
     </div>
   );
 }

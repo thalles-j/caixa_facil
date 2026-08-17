@@ -3,6 +3,8 @@ import { verifyToken } from '../auth/jwt.js';
 import { withTenantTransaction } from '../db.js';
 import { loadBootstrapData } from './bootstrap.js';
 import { sendEmail } from '../email.js';
+import { authenticateAccessToken } from '../admin/authorization.js';
+import { requireClient } from '../admin/requireAdmin.js';
 
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
 type AuthenticatedUser = { id: string; email: string };
@@ -29,6 +31,7 @@ const REPORT_FREQUENCIES = new Set(['semanal', 'mensal', 'ambos', 'nenhum']);
 const VIEW_PERIODS = new Set(['day', 'week']);
 
 export const businessRouter = Router();
+businessRouter.use(authenticateAccessToken, requireClient);
 
 function asyncRoute(handler: AsyncRoute) {
   return (req: Request, res: Response, next: NextFunction) => {

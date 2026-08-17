@@ -1,5 +1,6 @@
 type EmailMessage = {
   to: string;
+  replyTo?: string;
   subject: string;
   text: string;
   html?: string;

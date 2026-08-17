@@ -3,8 +3,12 @@ import { pool, withTenantTransaction } from '../db.js';
 import { verifyToken } from '../auth/jwt.js';
 import { comparePassword, hashPassword, passwordValidationError } from '../auth/password.js';
 import { rateLimit } from '../security.js';
+import { authenticateAccessToken } from '../admin/authorization.js';
+import { requireClient } from '../admin/requireAdmin.js';
 
 export const accountRouter = Router();
+accountRouter.use(authenticateAccessToken);
+accountRouter.use(requireClient);
 const sensitiveAccountLimit = rateLimit('account-sensitive', 10, 15 * 60 * 1000);
 const BACKUP_FORMAT = 'caixafacil-postgres-backup';
 const BACKUP_VERSION = 2;

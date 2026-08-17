@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, EnvelopeSimple, Key } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle, EnvelopeSimple, Headset, Key } from '@phosphor-icons/react';
 import { forgotPasswordRequest, resetPasswordRequest } from '../lib/auth';
 import { PASSWORD_HINT, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordPolicyError } from '../lib/passwordPolicy';
 
@@ -159,6 +159,9 @@ export default function RecuperarConta() {
           </form>
         )}
       </div>
+      <Link to="/suporte" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-soft transition hover:text-ink">
+        <Headset size={17} /> Não conseguiu recuperar? Fale com o suporte
+      </Link>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { readFile } from 'node:fs/promises';
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
+import { ADMIN_BUSINESS_TABLES_TO_CLEAR, ADMIN_PASSWORD, ADMIN_USERS, DEMO_PASSWORD, DEMO_USERS } from './seedData.js';
 
 const { Pool } = pg;
 const databaseUrl = process.env.DATABASE_URL;
@@ -19,13 +20,7 @@ const pool = new Pool({
   application_name: 'caixafacil-seed',
 });
 
-const DEMO_PASSWORD = 'Teste123@';
 const RESET_DATABASE = process.argv.includes('--reset');
-const DEMO_USERS = [
-  { name: 'Thalles', email: 'thalles@gmail.com', factor: 1 },
-  { name: 'Gustavo', email: 'gustavo@gmail.com', factor: 1.15 },
-  { name: 'Marco', email: 'marco@gmail.com', factor: 0.9 },
-];
 
 const CATEGORY_DEFINITIONS = [
   ['bebidas', 'Bebidas'], ['alimentos', 'Alimentos'], ['doces', 'Doces'],
@@ -98,8 +93,15 @@ const timeOnDate = (date, hour, minute = 0) =>
 const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 async function applySchema() {
-  const schema = await readFile(new URL('./migrations/0001_init/migration.sql', import.meta.url), 'utf8');
-  await pool.query(schema);
+  const migrationPaths = [
+    './migrations/0001_init/migration.sql',
+    './migrations/0002_admin_panel/migration.sql',
+    './migrations/0003_admin_account_management/migration.sql',
+  ];
+  for (const migrationPath of migrationPaths) {
+    const schema = await readFile(new URL(migrationPath, import.meta.url), 'utf8');
+    await pool.query(schema);
+  }
 }
 
 async function resetDatabase() {
@@ -107,6 +109,7 @@ async function resetDatabase() {
   try {
     await client.query('BEGIN');
     for (const table of [
+      'admin_audit_logs',
       'transactions', 'credit_sales', 'sale_items', 'sales', 'cash_sessions',
       'fixed_expenses', 'products', 'categories', 'customers', 'password_reset_tokens',
     ]) await client.query(`DELETE FROM ${table}`);
@@ -445,17 +448,55 @@ async function seedTenant(client, user, passwordHash) {
   }
 }
 
+async function seedAdmin(client, admin, passwordHash) {
+  await client.query('BEGIN');
+  try {
+    const userResult = await client.query(
+      `INSERT INTO users (email, password_hash, name, role, status)
+       VALUES ($1, $2, $3, 'admin', 'active')
+       ON CONFLICT (email) DO UPDATE SET
+         password_hash = EXCLUDED.password_hash,
+         name = EXCLUDED.name,
+         role = 'admin',
+         status = 'active',
+         token_version = users.token_version + 1,
+         updated_at = now()
+       RETURNING id`,
+      [admin.email, passwordHash, admin.name],
+    );
+    const userId = userResult.rows[0].id;
+    await client.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
+    for (const table of ADMIN_BUSINESS_TABLES_TO_CLEAR) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [userId]);
+    }
+    await client.query(
+      `INSERT INTO business_settings
+        (user_id, business_name, business_category, offering, controls_stock,
+         report_frequency, report_by_email, view_period, onboarding_completed)
+       VALUES ($1, 'Administração CaixaFácil', 'Administração', 'ambos', false,
+               'nenhum', false, 'day', true)`,
+      [userId],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
+}
+
 async function main() {
   console.log('Aplicando schema...');
   await applySchema();
   if (RESET_DATABASE) await resetDatabase();
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const adminPasswordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const client = await pool.connect();
   try {
     for (const user of DEMO_USERS) {
       if (await userExists(client, user.email)) {
         await client.query(
-          'UPDATE users SET password_hash = $1, token_version = token_version + 1, updated_at = now() WHERE email = $2',
+          `UPDATE users SET password_hash = $1, role = 'client', status = 'active',
+             token_version = token_version + 1, updated_at = now() WHERE email = $2`,
           [passwordHash, user.email],
         );
         console.log(`Conta ${user.email} ja existe; senha de demonstracao atualizada e dados preservados. Use --reset para recriar os dados.`);
@@ -466,6 +507,10 @@ async function main() {
         `Seed de ${user.email}: ${summary.products} itens, ${summary.customers} clientes, ` +
         `${summary.fixedExpenses} despesas fixas, ${summary.closedSessions} fechamentos e ${summary.creditSales} fiados.`,
       );
+    }
+    for (const admin of ADMIN_USERS) {
+      await seedAdmin(client, admin, adminPasswordHash);
+      console.log(`Conta administrativa ${admin.email} criada/atualizada sem dados de negócio.`);
     }
   } finally {
     client.release();
